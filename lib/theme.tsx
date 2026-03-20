@@ -12,7 +12,7 @@ type ThemeContextValue = {
   setPreference: (next: ThemePreference) => Promise<void>;
 };
 
-const STORAGE_KEY = 'trigger-map:theme-preference';
+const STORAGE_KEY = 'trigger_map.theme_preference';
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
@@ -34,6 +34,8 @@ export function ThemePreferenceProvider({ children }: PropsWithChildren) {
         if (isMounted && isThemePreference(stored)) {
           setPreferenceState(stored);
         }
+      } catch {
+        // If read fails (invalid key/runtime issue), fall back to default "auto".
       } finally {
         if (isMounted) {
           setIsLoaded(true);
