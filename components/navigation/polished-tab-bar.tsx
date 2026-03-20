@@ -3,10 +3,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
+import { useAppTheme } from '@/lib/theme';
 
 const ICONS = {
   index: { active: 'home', inactive: 'home-outline' },
@@ -27,7 +28,8 @@ function toLabel(routeName: string, fallback?: string) {
 export function PolishedTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const theme = useColorScheme() ?? 'light';
+  const { resolvedTheme } = useAppTheme();
+  const theme = resolvedTheme;
   const colors = Colors[theme];
 
   const leftRoutes = state.routes.slice(0, 2);

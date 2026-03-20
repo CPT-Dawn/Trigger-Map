@@ -9,10 +9,10 @@ import {
   TextInput,
   type TextInputProps,
   View,
-  useColorScheme,
 } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { useAppTheme } from '@/lib/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -22,7 +22,8 @@ type AuthFieldProps = Omit<TextInputProps, 'style'> & {
 
 export function AuthField({ label, ...inputProps }: AuthFieldProps) {
   const [focused, setFocused] = useState(false);
-  const theme = useColorScheme() ?? 'light';
+  const { resolvedTheme } = useAppTheme();
+  const theme = resolvedTheme;
   const colors = Colors[theme];
 
   const focusBorder = theme === 'dark' ? 'rgba(186, 195, 255, 0.42)' : 'rgba(3, 22, 50, 0.22)';
@@ -62,7 +63,8 @@ type AuthPrimaryButtonProps = {
 };
 
 export function AuthPrimaryButton({ title, disabled = false, loading = false, onPress }: AuthPrimaryButtonProps) {
-  const theme = useColorScheme() ?? 'light';
+  const { resolvedTheme } = useAppTheme();
+  const theme = resolvedTheme;
   const colors = Colors[theme];
 
   return (
@@ -101,7 +103,8 @@ export function AuthSocialButton({
   loading = false,
   onPress,
 }: AuthSocialButtonProps) {
-  const theme = useColorScheme() ?? 'light';
+  const { resolvedTheme } = useAppTheme();
+  const theme = resolvedTheme;
   const colors = Colors[theme];
 
   return (
@@ -134,7 +137,8 @@ type AuthDividerProps = {
 };
 
 export function AuthDivider({ label }: AuthDividerProps) {
-  const theme = useColorScheme() ?? 'light';
+  const { resolvedTheme } = useAppTheme();
+  const theme = resolvedTheme;
   const colors = Colors[theme];
 
   return (

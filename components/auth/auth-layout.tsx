@@ -1,8 +1,9 @@
 import type { PropsWithChildren, ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
+import { useAppTheme } from '@/lib/theme';
 
 type AuthLayoutProps = PropsWithChildren<{
   title: string;
@@ -11,7 +12,8 @@ type AuthLayoutProps = PropsWithChildren<{
 }>;
 
 export function AuthLayout({ title, subtitle, bottomContent, children }: AuthLayoutProps) {
-  const theme = useColorScheme() ?? 'light';
+  const { resolvedTheme } = useAppTheme();
+  const theme = resolvedTheme;
   const colors = Colors[theme];
   const insets = useSafeAreaInsets();
 

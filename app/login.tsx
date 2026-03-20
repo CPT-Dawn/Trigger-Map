@@ -1,15 +1,17 @@
 import { useRouter } from 'expo-router';
-import { Alert, Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useState } from 'react';
 
 import { AuthDivider, AuthField, AuthPrimaryButton, AuthSocialButton } from '@/components/auth/auth-controls';
 import { AuthLayout } from '@/components/auth/auth-layout';
 import { Colors } from '@/constants/theme';
 import { sendPasswordResetEmail, signInWithEmail } from '@/lib/auth';
+import { useAppTheme } from '@/lib/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const theme = useColorScheme() ?? 'light';
+  const { resolvedTheme } = useAppTheme();
+  const theme = resolvedTheme;
   const colors = Colors[theme];
 
   const [email, setEmail] = useState('');

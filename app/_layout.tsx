@@ -2,17 +2,27 @@ import { ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { View, useColorScheme } from 'react-native';
+import { View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import 'react-native-reanimated';
 
 import { Colors, NavigationThemes } from '@/constants/theme';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { ThemePreferenceProvider, useAppTheme } from '@/lib/theme';
 
 const AUTH_ROUTES = new Set(['login', 'signup']);
 
 export default function RootLayout() {
-  const theme = useColorScheme() ?? 'light';
+  return (
+    <ThemePreferenceProvider>
+      <RootLayoutNavigator />
+    </ThemePreferenceProvider>
+  );
+}
+
+function RootLayoutNavigator() {
+  const { isLoaded, resolvedTheme } = useAppTheme();
+  const theme = resolvedTheme;
   const colors = Colors[theme];
   const router = useRouter();
   const segments = useSegments();
@@ -73,7 +83,7 @@ export default function RootLayout() {
     }
   }, [isAuthReady, router, segments, session]);
 
-  if (!isAuthReady) {
+  if (!isLoaded || !isAuthReady) {
     return <View style={{ flex: 1, backgroundColor: colors.surface }} />;
   }
 

@@ -1,4 +1,4 @@
-import type { AuthError, Session } from '@supabase/supabase-js';
+import type { AuthError, Session, User } from '@supabase/supabase-js';
 
 import { isSupabaseConfigured, supabase, supabaseConfigError } from '@/lib/supabase';
 
@@ -58,6 +58,14 @@ export function validatePassword(password: string): ServiceResult<true> {
   return success(true);
 }
 
+export function validateFullName(name: string): ServiceResult<true> {
+  const trimmed = name.trim();
+  if (!trimmed) return failure('Full name is required.');
+  if (trimmed.length < 2) return failure('Full name must be at least 2 characters.');
+  if (trimmed.length > 60) return failure('Full name must be 60 characters or fewer.');
+  return success(true);
+}
+
 export async function signInWithEmail(email: string, password: string): Promise<ServiceResult<Session>> {
   const configError = ensureConfigured<Session>();
   if (configError) return configError;
@@ -87,8 +95,9 @@ export async function signUpWithEmail(params: {
   const configError = ensureConfigured<{ session: Session | null; needsEmailConfirmation: boolean }>();
   if (configError) return configError;
 
+  const nameValidation = validateFullName(params.fullName);
+  if (nameValidation.error) return failure(nameValidation.error);
   const name = params.fullName.trim();
-  if (!name) return failure('Full name is required.');
 
   const emailValidation = validateEmail(params.email);
   if (emailValidation.error) return failure(emailValidation.error);
@@ -130,5 +139,41 @@ export async function sendPasswordResetEmail(email: string): Promise<ServiceResu
   });
   if (error) return failure(toFriendlyAuthError(error));
 
+  return success(true);
+}
+
+export async function getCurrentUser(): Promise<ServiceResult<User | null>> {
+  const configError = ensureConfigured<User | null>();
+  if (configError) return configError;
+
+  const { data, error } = await supabase.auth.getUser();
+  if (error) return failure(toFriendlyAuthError(error));
+  return success(data.user ?? null);
+}
+
+export async function updateCurrentUserProfile(fullName: string): Promise<ServiceResult<User>> {
+  const configError = ensureConfigured<User>();
+  if (configError) return configError;
+
+  const nameValidation = validateFullName(fullName);
+  if (nameValidation.error) return failure(nameValidation.error);
+
+  const { data, error } = await supabase.auth.updateUser({
+    data: {
+      full_name: fullName.trim(),
+    },
+  });
+
+  if (error) return failure(toFriendlyAuthError(error));
+  if (!data.user) return failure('Profile update did not return a user.');
+  return success(data.user);
+}
+
+export async function signOutCurrentUser(): Promise<ServiceResult<true>> {
+  const configError = ensureConfigured<true>();
+  if (configError) return configError;
+
+  const { error } = await supabase.auth.signOut();
+  if (error) return failure(toFriendlyAuthError(error));
   return success(true);
 }

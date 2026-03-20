@@ -1,12 +1,13 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { useColorScheme } from 'react-native';
 
 import { PolishedTabBar } from '@/components/navigation/polished-tab-bar';
 import { Colors } from '@/constants/theme';
+import { useAppTheme } from '@/lib/theme';
 
 export default function TabsLayout() {
-  const theme = useColorScheme() ?? 'light';
+  const { resolvedTheme } = useAppTheme();
+  const theme = resolvedTheme;
   const colors = Colors[theme];
 
   return (
