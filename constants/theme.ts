@@ -1,5 +1,4 @@
 import { DarkTheme, DefaultTheme, type Theme } from '@react-navigation/native';
-import { Platform } from 'react-native';
 
 /**
  * Semantic color tokens for Trigger Map.
@@ -126,22 +125,3 @@ export const NavigationThemes: Record<ThemeMode, Theme> = {
     },
   },
 };
-
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-});
