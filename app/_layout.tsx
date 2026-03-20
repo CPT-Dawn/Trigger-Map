@@ -14,9 +14,22 @@ export default function RootLayout() {
     <ThemeProvider value={NavigationThemes[theme]}>
       <Stack>
         <Stack.Screen
-          name="index"
+          name="(tabs)"
           options={{
             headerShown: false,
+            contentStyle: { backgroundColor: colors.surface },
+          }}
+        />
+        <Stack.Screen
+          name="add-edit"
+          options={{
+            title: 'Add/Edit',
+            presentation: 'modal',
+            headerStyle: {
+              backgroundColor: colors.surfaceContainerHigh,
+            },
+            headerShadowVisible: false,
+            headerTintColor: colors.text,
             contentStyle: { backgroundColor: colors.surface },
           }}
         />
