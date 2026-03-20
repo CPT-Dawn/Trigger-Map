@@ -12,7 +12,35 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={NavigationThemes[theme]}>
-      <Stack>
+      <Stack initialRouteName="login">
+        <Stack.Screen
+          name="login"
+          options={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.surface },
+          }}
+        />
+        <Stack.Screen
+          name="signup"
+          options={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.surface },
+          }}
+        />
+        <Stack.Screen
+          name="phone-auth"
+          options={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.surface },
+          }}
+        />
+        <Stack.Screen
+          name="phone-verify"
+          options={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.surface },
+          }}
+        />
         <Stack.Screen
           name="(tabs)"
           options={{
