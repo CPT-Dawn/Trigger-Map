@@ -1,10 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { AuthField, AuthPrimaryButton } from '@/components/auth/auth-controls';
 import { AuthLayout } from '@/components/auth/auth-layout';
 import { Colors } from '@/constants/theme';
+import { resendPhoneOtp, verifyPhoneOtp } from '@/lib/auth';
 
 export default function PhoneVerifyScreen() {
   const router = useRouter();
@@ -12,14 +13,63 @@ export default function PhoneVerifyScreen() {
   const theme = useColorScheme() ?? 'light';
   const colors = Colors[theme];
   const [otp, setOtp] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(30);
 
-  const handleVerify = () => {
-    if (otp.length < 4) {
-      Alert.alert('Invalid code', 'Enter the OTP code sent to your phone.');
+  useEffect(() => {
+    if (!phone) {
+      router.replace('/phone-auth');
+    }
+  }, [phone, router]);
+
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+
+    const interval = setInterval(() => {
+      setResendCountdown((previous) => Math.max(0, previous - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [resendCountdown]);
+
+  const handleVerify = async () => {
+    if (isVerifying || isResending) return;
+    if (!phone) {
+      Alert.alert('Phone Missing', 'Phone number is missing. Start verification again.');
       return;
     }
-    // TODO: replace with supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' })
+
+    setIsVerifying(true);
+    const result = await verifyPhoneOtp(phone, otp);
+    setIsVerifying(false);
+
+    if (result.error) {
+      Alert.alert('Verification Failed', result.error);
+      return;
+    }
+
     router.replace('/(tabs)');
+  };
+
+  const handleResend = async () => {
+    if (isVerifying || isResending || resendCountdown > 0) return;
+    if (!phone) {
+      Alert.alert('Phone Missing', 'Phone number is missing. Start verification again.');
+      return;
+    }
+
+    setIsResending(true);
+    const result = await resendPhoneOtp(phone);
+    setIsResending(false);
+
+    if (result.error) {
+      Alert.alert('Resend Failed', result.error);
+      return;
+    }
+
+    setResendCountdown(30);
+    Alert.alert('Code Sent', 'A new verification code has been sent.');
   };
 
   return (
@@ -28,10 +78,18 @@ export default function PhoneVerifyScreen() {
       subtitle={`Enter the one-time code sent to ${phone ?? 'your phone number'}.`}
       bottomContent={
         <View style={styles.bottomWrap}>
-          <Pressable onPress={() => Alert.alert('Resend Code', 'Connect this to Supabase OTP resend.')}>
-            <Text style={[styles.bottomAction, { color: colors.primary }]}>Resend Code</Text>
+          <Pressable
+            disabled={isVerifying || isResending || resendCountdown > 0}
+            onPress={handleResend}>
+            <Text style={[styles.bottomAction, { color: colors.primary }]}>
+              {isResending
+                ? 'Resending...'
+                : resendCountdown > 0
+                  ? `Resend Code in ${resendCountdown}s`
+                  : 'Resend Code'}
+            </Text>
           </Pressable>
-          <Pressable onPress={() => router.push('/phone-auth')}>
+          <Pressable disabled={isVerifying || isResending} onPress={() => router.push('/phone-auth')}>
             <Text style={[styles.bottomSecondary, { color: colors.textMuted }]}>Change Number</Text>
           </Pressable>
         </View>
@@ -42,10 +100,16 @@ export default function PhoneVerifyScreen() {
         maxLength={6}
         placeholder="Enter 6-digit code"
         value={otp}
+        editable={!isVerifying && !isResending}
         onChangeText={setOtp}
       />
 
-      <AuthPrimaryButton title="Verify and Continue" onPress={handleVerify} />
+      <AuthPrimaryButton
+        disabled={isVerifying || isResending}
+        loading={isVerifying}
+        title="Verify and Continue"
+        onPress={handleVerify}
+      />
     </AuthLayout>
   );
 }

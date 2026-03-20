@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { AuthDivider, AuthField, AuthPrimaryButton, AuthSocialButton } from '@/components/auth/auth-controls';
 import { AuthLayout } from '@/components/auth/auth-layout';
 import { Colors } from '@/constants/theme';
+import { signInWithGoogleOAuth, signUpWithEmail } from '@/lib/auth';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -15,24 +16,64 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  const handleCreateAccount = () => {
-    // TODO: replace with supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } })
-    if (!fullName || !email || !password) {
-      Alert.alert('Missing info', 'Fill all required fields.');
+  const isBusy = isSubmitting || isGoogleLoading;
+
+  const handleCreateAccount = async () => {
+    if (isBusy) return;
+    setIsSubmitting(true);
+
+    const result = await signUpWithEmail({
+      fullName,
+      email,
+      password,
+      confirmPassword,
+    });
+
+    setIsSubmitting(false);
+
+    if (result.error) {
+      Alert.alert('Sign Up Failed', result.error);
       return;
     }
-    if (password !== confirmPassword) {
-      Alert.alert('Password mismatch', 'Passwords do not match.');
+
+    if (!result.data) {
+      Alert.alert('Sign Up Failed', 'No response returned from sign-up flow.');
       return;
     }
-    Alert.alert('Account Created', 'Hook this action to Supabase sign up.');
+
+    if (result.data.needsEmailConfirmation) {
+      Alert.alert('Verify Your Email', 'Check your inbox, then return to log in.');
+      router.replace('/login');
+      return;
+    }
+
     router.replace('/(tabs)');
   };
 
-  const handleGoogleSignup = () => {
-    // TODO: replace with supabase.auth.signInWithOAuth({ provider: 'google' })
-    Alert.alert('Google Auth', 'Connect this action to Supabase Google OAuth.');
+  const handleGoogleSignup = async () => {
+    if (isBusy) return;
+    setIsGoogleLoading(true);
+
+    const result = await signInWithGoogleOAuth();
+
+    setIsGoogleLoading(false);
+
+    if (result.error) {
+      Alert.alert('Google Sign Up Failed', result.error);
+      return;
+    }
+
+    if (!result.data) {
+      Alert.alert('Google Sign Up Failed', 'No response returned from OAuth flow.');
+      return;
+    }
+
+    if (result.data.status === 'success') {
+      router.replace('/(tabs)');
+    }
   };
 
   return (
@@ -42,7 +83,7 @@ export default function SignupScreen() {
       bottomContent={
         <View style={styles.bottomRow}>
           <Text style={[styles.bottomText, { color: colors.textMuted }]}>Already have an account?</Text>
-          <Pressable onPress={() => router.push('/login')}>
+          <Pressable disabled={isBusy} onPress={() => router.push('/login')}>
             <Text style={[styles.bottomAction, { color: colors.primary }]}>Log In</Text>
           </Pressable>
         </View>
@@ -54,6 +95,7 @@ export default function SignupScreen() {
         placeholder="Enter your full name"
         returnKeyType="next"
         value={fullName}
+        editable={!isBusy}
         onChangeText={setFullName}
       />
       <AuthField
@@ -64,6 +106,7 @@ export default function SignupScreen() {
         placeholder="name@example.com"
         returnKeyType="next"
         value={email}
+        editable={!isBusy}
         onChangeText={setEmail}
       />
       <AuthField
@@ -73,6 +116,7 @@ export default function SignupScreen() {
         placeholder="Create a password"
         secureTextEntry
         value={password}
+        editable={!isBusy}
         onChangeText={setPassword}
       />
       <AuthField
@@ -82,16 +126,33 @@ export default function SignupScreen() {
         placeholder="Re-enter password"
         secureTextEntry
         value={confirmPassword}
+        editable={!isBusy}
         onChangeText={setConfirmPassword}
       />
 
-      <AuthPrimaryButton title="Create Account" onPress={handleCreateAccount} />
+      <AuthPrimaryButton
+        disabled={isBusy}
+        loading={isSubmitting}
+        title="Create Account"
+        onPress={handleCreateAccount}
+      />
 
       <AuthDivider label="or continue with" />
 
       <View style={styles.socialGrid}>
-        <AuthSocialButton iconName="logo-google" label="Google" onPress={handleGoogleSignup} />
-        <AuthSocialButton iconName="call-outline" label="Phone" onPress={() => router.push('/phone-auth')} />
+        <AuthSocialButton
+          disabled={isBusy}
+          iconName="logo-google"
+          label="Google"
+          loading={isGoogleLoading}
+          onPress={handleGoogleSignup}
+        />
+        <AuthSocialButton
+          disabled={isBusy}
+          iconName="call-outline"
+          label="Phone"
+          onPress={() => router.push('/phone-auth')}
+        />
       </View>
     </AuthLayout>
   );

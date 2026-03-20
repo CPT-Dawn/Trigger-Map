@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { AuthDivider, AuthField, AuthPrimaryButton, AuthSocialButton } from '@/components/auth/auth-controls';
 import { AuthLayout } from '@/components/auth/auth-layout';
 import { Colors } from '@/constants/theme';
+import { sendPasswordResetEmail, signInWithEmail, signInWithGoogleOAuth } from '@/lib/auth';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -13,23 +14,70 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isResetLoading, setIsResetLoading] = useState(false);
 
-  const handleEmailLogin = () => {
-    // TODO: replace with supabase.auth.signInWithPassword({ email, password })
-    if (!email || !password) {
-      Alert.alert('Missing info', 'Enter both email and password.');
+  const isBusy = isSubmitting || isGoogleLoading || isResetLoading;
+
+  const handleEmailLogin = async () => {
+    if (isBusy) return;
+    setIsSubmitting(true);
+
+    const result = await signInWithEmail(email, password);
+
+    setIsSubmitting(false);
+
+    if (result.error) {
+      Alert.alert('Log In Failed', result.error);
       return;
     }
+
     router.replace('/(tabs)');
   };
 
-  const handleGoogleLogin = () => {
-    // TODO: replace with supabase.auth.signInWithOAuth({ provider: 'google' })
-    Alert.alert('Google Auth', 'Connect this action to Supabase Google OAuth.');
+  const handleGoogleLogin = async () => {
+    if (isBusy) return;
+    setIsGoogleLoading(true);
+
+    const result = await signInWithGoogleOAuth();
+
+    setIsGoogleLoading(false);
+
+    if (result.error) {
+      Alert.alert('Google Sign In Failed', result.error);
+      return;
+    }
+
+    if (!result.data) {
+      Alert.alert('Google Sign In Failed', 'No response returned from OAuth flow.');
+      return;
+    }
+
+    if (result.data.status === 'success') {
+      router.replace('/(tabs)');
+    }
   };
 
   const handlePhoneLogin = () => {
+    if (isBusy) return;
     router.push('/phone-auth');
+  };
+
+  const handleForgotPassword = async () => {
+    if (isBusy) return;
+    setIsResetLoading(true);
+
+    const result = await sendPasswordResetEmail(email);
+
+    setIsResetLoading(false);
+
+    if (result.error) {
+      Alert.alert('Reset Failed', result.error);
+      return;
+    }
+
+    Alert.alert('Check Your Email', 'Password reset instructions have been sent.');
   };
 
   return (
@@ -39,7 +87,7 @@ export default function LoginScreen() {
       bottomContent={
         <View style={styles.bottomRow}>
           <Text style={[styles.bottomText, { color: colors.textMuted }]}>Don&apos;t have an account?</Text>
-          <Pressable onPress={() => router.push('/signup')}>
+          <Pressable disabled={isBusy} onPress={() => router.push('/signup')}>
             <Text style={[styles.bottomAction, { color: colors.primary }]}>Sign Up</Text>
           </Pressable>
         </View>
@@ -52,13 +100,16 @@ export default function LoginScreen() {
         placeholder="name@example.com"
         returnKeyType="next"
         value={email}
+        editable={!isBusy}
         onChangeText={setEmail}
       />
 
       <View style={styles.passwordHeader}>
         <Text style={[styles.passwordLabel, { color: colors.textMuted }]}>Password</Text>
-        <Pressable onPress={() => Alert.alert('Forgot Password', 'Add Supabase reset flow here.')}>
-          <Text style={[styles.forgotText, { color: colors.primary }]}>Forgot Password?</Text>
+        <Pressable disabled={isBusy} onPress={handleForgotPassword}>
+          <Text style={[styles.forgotText, { color: colors.primary }]}>
+            {isResetLoading ? 'Sending...' : 'Forgot Password?'}
+          </Text>
         </Pressable>
       </View>
 
@@ -69,16 +120,23 @@ export default function LoginScreen() {
         placeholder="Enter your password"
         secureTextEntry
         value={password}
+        editable={!isBusy}
         onChangeText={setPassword}
       />
 
-      <AuthPrimaryButton title="Log In" onPress={handleEmailLogin} />
+      <AuthPrimaryButton disabled={isBusy} loading={isSubmitting} title="Log In" onPress={handleEmailLogin} />
 
       <AuthDivider label="or continue with" />
 
       <View style={styles.socialGrid}>
-        <AuthSocialButton iconName="logo-google" label="Google" onPress={handleGoogleLogin} />
-        <AuthSocialButton iconName="call-outline" label="Phone" onPress={handlePhoneLogin} />
+        <AuthSocialButton
+          disabled={isBusy}
+          iconName="logo-google"
+          label="Google"
+          loading={isGoogleLoading}
+          onPress={handleGoogleLogin}
+        />
+        <AuthSocialButton disabled={isBusy} iconName="call-outline" label="Phone" onPress={handlePhoneLogin} />
       </View>
     </AuthLayout>
   );

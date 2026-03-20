@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -28,7 +29,7 @@ export function AuthField({ label, ...inputProps }: AuthFieldProps) {
 
   return (
     <View style={styles.fieldWrap}>
-      <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
+      {label ? <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={colors.outline}
         style={[
@@ -55,20 +56,31 @@ export function AuthField({ label, ...inputProps }: AuthFieldProps) {
 
 type AuthPrimaryButtonProps = {
   title: string;
+  disabled?: boolean;
+  loading?: boolean;
   onPress: () => void;
 };
 
-export function AuthPrimaryButton({ title, onPress }: AuthPrimaryButtonProps) {
+export function AuthPrimaryButton({ title, disabled = false, loading = false, onPress }: AuthPrimaryButtonProps) {
   const theme = useColorScheme() ?? 'light';
   const colors = Colors[theme];
 
   return (
     <Pressable
       accessibilityRole="button"
+      disabled={disabled || loading}
       onPress={onPress}
-      style={[styles.primaryOuter, { shadowColor: colors.primaryContainer }]}>
+      style={[
+        styles.primaryOuter,
+        { shadowColor: colors.primaryContainer },
+        (disabled || loading) && styles.primaryDisabled,
+      ]}>
       <LinearGradient colors={[colors.gradientStart, colors.gradientEnd]} style={styles.primaryGradient}>
-        <Text style={[styles.primaryText, { color: colors.onPrimary }]}>{title}</Text>
+        {loading ? (
+          <ActivityIndicator color={colors.onPrimary} size="small" />
+        ) : (
+          <Text style={[styles.primaryText, { color: colors.onPrimary }]}>{title}</Text>
+        )}
       </LinearGradient>
     </Pressable>
   );
@@ -77,16 +89,25 @@ export function AuthPrimaryButton({ title, onPress }: AuthPrimaryButtonProps) {
 type AuthSocialButtonProps = {
   iconName: IconName;
   label: string;
+  disabled?: boolean;
+  loading?: boolean;
   onPress: () => void;
 };
 
-export function AuthSocialButton({ iconName, label, onPress }: AuthSocialButtonProps) {
+export function AuthSocialButton({
+  iconName,
+  label,
+  disabled = false,
+  loading = false,
+  onPress,
+}: AuthSocialButtonProps) {
   const theme = useColorScheme() ?? 'light';
   const colors = Colors[theme];
 
   return (
     <Pressable
       accessibilityRole="button"
+      disabled={disabled || loading}
       onPress={onPress}
       style={[
         styles.socialButton,
@@ -94,9 +115,16 @@ export function AuthSocialButton({ iconName, label, onPress }: AuthSocialButtonP
           backgroundColor: colors.surfaceContainerHigh,
           borderColor: colors.ghostBorder,
         },
+        (disabled || loading) && styles.socialDisabled,
       ]}>
-      <Ionicons color={colors.text} name={iconName} size={18} />
-      <Text style={[styles.socialText, { color: colors.text }]}>{label}</Text>
+      {loading ? (
+        <ActivityIndicator color={colors.text} size="small" />
+      ) : (
+        <>
+          <Ionicons color={colors.text} name={iconName} size={18} />
+          <Text style={[styles.socialText, { color: colors.text }]}>{label}</Text>
+        </>
+      )}
     </Pressable>
   );
 }
@@ -154,6 +182,9 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
   },
+  primaryDisabled: {
+    opacity: 0.62,
+  },
   socialButton: {
     alignItems: 'center',
     borderRadius: 16,
@@ -168,6 +199,9 @@ const styles = StyleSheet.create({
   socialText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  socialDisabled: {
+    opacity: 0.62,
   },
   dividerWrap: {
     alignItems: 'center',

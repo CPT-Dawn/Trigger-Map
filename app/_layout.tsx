@@ -1,14 +1,81 @@
 import { ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, useColorScheme } from 'react-native';
+import type { Session } from '@supabase/supabase-js';
 import 'react-native-reanimated';
 
 import { Colors, NavigationThemes } from '@/constants/theme';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+
+const AUTH_ROUTES = new Set(['login', 'signup', 'phone-auth', 'phone-verify']);
 
 export default function RootLayout() {
   const theme = useColorScheme() ?? 'light';
   const colors = Colors[theme];
+  const router = useRouter();
+  const segments = useSegments();
+  const [session, setSession] = useState<Session | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSession = async () => {
+      if (!isSupabaseConfigured) {
+        if (isMounted) {
+          setSession(null);
+          setIsAuthReady(true);
+        }
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      if (!isMounted) return;
+      setSession(data.session ?? null);
+      setIsAuthReady(true);
+    };
+
+    loadSession();
+
+    if (!isSupabaseConfigured) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const { data: authStateSubscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+
+    return () => {
+      isMounted = false;
+      authStateSubscription.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthReady) return;
+
+    const currentRoot = segments[0];
+    const inAuthRoute = AUTH_ROUTES.has(currentRoot ?? '');
+    const inTabs = currentRoot === '(tabs)';
+    const isProtected = inTabs || currentRoot === 'add-edit';
+
+    if (session && inAuthRoute) {
+      router.replace('/(tabs)');
+      return;
+    }
+
+    if (!session && isProtected) {
+      router.replace('/login');
+    }
+  }, [isAuthReady, router, segments, session]);
+
+  if (!isAuthReady) {
+    return <View style={{ flex: 1, backgroundColor: colors.surface }} />;
+  }
 
   return (
     <ThemeProvider value={NavigationThemes[theme]}>
@@ -36,6 +103,13 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="phone-verify"
+          options={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.surface },
+          }}
+        />
+        <Stack.Screen
+          name="auth/callback"
           options={{
             headerShown: false,
             contentStyle: { backgroundColor: colors.surface },

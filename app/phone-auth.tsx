@@ -5,22 +5,36 @@ import { useState } from 'react';
 import { AuthField, AuthPrimaryButton } from '@/components/auth/auth-controls';
 import { AuthLayout } from '@/components/auth/auth-layout';
 import { Colors } from '@/constants/theme';
+import { sendPhoneOtp } from '@/lib/auth';
 
 export default function PhoneAuthScreen() {
   const router = useRouter();
   const theme = useColorScheme() ?? 'light';
   const colors = Colors[theme];
   const [phone, setPhone] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSendCode = () => {
-    if (!phone) {
-      Alert.alert('Missing phone number', 'Enter your phone number to continue.');
+  const handleSendCode = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    const result = await sendPhoneOtp(phone);
+
+    setIsSubmitting(false);
+
+    if (result.error) {
+      Alert.alert('Could Not Send Code', result.error);
       return;
     }
-    // TODO: replace with supabase.auth.signInWithOtp({ phone })
+
+    if (!result.data) {
+      Alert.alert('Could Not Send Code', 'No response returned from OTP flow.');
+      return;
+    }
+
     router.push({
       pathname: '/phone-verify',
-      params: { phone },
+      params: { phone: result.data.normalizedPhone },
     });
   };
 
@@ -31,7 +45,7 @@ export default function PhoneAuthScreen() {
       bottomContent={
         <View style={styles.bottomRow}>
           <Text style={[styles.bottomText, { color: colors.textMuted }]}>Prefer email login?</Text>
-          <Pressable onPress={() => router.push('/login')}>
+          <Pressable disabled={isSubmitting} onPress={() => router.push('/login')}>
             <Text style={[styles.bottomAction, { color: colors.primary }]}>Back to Login</Text>
           </Pressable>
         </View>
@@ -42,10 +56,16 @@ export default function PhoneAuthScreen() {
         label="Phone Number"
         placeholder="+1 555 123 4567"
         value={phone}
+        editable={!isSubmitting}
         onChangeText={setPhone}
       />
 
-      <AuthPrimaryButton title="Send Verification Code" onPress={handleSendCode} />
+      <AuthPrimaryButton
+        disabled={isSubmitting}
+        loading={isSubmitting}
+        title="Send Verification Code"
+        onPress={handleSendCode}
+      />
     </AuthLayout>
   );
 }
