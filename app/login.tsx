@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { AuthDivider, AuthField, AuthPrimaryButton, AuthSocialButton } from '@/components/auth/auth-controls';
 import { AuthLayout } from '@/components/auth/auth-layout';
 import { Colors } from '@/constants/theme';
-import { sendPasswordResetEmail, signInWithEmail, signInWithGoogleOAuth } from '@/lib/auth';
+import { sendPasswordResetEmail, signInWithEmail } from '@/lib/auth';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -15,10 +15,9 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isResetLoading, setIsResetLoading] = useState(false);
 
-  const isBusy = isSubmitting || isGoogleLoading || isResetLoading;
+  const isBusy = isSubmitting || isResetLoading;
 
   const handleEmailLogin = async () => {
     if (isBusy) return;
@@ -36,32 +35,12 @@ export default function LoginScreen() {
     router.replace('/(tabs)');
   };
 
-  const handleGoogleLogin = async () => {
-    if (isBusy) return;
-    setIsGoogleLoading(true);
-
-    const result = await signInWithGoogleOAuth();
-
-    setIsGoogleLoading(false);
-
-    if (result.error) {
-      Alert.alert('Google Sign In Failed', result.error);
-      return;
-    }
-
-    if (!result.data) {
-      Alert.alert('Google Sign In Failed', 'No response returned from OAuth flow.');
-      return;
-    }
-
-    if (result.data.status === 'success') {
-      router.replace('/(tabs)');
-    }
+  const handleGoogleLogin = () => {
+    Alert.alert('Coming Soon', 'Google sign-in is coming soon. Please use email login for now.');
   };
 
   const handlePhoneLogin = () => {
-    if (isBusy) return;
-    router.push('/phone-auth');
+    Alert.alert('Coming Soon', 'Phone sign-in is coming soon. Please use email login for now.');
   };
 
   const handleForgotPassword = async () => {
@@ -133,7 +112,6 @@ export default function LoginScreen() {
           disabled={isBusy}
           iconName="logo-google"
           label="Google"
-          loading={isGoogleLoading}
           onPress={handleGoogleLogin}
         />
         <AuthSocialButton disabled={isBusy} iconName="call-outline" label="Phone" onPress={handlePhoneLogin} />

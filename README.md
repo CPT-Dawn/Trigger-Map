@@ -1,6 +1,6 @@
 # Trigger Map
 
-Expo Router app with themed auth flows (email/password, Google OAuth, phone OTP) backed by Supabase.
+Expo Router app with themed email/password auth backed by Supabase.
 
 ## 1. Install + Run
 
@@ -29,20 +29,13 @@ In your Supabase project:
 
 1. `Authentication` -> `Providers`:
    - Enable `Email`
-   - Enable `Phone`
-   - Enable `Google`
 2. `Authentication` -> `URL Configuration`:
-   - Add redirect URL: `triggermap://auth/callback`
-3. For Phone OTP:
-   - Configure SMS provider credentials (Twilio/MessageBird/etc.)
-4. For Google OAuth:
-   - In Google Cloud, configure OAuth consent + client.
-   - Add your Supabase callback URL from the Google provider section.
+   - Optional reset redirect URL: `triggermap://login`
 
 ## 4. Important Notes
 
-- Google OAuth on native works best in a development build/standalone app. Expo Go may not reliably handle custom scheme redirects for all OAuth flows.
 - This app expects `scheme: "triggermap"` in `app.json` (already configured).
 - Auth routes redirect automatically:
   - Logged-in users are moved to tabs.
   - Logged-out users are routed to login from protected routes.
+- Google/Phone buttons in UI are intentionally marked as coming soon.

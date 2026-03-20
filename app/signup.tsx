@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { AuthDivider, AuthField, AuthPrimaryButton, AuthSocialButton } from '@/components/auth/auth-controls';
 import { AuthLayout } from '@/components/auth/auth-layout';
 import { Colors } from '@/constants/theme';
-import { signInWithGoogleOAuth, signUpWithEmail } from '@/lib/auth';
+import { signUpWithEmail } from '@/lib/auth';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -17,9 +17,8 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  const isBusy = isSubmitting || isGoogleLoading;
+  const isBusy = isSubmitting;
 
   const handleCreateAccount = async () => {
     if (isBusy) return;
@@ -53,27 +52,8 @@ export default function SignupScreen() {
     router.replace('/(tabs)');
   };
 
-  const handleGoogleSignup = async () => {
-    if (isBusy) return;
-    setIsGoogleLoading(true);
-
-    const result = await signInWithGoogleOAuth();
-
-    setIsGoogleLoading(false);
-
-    if (result.error) {
-      Alert.alert('Google Sign Up Failed', result.error);
-      return;
-    }
-
-    if (!result.data) {
-      Alert.alert('Google Sign Up Failed', 'No response returned from OAuth flow.');
-      return;
-    }
-
-    if (result.data.status === 'success') {
-      router.replace('/(tabs)');
-    }
+  const handleGoogleSignup = () => {
+    Alert.alert('Coming Soon', 'Google sign-up is coming soon. Please use email sign-up for now.');
   };
 
   return (
@@ -144,14 +124,15 @@ export default function SignupScreen() {
           disabled={isBusy}
           iconName="logo-google"
           label="Google"
-          loading={isGoogleLoading}
           onPress={handleGoogleSignup}
         />
         <AuthSocialButton
           disabled={isBusy}
           iconName="call-outline"
           label="Phone"
-          onPress={() => router.push('/phone-auth')}
+          onPress={() =>
+            Alert.alert('Coming Soon', 'Phone sign-up is coming soon. Please use email sign-up for now.')
+          }
         />
       </View>
     </AuthLayout>

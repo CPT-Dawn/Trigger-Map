@@ -9,7 +9,7 @@ import 'react-native-reanimated';
 import { Colors, NavigationThemes } from '@/constants/theme';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
-const AUTH_ROUTES = new Set(['login', 'signup', 'phone-auth', 'phone-verify']);
+const AUTH_ROUTES = new Set(['login', 'signup']);
 
 export default function RootLayout() {
   const theme = useColorScheme() ?? 'light';
@@ -89,27 +89,6 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="signup"
-          options={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.surface },
-          }}
-        />
-        <Stack.Screen
-          name="phone-auth"
-          options={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.surface },
-          }}
-        />
-        <Stack.Screen
-          name="phone-verify"
-          options={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.surface },
-          }}
-        />
-        <Stack.Screen
-          name="auth/callback"
           options={{
             headerShown: false,
             contentStyle: { backgroundColor: colors.surface },
