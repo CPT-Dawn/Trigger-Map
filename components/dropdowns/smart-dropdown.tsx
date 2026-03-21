@@ -17,19 +17,22 @@ import {
   createOrGetCustomOption,
   deleteCustomOption,
   doesSearchExactlyMatchOption,
+  getCategoryConfig,
   getHiddenDefaultOptions,
   getDropdownOptions,
   hideDefaultOption,
+  isVariableDropdownCategory,
   isSameDropdownOption,
   markOptionUsed,
   renameCustomOption,
   unhideDefaultOption,
+  type DropdownCategoryKey,
   type DropdownOption,
 } from '@/lib/dropdowns';
 import { useAppTheme } from '@/lib/theme';
 
 type SmartDropdownProps = {
-  categoryKey: string;
+  categoryKey: DropdownCategoryKey;
   label: string;
   placeholder?: string;
   value: DropdownOption | null;
@@ -48,6 +51,8 @@ export function SmartDropdown({
   const { resolvedTheme } = useAppTheme();
   const theme = resolvedTheme;
   const colors = Colors[theme];
+  const categoryConfig = getCategoryConfig(categoryKey);
+  const isVariableCategory = categoryConfig.behavior === 'variable';
   const isMountedRef = useRef(true);
   const queryIdRef = useRef(0);
 
@@ -156,6 +161,7 @@ export function SmartDropdown({
   };
 
   const createFromSearch = async () => {
+    if (!isVariableCategory) return;
     if (isMutating) return;
     setIsMutating(true);
 
@@ -188,6 +194,7 @@ export function SmartDropdown({
   };
 
   const handleHideDefault = async (option: DropdownOption) => {
+    if (!isVariableCategory) return;
     if (isMutating) return;
     setIsMutating(true);
 
@@ -209,6 +216,7 @@ export function SmartDropdown({
   };
 
   const handleDeleteCustom = async (option: DropdownOption) => {
+    if (!isVariableCategory) return;
     if (isMutating) return;
     setIsMutating(true);
 
@@ -230,6 +238,7 @@ export function SmartDropdown({
   };
 
   const saveRename = async () => {
+    if (!isVariableCategory) return;
     if (!renameTarget || isMutating) return;
     setIsMutating(true);
 
@@ -256,6 +265,7 @@ export function SmartDropdown({
   };
 
   const openActions = (option: DropdownOption) => {
+    if (!isVariableCategory) return;
     if (isMutating) return;
 
     if (option.source === 'default') {
@@ -310,6 +320,7 @@ export function SmartDropdown({
   };
 
   const toggleHiddenDefaultsPanel = async () => {
+    if (!isVariableCategory) return;
     if (isMutating) return;
 
     if (showHiddenOptions) {
@@ -337,6 +348,7 @@ export function SmartDropdown({
   };
 
   const restoreSingleHiddenOption = async (option: DropdownOption) => {
+    if (!isVariableCategory) return;
     if (isMutating) return;
     setIsMutating(true);
 
@@ -358,10 +370,11 @@ export function SmartDropdown({
   };
 
   const addEnabled = useMemo(() => {
+    if (!isVariableDropdownCategory(categoryKey)) return false;
     if (!searchText.trim()) return false;
     if (doesSearchExactlyMatchOption(searchText, options)) return false;
     return true;
-  }, [options, searchText]);
+  }, [categoryKey, options, searchText]);
 
   return (
     <View style={styles.fieldWrap}>
@@ -406,14 +419,16 @@ export function SmartDropdown({
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: colors.text }]}>{label}</Text>
               <View style={styles.sheetHeaderActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={isMutating || isLoadingHidden}
-                  onPress={() => void toggleHiddenDefaultsPanel()}>
-                  <Text style={[styles.restoreText, { color: colors.primary }]}>
-                    {showHiddenOptions ? 'Done' : 'Restore'}
-                  </Text>
-                </Pressable>
+                {isVariableCategory ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={isMutating || isLoadingHidden}
+                    onPress={() => void toggleHiddenDefaultsPanel()}>
+                    <Text style={[styles.restoreText, { color: colors.primary }]}>
+                      {showHiddenOptions ? 'Done' : 'Restore'}
+                    </Text>
+                  </Pressable>
+                ) : null}
                 <Pressable accessibilityRole="button" disabled={isMutating} onPress={closePicker}>
                   <Ionicons color={colors.textMuted} name="close" size={22} />
                 </Pressable>
@@ -423,7 +438,11 @@ export function SmartDropdown({
             <TextInput
               editable={!isMutating}
               onChangeText={setSearchText}
-              placeholder={`Search or add ${label.toLowerCase()}`}
+              placeholder={
+                isVariableCategory
+                  ? `Search or add ${label.toLowerCase()}`
+                  : `Search ${label.toLowerCase()} options`
+              }
               placeholderTextColor={colors.outline}
               style={[
                 styles.searchInput,
@@ -485,7 +504,13 @@ export function SmartDropdown({
                       <Pressable
                         key={`${option.source}:${option.id}`}
                         accessibilityRole="button"
-                        onLongPress={() => openActions(option)}
+                        onLongPress={
+                          isVariableCategory
+                            ? () => {
+                                openActions(option);
+                              }
+                            : undefined
+                        }
                         onPress={() => {
                           void selectOption(option);
                         }}

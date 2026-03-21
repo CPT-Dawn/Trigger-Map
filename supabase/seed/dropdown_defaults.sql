@@ -1,53 +1,45 @@
-insert into public.dropdown_categories (key, label)
+insert into public.dropdown_categories (key, label, behavior)
 values
-  ('pain_type', 'Pain Type'),
-  ('activity_type', 'Activity Type'),
-  ('weather_condition', 'Weather Condition'),
-  ('trigger_type', 'Trigger Type'),
-  ('relief_method', 'Relief Method')
+  ('food', 'Food', 'variable'),
+  ('pain', 'Pain', 'fixed'),
+  ('stress', 'Stress', 'fixed'),
+  ('medicine', 'Medicine', 'variable')
 on conflict (key) do update
 set label = excluded.label,
+    behavior = excluded.behavior,
     updated_at = timezone('utc', now());
 
 with default_values as (
-  select 'pain_type'::text as category_key, unnest(array[
-    'Joint Stiffness',
-    'Swelling',
-    'Burning Pain',
-    'Morning Flare',
-    'Fatigue Ache'
+  select 'food'::text as category_key, unnest(array[
+    'Breakfast',
+    'Lunch',
+    'Dinner',
+    'Snack',
+    'Coffee'
   ]) as label
   union all
-  select 'activity_type', unnest(array[
-    'Walking',
-    'Stretching',
-    'Yoga',
-    'Strength Training',
-    'Rest Day'
+  select 'pain', unnest(array[
+    'None',
+    'Mild',
+    'Moderate',
+    'Severe',
+    'Extreme/Flare'
   ])
   union all
-  select 'weather_condition', unnest(array[
-    'Sunny',
-    'Humid',
-    'Rainy',
-    'Cold Front',
-    'Windy'
+  select 'stress', unnest(array[
+    'Very Low',
+    'Low',
+    'Medium',
+    'High',
+    'Very High'
   ])
   union all
-  select 'trigger_type', unnest(array[
-    'Stress',
-    'Poor Sleep',
-    'Diet Change',
-    'Overexertion',
-    'Infection'
-  ])
-  union all
-  select 'relief_method', unnest(array[
-    'Hydration',
-    'Heat Pack',
-    'Medication',
-    'Breathing Exercise',
-    'Short Nap'
+  select 'medicine', unnest(array[
+    'NSAID',
+    'Methotrexate',
+    'Biologic',
+    'Steroid',
+    'Vitamin D'
   ])
 )
 insert into public.dropdown_default_options (category_id, label)

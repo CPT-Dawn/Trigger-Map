@@ -2,20 +2,37 @@ import type { PostgrestError } from '@supabase/supabase-js';
 
 import { isSupabaseConfigured, supabase, supabaseConfigError } from '@/lib/supabase';
 
-export const DROPDOWN_CATEGORY_DEFINITIONS = [
-  { key: 'pain_type', label: 'Pain Type' },
-  { key: 'activity_type', label: 'Activity Type' },
-  { key: 'weather_condition', label: 'Weather Condition' },
-  { key: 'trigger_type', label: 'Trigger Type' },
-  { key: 'relief_method', label: 'Relief Method' },
-] as const;
+export type DropdownCategoryKey = 'food' | 'pain' | 'stress' | 'medicine';
+export type DropdownCategoryBehavior = 'fixed' | 'variable';
 
-export type DropdownCategoryKey = (typeof DROPDOWN_CATEGORY_DEFINITIONS)[number]['key'];
+export type DropdownCategoryConfig = {
+  key: DropdownCategoryKey;
+  label: string;
+  behavior: DropdownCategoryBehavior;
+};
+
+export const LOG_CATEGORY_ORDER: DropdownCategoryKey[] = ['food', 'pain', 'stress', 'medicine'];
+
+export const DROPDOWN_CATEGORY_CONFIGS: DropdownCategoryConfig[] = [
+  { key: 'food', label: 'Food', behavior: 'variable' },
+  { key: 'pain', label: 'Pain', behavior: 'fixed' },
+  { key: 'stress', label: 'Stress', behavior: 'fixed' },
+  { key: 'medicine', label: 'Medicine', behavior: 'variable' },
+];
+
+export const DROPDOWN_CATEGORY_DEFINITIONS: readonly Pick<DropdownCategoryConfig, 'key' | 'label'>[] =
+  DROPDOWN_CATEGORY_CONFIGS.map(({ key, label }) => ({
+    key,
+    label,
+  }));
+
+const VARIABLE_CATEGORIES = new Set<DropdownCategoryKey>(['food', 'medicine']);
+
 export type DropdownOptionSource = 'default' | 'custom';
 
 export type DropdownOption = {
   id: string;
-  categoryKey: string;
+  categoryKey: DropdownCategoryKey;
   label: string;
   source: DropdownOptionSource;
   lastSelectedAt?: string | null;
@@ -32,8 +49,8 @@ type UsageRow = {
   last_selected_at: string | null;
 };
 
-const categoryIdByKeyCache = new Map<string, string>();
-const categoryKeyByIdCache = new Map<string, string>();
+const categoryIdByKeyCache = new Map<DropdownCategoryKey, string>();
+const categoryKeyByIdCache = new Map<string, DropdownCategoryKey>();
 
 function success<T>(data: T): ResultOk<T> {
   return { data, error: null };
@@ -65,6 +82,7 @@ function isDuplicateError(error: PostgrestError | null) {
 
 function toFriendlyError(error: PostgrestError | null, fallback: string) {
   if (!error) return fallback;
+
   const message = error.message || fallback;
   const lower = message.toLowerCase();
 
@@ -108,6 +126,22 @@ function validateOptionLabel(label: string): ServiceResult<string> {
   return success(cleaned);
 }
 
+function isDropdownCategoryKey(value: string): value is DropdownCategoryKey {
+  return value === 'food' || value === 'pain' || value === 'stress' || value === 'medicine';
+}
+
+export function isVariableDropdownCategory(categoryKey: DropdownCategoryKey) {
+  return VARIABLE_CATEGORIES.has(categoryKey);
+}
+
+export function getCategoryConfig(categoryKey: DropdownCategoryKey): DropdownCategoryConfig {
+  const match = DROPDOWN_CATEGORY_CONFIGS.find((config) => config.key === categoryKey);
+  if (!match) {
+    return { key: categoryKey, label: categoryKey, behavior: 'variable' };
+  }
+  return match;
+}
+
 async function getAuthenticatedUserId(): Promise<ServiceResult<string>> {
   const configError = ensureConfigured<string>();
   if (configError) return configError;
@@ -123,7 +157,7 @@ async function getAuthenticatedUserId(): Promise<ServiceResult<string>> {
   return success(data.user.id);
 }
 
-async function resolveCategoryId(categoryKey: string): Promise<ServiceResult<string>> {
+async function resolveCategoryId(categoryKey: DropdownCategoryKey): Promise<ServiceResult<string>> {
   const cached = categoryIdByKeyCache.get(categoryKey);
   if (cached) {
     return success(cached);
@@ -138,16 +172,16 @@ async function resolveCategoryId(categoryKey: string): Promise<ServiceResult<str
   if (error) {
     return failure(toFriendlyError(error, 'Unable to load dropdown category.'));
   }
-  if (!data?.id) {
+  if (!data?.id || !data.key || !isDropdownCategoryKey(data.key)) {
     return failure(`Dropdown category "${categoryKey}" does not exist.`);
   }
 
   categoryIdByKeyCache.set(categoryKey, data.id);
-  categoryKeyByIdCache.set(data.id, data.key);
+  categoryKeyByIdCache.set(data.id, categoryKey);
   return success(data.id);
 }
 
-async function resolveCategoryKey(categoryId: string): Promise<ServiceResult<string>> {
+async function resolveCategoryKey(categoryId: string): Promise<ServiceResult<DropdownCategoryKey>> {
   const cached = categoryKeyByIdCache.get(categoryId);
   if (cached) {
     return success(cached);
@@ -162,7 +196,7 @@ async function resolveCategoryKey(categoryId: string): Promise<ServiceResult<str
   if (error) {
     return failure(toFriendlyError(error, 'Unable to resolve dropdown category key.'));
   }
-  if (!data?.key) {
+  if (!data?.id || !data.key || !isDropdownCategoryKey(data.key)) {
     return failure('Dropdown category key could not be resolved.');
   }
 
@@ -182,7 +216,7 @@ function optionUsageMap(rows: UsageRow[] | null) {
 }
 
 export async function getDropdownOptions(
-  categoryKey: string,
+  categoryKey: DropdownCategoryKey,
   searchText?: string
 ): Promise<ServiceResult<DropdownOption[]>> {
   const configError = ensureConfigured<DropdownOption[]>();
@@ -198,19 +232,23 @@ export async function getDropdownOptions(
   const categoryId = categoryResult.data;
   if (!categoryId) return failure('Dropdown category could not be resolved.');
 
-  const [defaultsResponse, customResponse, usageResponse] = await Promise.all([
+  const isVariable = isVariableDropdownCategory(categoryKey);
+
+  const [defaultsResponse, usageResponse, customResponse] = await Promise.all([
     supabase.from('dropdown_default_options').select('id, label').eq('category_id', categoryId),
-    supabase
-      .from('dropdown_user_custom_options')
-      .select('id, label')
-      .eq('user_id', userId)
-      .eq('category_id', categoryId)
-      .is('deleted_at', null),
     supabase
       .from('dropdown_user_option_usage')
       .select('option_source, option_id, last_selected_at')
       .eq('user_id', userId)
       .eq('category_id', categoryId),
+    isVariable
+      ? supabase
+          .from('dropdown_user_custom_options')
+          .select('id, label')
+          .eq('user_id', userId)
+          .eq('category_id', categoryId)
+          .is('deleted_at', null)
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (defaultsResponse.error) {
@@ -226,7 +264,7 @@ export async function getDropdownOptions(
   const defaultIds = (defaultsResponse.data ?? []).map((row) => row.id);
 
   let hiddenDefaultIds = new Set<string>();
-  if (defaultIds.length > 0) {
+  if (isVariable && defaultIds.length > 0) {
     const hiddenResponse = await supabase
       .from('dropdown_user_hidden_defaults')
       .select('default_option_id')
@@ -252,7 +290,7 @@ export async function getDropdownOptions(
         source: 'default' as const,
         lastSelectedAt: usageByOption.get(`default:${row.id}`) ?? null,
       })),
-    ...(customResponse.data ?? []).map((row) => ({
+    ...((customResponse.data ?? []) as { id: string; label: string }[]).map((row) => ({
       id: row.id,
       categoryKey,
       label: row.label,
@@ -271,9 +309,13 @@ export async function getDropdownOptions(
 }
 
 export async function createOrGetCustomOption(
-  categoryKey: string,
+  categoryKey: DropdownCategoryKey,
   label: string
 ): Promise<ServiceResult<DropdownOption>> {
+  if (!isVariableDropdownCategory(categoryKey)) {
+    return failure('This category is fixed and cannot accept custom options.');
+  }
+
   const configError = ensureConfigured<DropdownOption>();
   if (configError) return configError;
 
@@ -364,7 +406,7 @@ export async function createOrGetCustomOption(
 }
 
 export async function markOptionUsed(
-  categoryKey: string,
+  categoryKey: DropdownCategoryKey,
   source: DropdownOptionSource,
   optionId: string
 ): Promise<ServiceResult<true>> {
@@ -406,12 +448,37 @@ export async function markOptionUsed(
   return success(true);
 }
 
+async function resolveDefaultOptionCategory(defaultOptionId: string): Promise<ServiceResult<DropdownCategoryKey>> {
+  const query = await supabase
+    .from('dropdown_default_options')
+    .select('id, category_id')
+    .eq('id', defaultOptionId)
+    .maybeSingle();
+
+  if (query.error) {
+    return failure(toFriendlyError(query.error, 'Unable to resolve default option category.'));
+  }
+  if (!query.data?.category_id) {
+    return failure('Default option not found.');
+  }
+
+  return resolveCategoryKey(query.data.category_id);
+}
+
 export async function hideDefaultOption(defaultOptionId: string): Promise<ServiceResult<true>> {
   const configError = ensureConfigured<true>();
   if (configError) return configError;
 
   if (!defaultOptionId) {
     return failure('Default option id is required.');
+  }
+
+  const categoryResult = await resolveDefaultOptionCategory(defaultOptionId);
+  if (categoryResult.error) return failure(categoryResult.error);
+  const resolvedCategory = categoryResult.data;
+  if (!resolvedCategory) return failure('Default option category could not be resolved.');
+  if (!isVariableDropdownCategory(resolvedCategory)) {
+    return failure('Fixed categories cannot hide default options.');
   }
 
   const userResult = await getAuthenticatedUserId();
@@ -444,6 +511,14 @@ export async function unhideDefaultOption(defaultOptionId: string): Promise<Serv
     return failure('Default option id is required.');
   }
 
+  const categoryResult = await resolveDefaultOptionCategory(defaultOptionId);
+  if (categoryResult.error) return failure(categoryResult.error);
+  const resolvedCategory = categoryResult.data;
+  if (!resolvedCategory) return failure('Default option category could not be resolved.');
+  if (!isVariableDropdownCategory(resolvedCategory)) {
+    return failure('Fixed categories cannot unhide default options.');
+  }
+
   const userResult = await getAuthenticatedUserId();
   if (userResult.error) return failure(userResult.error);
   const userId = userResult.data;
@@ -462,7 +537,11 @@ export async function unhideDefaultOption(defaultOptionId: string): Promise<Serv
   return success(true);
 }
 
-export async function getHiddenDefaultOptions(categoryKey: string): Promise<ServiceResult<DropdownOption[]>> {
+export async function getHiddenDefaultOptions(categoryKey: DropdownCategoryKey): Promise<ServiceResult<DropdownOption[]>> {
+  if (!isVariableDropdownCategory(categoryKey)) {
+    return success([]);
+  }
+
   const configError = ensureConfigured<DropdownOption[]>();
   if (configError) return configError;
 
@@ -545,8 +624,16 @@ export async function renameCustomOption(
   if (currentRow.error) {
     return failure(toFriendlyError(currentRow.error, 'Unable to load custom option for rename.'));
   }
-  if (!currentRow.data?.id) {
+  if (!currentRow.data?.id || !currentRow.data.category_id) {
     return failure('Custom option not found.');
+  }
+
+  const keyResult = await resolveCategoryKey(currentRow.data.category_id);
+  if (keyResult.error) return failure(keyResult.error);
+  const resolvedCategory = keyResult.data;
+  if (!resolvedCategory) return failure('Custom option category could not be resolved.');
+  if (!isVariableDropdownCategory(resolvedCategory)) {
+    return failure('Fixed categories cannot rename custom options.');
   }
 
   const updateResponse = await supabase
@@ -564,17 +651,13 @@ export async function renameCustomOption(
   if (updateResponse.error) {
     return failure(toFriendlyError(updateResponse.error, 'Unable to rename custom option.'));
   }
-  if (!updateResponse.data?.category_id) {
-    return failure('Updated option category could not be resolved.');
+  if (!updateResponse.data?.id || !updateResponse.data.label) {
+    return failure('Custom option could not be renamed.');
   }
-
-  const keyResult = await resolveCategoryKey(updateResponse.data.category_id);
-  if (keyResult.error) return failure(keyResult.error);
-  if (!keyResult.data) return failure('Dropdown category key could not be resolved.');
 
   return success({
     id: updateResponse.data.id,
-    categoryKey: keyResult.data,
+    categoryKey: resolvedCategory,
     label: updateResponse.data.label,
     source: 'custom',
     lastSelectedAt: null,
@@ -593,6 +676,29 @@ export async function deleteCustomOption(customOptionId: string): Promise<Servic
   if (userResult.error) return failure(userResult.error);
   const userId = userResult.data;
   if (!userId) return failure('No active user session found. Please log in again.');
+
+  const currentRow = await supabase
+    .from('dropdown_user_custom_options')
+    .select('id, category_id')
+    .eq('id', customOptionId)
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (currentRow.error) {
+    return failure(toFriendlyError(currentRow.error, 'Unable to load custom option for delete.'));
+  }
+  if (!currentRow.data?.id || !currentRow.data.category_id) {
+    return failure('Custom option not found.');
+  }
+
+  const keyResult = await resolveCategoryKey(currentRow.data.category_id);
+  if (keyResult.error) return failure(keyResult.error);
+  const resolvedCategory = keyResult.data;
+  if (!resolvedCategory) return failure('Custom option category could not be resolved.');
+  if (!isVariableDropdownCategory(resolvedCategory)) {
+    return failure('Fixed categories cannot delete custom options.');
+  }
 
   const now = new Date().toISOString();
   const { data, error } = await supabase
@@ -626,4 +732,13 @@ export function doesSearchExactlyMatchOption(searchText: string, options: Dropdo
   if (!normalizedSearch) return false;
 
   return options.some((option) => normalizeLabel(option.label) === normalizedSearch);
+}
+
+export function getFirstFilledCategory(itemsByCategory: Partial<Record<DropdownCategoryKey, DropdownOption>>) {
+  for (const category of LOG_CATEGORY_ORDER) {
+    if (itemsByCategory[category]) {
+      return category;
+    }
+  }
+  return 'food' as const;
 }
