@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         flexDirection: 'row',
         minHeight: TOP_BAR_HEIGHT,
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
         paddingBottom: 10,
         shadowOffset: {
             width: 0,
@@ -127,11 +127,11 @@ const styles = StyleSheet.create({
         width: 34,
     },
     leadingPlaceholder: {
-        width: 34,
+        width: 12,
     },
     centerCopy: {
         flex: 1,
-        paddingHorizontal: 10,
+        paddingHorizontal: 8,
         justifyContent: 'center',
     },
     titleRow: {
@@ -141,9 +141,9 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
     },
     title: {
-        fontSize: 16,
+        fontSize: 17,
         fontWeight: '800',
-        letterSpacing: -0.2,
+        letterSpacing: -0.3,
     },
     profileButton: {
         alignItems: 'center',
