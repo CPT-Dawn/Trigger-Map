@@ -12,10 +12,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SmartDropdown } from '@/components/dropdowns/smart-dropdown';
-import { TopGlassBar } from '@/components/navigation/top-glass-bar';
+import { TopGlassBar, useTopGlassBarOffset } from '@/components/navigation/top-glass-bar';
 import { Colors } from '@/constants/theme';
 import {
   DROPDOWN_CATEGORY_CONFIGS,
@@ -94,6 +94,8 @@ function toSingleParam(value: string | string[] | undefined) {
 }
 
 export default function AddEditScreen() {
+  const topOffset = useTopGlassBarOffset();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ entryId?: string | string[]; focusCategory?: string | string[] }>();
   const isMountedRef = useRef(true);
@@ -244,7 +246,7 @@ export default function AddEditScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.surface }]}>
+    <SafeAreaView edges={['left', 'right']} style={[styles.safeArea, { backgroundColor: colors.surface }]}>
       <View style={StyleSheet.absoluteFill}>
         <View
           style={[
@@ -273,7 +275,9 @@ export default function AddEditScreen() {
         title={isEditMode ? 'Edit Log' : 'New Log'}
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: topOffset, paddingBottom: insets.bottom + 20 }]}
+        keyboardShouldPersistTaps="handled">
         <View
           style={[
             styles.metaCard,
@@ -458,8 +462,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     gap: 14,
     paddingHorizontal: 16,
-    paddingTop: 2,
-    paddingBottom: 34,
   },
   glowPrimary: {
     borderRadius: 999,

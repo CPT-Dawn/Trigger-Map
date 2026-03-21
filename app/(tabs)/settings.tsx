@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -14,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { TopGlassBar } from '@/components/navigation/top-glass-bar';
+import { TopGlassBar, useTopGlassBarOffset } from '@/components/navigation/top-glass-bar';
 import { Colors } from '@/constants/theme';
 import { getCurrentUser, signOutCurrentUser, updateCurrentUserProfile } from '@/lib/auth';
 import { type ThemePreference, useAppTheme } from '@/lib/theme';
@@ -54,6 +55,8 @@ function toAccountChip(userId: string) {
 }
 
 export default function SettingsScreen() {
+  const topOffset = useTopGlassBarOffset();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { preference, resolvedTheme, setPreference } = useAppTheme();
   const theme = resolvedTheme;
@@ -194,7 +197,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.surface }]}>
+    <SafeAreaView edges={['left', 'right']} style={[styles.safeArea, { backgroundColor: colors.surface }]}>
       <View style={StyleSheet.absoluteFill}>
         <View
           style={[
@@ -221,7 +224,7 @@ export default function SettingsScreen() {
       />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: topOffset, paddingBottom: tabBarHeight + 24 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
         <View
@@ -407,8 +410,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     gap: 14,
     paddingHorizontal: 16,
-    paddingTop: 2,
-    paddingBottom: 130,
   },
   sectionCard: {
     borderRadius: 22,

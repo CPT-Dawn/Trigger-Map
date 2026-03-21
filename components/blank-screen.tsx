@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { TopGlassBar } from '@/components/navigation/top-glass-bar';
+import { TopGlassBar, useTopGlassBarOffset } from '@/components/navigation/top-glass-bar';
 import { Colors } from '@/constants/theme';
 import { useAppTheme } from '@/lib/theme';
 
@@ -15,14 +16,23 @@ type BlankScreenProps = {
 };
 
 export function BlankScreen({ title, subtitle, iconName }: BlankScreenProps) {
+  const topOffset = useTopGlassBarOffset();
+  const tabBarHeight = useBottomTabBarHeight();
   const { resolvedTheme } = useAppTheme();
   const theme = resolvedTheme;
   const colors = Colors[theme];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
+    <SafeAreaView edges={['left', 'right']} style={[styles.container, { backgroundColor: colors.surface }]}>
       <TopGlassBar iconName={iconName} subtitle={subtitle} title={title} />
-      <View style={styles.placeholderWrap}>
+      <View
+        style={[
+          styles.placeholderWrap,
+          {
+            paddingTop: topOffset,
+            paddingBottom: tabBarHeight + 18,
+          },
+        ]}>
         <Text style={[styles.placeholderTitle, { color: colors.text }]}>Coming Soon</Text>
         <Text style={[styles.placeholderSubtitle, { color: colors.textMuted }]}>
           This space is ready for your next polished feature.
@@ -41,7 +51,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 80,
   },
   placeholderTitle: {
     fontSize: 24,

@@ -1,7 +1,8 @@
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -95,20 +96,24 @@ export function PolishedTabBar({ state, descriptors, navigation }: BottomTabBarP
   };
 
   return (
-    <View style={[styles.outer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <View
+    <View style={styles.outer}>
+      <BlurView
+        experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
+        intensity={theme === 'dark' ? 34 : 50}
+        tint={theme === 'dark' ? 'dark' : 'light'}
         style={[
           styles.bar,
           {
             backgroundColor: colors.glassSurface,
             borderColor: colors.ghostBorder,
             shadowColor: colors.primary,
+            paddingBottom: Math.max(insets.bottom, 10),
           },
         ]}>
         <View style={styles.group}>{leftRoutes.map(renderRoute)}</View>
         <View style={styles.centerGap} />
         <View style={styles.group}>{rightRoutes.map(renderRoute)}</View>
-      </View>
+      </BlurView>
 
       <Pressable
         accessibilityLabel="Add or edit"
@@ -132,27 +137,25 @@ export function PolishedTabBar({ state, descriptors, navigation }: BottomTabBarP
 const styles = StyleSheet.create({
   outer: {
     alignItems: 'center',
+    bottom: 0,
     left: 0,
     position: 'absolute',
     right: 0,
-    bottom: 0,
+    zIndex: 35,
   },
   bar: {
-    borderRadius: 34,
-    borderWidth: 1,
+    borderTopWidth: 1,
     flexDirection: 'row',
-    width: '92%',
-    maxWidth: 560,
-    minHeight: 78,
-    marginTop: 28,
+    width: '100%',
+    minHeight: 92,
     paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingTop: 20,
     shadowOffset: {
       width: 0,
-      height: 10,
+      height: -8,
     },
-    shadowOpacity: 0.14,
-    shadowRadius: 28,
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
     elevation: 10,
   },
   group: {
@@ -182,7 +185,7 @@ const styles = StyleSheet.create({
     height: 68,
     overflow: 'hidden',
     position: 'absolute',
-    top: 0,
+    top: -34,
     width: 68,
     shadowOffset: {
       width: 0,

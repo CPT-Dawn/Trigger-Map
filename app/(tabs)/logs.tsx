@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -14,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { TopGlassBar } from '@/components/navigation/top-glass-bar';
+import { TopGlassBar, useTopGlassBarOffset } from '@/components/navigation/top-glass-bar';
 import { Colors } from '@/constants/theme';
 import {
   DROPDOWN_CATEGORY_CONFIGS,
@@ -58,6 +59,8 @@ function formatLoggedAt(iso: string) {
 }
 
 export default function LogsScreen() {
+  const topOffset = useTopGlassBarOffset();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { resolvedTheme } = useAppTheme();
   const theme = resolvedTheme;
@@ -229,7 +232,7 @@ export default function LogsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.surface }]}>
+    <SafeAreaView edges={['left', 'right']} style={[styles.safeArea, { backgroundColor: colors.surface }]}>
       <View style={StyleSheet.absoluteFill}>
         <View
           style={[
@@ -251,7 +254,7 @@ export default function LogsScreen() {
 
       <TopGlassBar iconName="time-outline" subtitle={headerSubtitle} title="Logs" />
 
-      <View style={styles.screenContent}>
+      <View style={[styles.screenContent, { paddingTop: topOffset, paddingBottom: 8 }]}>
         <View
           style={[
             styles.filterWrap,
@@ -289,7 +292,7 @@ export default function LogsScreen() {
           </View>
         ) : (
           <FlatList
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 36 }]}
             data={entries}
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
@@ -376,7 +379,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     gap: 10,
-    paddingBottom: 128,
   },
   rowCard: {
     borderRadius: 18,
