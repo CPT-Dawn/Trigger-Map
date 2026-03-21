@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { TopGlassBar } from '@/components/navigation/top-glass-bar';
 import { Colors } from '@/constants/theme';
 import { getCurrentUser, signOutCurrentUser, updateCurrentUserProfile } from '@/lib/auth';
 import { type ThemePreference, useAppTheme } from '@/lib/theme';
@@ -23,10 +24,10 @@ const THEME_OPTIONS: {
   label: string;
   helper: string;
 }[] = [
-  { value: 'auto', label: 'Auto', helper: 'Uses your device setting' },
-  { value: 'light', label: 'Light', helper: 'Clinical Curator mode' },
-  { value: 'dark', label: 'Dark', helper: 'Restorative Sanctuary mode' },
-];
+    { value: 'auto', label: 'Auto', helper: 'Uses your device setting' },
+    { value: 'light', label: 'Light', helper: 'Clinical Curator mode' },
+    { value: 'dark', label: 'Dark', helper: 'Restorative Sanctuary mode' },
+  ];
 
 function extractFullName(raw: unknown) {
   if (typeof raw !== 'string') return '';
@@ -213,33 +214,16 @@ export default function SettingsScreen() {
         />
       </View>
 
+      <TopGlassBar
+        iconName="settings-outline"
+        subtitle="Profile, visual mode, and account controls"
+        title="Settings"
+      />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
-        <View
-          style={[
-            styles.heroCard,
-            {
-              backgroundColor: colors.surfaceContainerLow,
-              borderColor: colors.ghostBorder,
-            },
-          ]}>
-          <LinearGradient
-            colors={[colors.gradientStart, colors.gradientEnd]}
-            end={{ x: 1, y: 1 }}
-            start={{ x: 0, y: 0 }}
-            style={styles.heroPill}>
-            <Ionicons color={colors.onPrimary} name="settings-outline" size={16} />
-            <Text style={[styles.heroPillText, { color: colors.onPrimary }]}>Preferences</Text>
-          </LinearGradient>
-
-          <Text style={[styles.heroTitle, { color: colors.text }]}>Settings</Text>
-          <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-            Tune your profile, visual mode, and account behavior in one polished workspace.
-          </Text>
-        </View>
-
         <View
           style={[
             styles.sectionCard,
@@ -423,40 +407,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     gap: 14,
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 2,
     paddingBottom: 130,
-  },
-  heroCard: {
-    borderRadius: 26,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  heroPill: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  heroPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  heroTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-  },
-  heroSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 21,
-    marginTop: 6,
   },
   sectionCard: {
     borderRadius: 22,

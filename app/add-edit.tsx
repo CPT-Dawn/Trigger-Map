@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SmartDropdown } from '@/components/dropdowns/smart-dropdown';
+import { TopGlassBar } from '@/components/navigation/top-glass-bar';
 import { Colors } from '@/constants/theme';
 import {
   DROPDOWN_CATEGORY_CONFIGS,
@@ -263,31 +264,16 @@ export default function AddEditScreen() {
         />
       </View>
 
+      <TopGlassBar
+        iconName="create-outline"
+        leadingIconName="close"
+        onPressLeading={closeModal}
+        showLeading
+        subtitle={isEditMode ? 'Edit existing bundled log' : 'Create a bundled log entry'}
+        title={isEditMode ? 'Edit Log' : 'New Log'}
+      />
+
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View
-          style={[
-            styles.heroCard,
-            {
-              backgroundColor: colors.surfaceContainerLow,
-              borderColor: colors.ghostBorder,
-            },
-          ]}>
-          <LinearGradient
-            colors={[colors.gradientStart, colors.gradientEnd]}
-            end={{ x: 1, y: 1 }}
-            start={{ x: 0, y: 0 }}
-            style={styles.heroPill}>
-            <Text style={[styles.heroPillText, { color: colors.onPrimary }]}>
-              {isEditMode ? 'Edit Bundle Log' : 'New Bundle Log'}
-            </Text>
-          </LinearGradient>
-
-          <Text style={[styles.heroTitle, { color: colors.text }]}>Add / Edit</Text>
-          <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-            Log one or many categories in a single polished entry.
-          </Text>
-        </View>
-
         <View
           style={[
             styles.metaCard,
@@ -472,7 +458,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     gap: 14,
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 2,
     paddingBottom: 34,
   },
   glowPrimary: {
@@ -490,36 +476,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -150,
     width: 340,
-  },
-  heroCard: {
-    borderRadius: 26,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  heroPill: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    marginBottom: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  heroPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  heroTitle: {
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-  },
-  heroSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 21,
-    marginTop: 6,
   },
   metaCard: {
     borderRadius: 22,

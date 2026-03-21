@@ -1,6 +1,5 @@
-import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -15,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { TopGlassBar } from '@/components/navigation/top-glass-bar';
 import { Colors } from '@/constants/theme';
 import {
   DROPDOWN_CATEGORY_CONFIGS,
@@ -162,9 +162,8 @@ export default function LogsScreen() {
   const headerSubtitle = useMemo(() => {
     const activeCount = entries.length;
     if (activeCount === 0) return 'Recent-first timeline';
-    return `${activeCount} ${activeCount === 1 ? 'entry' : 'entries'} in ${
-      LOG_VIEWS.find((view) => view.key === activeView)?.label ?? 'view'
-    }`;
+    return `${activeCount} ${activeCount === 1 ? 'entry' : 'entries'} in ${LOG_VIEWS.find((view) => view.key === activeView)?.label ?? 'view'
+      }`;
   }, [activeView, entries.length]);
 
   const renderItem = ({ item }: { item: LogEntryView }) => {
@@ -250,104 +249,91 @@ export default function LogsScreen() {
         />
       </View>
 
-      <View
-        style={[
-          styles.heroCard,
-          {
-            backgroundColor: colors.surfaceContainerLow,
-            borderColor: colors.ghostBorder,
-          },
-        ]}>
-        <LinearGradient
-          colors={[colors.gradientStart, colors.gradientEnd]}
-          end={{ x: 1, y: 1 }}
-          start={{ x: 0, y: 0 }}
-          style={styles.heroPill}>
-          <Text style={[styles.heroPillText, { color: colors.onPrimary }]}>Logs</Text>
-        </LinearGradient>
+      <TopGlassBar iconName="time-outline" subtitle={headerSubtitle} title="Logs" />
 
-        <Text style={[styles.heroTitle, { color: colors.text }]}>Your Timeline</Text>
-        <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>{headerSubtitle}</Text>
-      </View>
-
-      <View
-        style={[
-          styles.filterWrap,
-          {
-            backgroundColor: colors.surfaceContainerLow,
-            borderColor: colors.ghostBorder,
-          },
-        ]}>
-        {LOG_VIEWS.map((view) => {
-          const selected = activeView === view.key;
-          return (
-            <Pressable
-              key={view.key}
-              accessibilityRole="button"
-              disabled={isLoading || Boolean(isDeletingId)}
-              onPress={() => setActiveView(view.key)}
-              style={[
-                styles.filterChip,
-                {
-                  backgroundColor: selected ? activeFilterBackground : colors.surfaceContainerHigh,
-                },
-              ]}>
-              <Text style={[styles.filterChipText, { color: selected ? colors.primary : colors.textMuted }]}>
-                {view.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {isLoading ? (
-        <View style={styles.loadingState}>
-          <ActivityIndicator color={colors.primary} size="small" />
-          <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading logs...</Text>
-        </View>
-      ) : (
-        <FlatList
-          contentContainerStyle={styles.listContent}
-          data={entries}
-          keyExtractor={(item) => item.id}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-          renderItem={renderItem}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View
-              style={[
-                styles.emptyCard,
-                {
-                  backgroundColor: colors.surfaceContainerLow,
-                  borderColor: colors.ghostBorder,
-                },
-              ]}>
-              <Ionicons color={colors.textMuted} name="sparkles-outline" size={22} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No logs yet in this view</Text>
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>Create one using the center + button.</Text>
-            </View>
-          }
-        />
-      )}
-
-      {errorMessage ? (
+      <View style={styles.screenContent}>
         <View
           style={[
-            styles.errorCard,
+            styles.filterWrap,
             {
-              backgroundColor: colors.surfaceContainer,
+              backgroundColor: colors.surfaceContainerLow,
+              borderColor: colors.ghostBorder,
             },
           ]}>
-          <Text style={[styles.errorText, { color: colors.error }]}>{errorMessage}</Text>
+          {LOG_VIEWS.map((view) => {
+            const selected = activeView === view.key;
+            return (
+              <Pressable
+                key={view.key}
+                accessibilityRole="button"
+                disabled={isLoading || Boolean(isDeletingId)}
+                onPress={() => setActiveView(view.key)}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: selected ? activeFilterBackground : colors.surfaceContainerHigh,
+                  },
+                ]}>
+                <Text style={[styles.filterChipText, { color: selected ? colors.primary : colors.textMuted }]}>
+                  {view.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
-      ) : null}
+
+        {isLoading ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator color={colors.primary} size="small" />
+            <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading logs...</Text>
+          </View>
+        ) : (
+          <FlatList
+            contentContainerStyle={styles.listContent}
+            data={entries}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+            renderItem={renderItem}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View
+                style={[
+                  styles.emptyCard,
+                  {
+                    backgroundColor: colors.surfaceContainerLow,
+                    borderColor: colors.ghostBorder,
+                  },
+                ]}>
+                <Ionicons color={colors.textMuted} name="sparkles-outline" size={22} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>No logs yet in this view</Text>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>Create one using the center + button.</Text>
+              </View>
+            }
+          />
+        )}
+
+        {errorMessage ? (
+          <View
+            style={[
+              styles.errorCard,
+              {
+                backgroundColor: colors.surfaceContainer,
+              },
+            ]}>
+            <Text style={[styles.errorText, { color: colors.error }]}>{errorMessage}</Text>
+          </View>
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
+    flex: 1,
+  },
+  screenContent: {
     flex: 1,
     paddingHorizontal: 16,
   },
@@ -366,38 +352,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -150,
     width: 340,
-  },
-  heroCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    marginTop: 10,
-    marginBottom: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  heroPill: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    marginBottom: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  heroPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-    textTransform: 'uppercase',
-  },
-  heroTitle: {
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 4,
   },
   filterWrap: {
     borderRadius: 999,

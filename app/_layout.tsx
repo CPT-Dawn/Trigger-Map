@@ -1,9 +1,9 @@
 import { ThemeProvider } from '@react-navigation/native';
+import type { Session } from '@supabase/supabase-js';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import type { Session } from '@supabase/supabase-js';
 import 'react-native-reanimated';
 
 import { Colors, NavigationThemes } from '@/constants/theme';
@@ -114,13 +114,8 @@ function RootLayoutNavigator() {
         <Stack.Screen
           name="add-edit"
           options={{
-            title: 'Add/Edit',
+            headerShown: false,
             presentation: 'modal',
-            headerStyle: {
-              backgroundColor: colors.surfaceContainerHigh,
-            },
-            headerShadowVisible: false,
-            headerTintColor: colors.text,
             contentStyle: { backgroundColor: colors.surface },
           }}
         />
