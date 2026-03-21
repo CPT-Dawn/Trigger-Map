@@ -31,6 +31,9 @@ In your Supabase project:
    - Enable `Email`
 2. `Authentication` -> `URL Configuration`:
    - Optional reset redirect URL: `triggermap://login`
+3. `SQL Editor`:
+   - Run `supabase/migrations/20260321070000_smart_dropdowns.sql`
+   - Then run `supabase/seed/dropdown_defaults.sql`
 
 ## 4. Important Notes
 
@@ -39,3 +42,9 @@ In your Supabase project:
   - Logged-in users are moved to tabs.
   - Logged-out users are routed to login from protected routes.
 - Google/Phone buttons in UI are intentionally marked as coming soon.
+- Smart dropdown behavior:
+  - Defaults are global and seeded from the database.
+  - Typed custom options are saved per user only.
+  - Custom options are case-insensitive unique per dropdown category.
+  - Long-press dropdown options to hide default options or rename/delete custom options.
+  - Use `Restore` in each dropdown sheet to bring back hidden default options.
