@@ -219,7 +219,6 @@ export default function SettingsScreen() {
 
       <TopGlassBar
         iconName="settings-outline"
-        subtitle="Profile, visual mode, and account controls"
         title="Settings"
       />
 

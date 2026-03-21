@@ -271,7 +271,6 @@ export default function AddEditScreen() {
         leadingIconName="close"
         onPressLeading={closeModal}
         showLeading
-        subtitle={isEditMode ? 'Edit existing bundled log' : 'Create a bundled log entry'}
         title={isEditMode ? 'Edit Log' : 'New Log'}
       />
 

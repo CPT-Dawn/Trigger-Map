@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { useRouter } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,7 +11,6 @@ type IconName = keyof typeof Ionicons.glyphMap;
 
 type TopGlassBarProps = {
     title: string;
-    subtitle?: string;
     iconName?: IconName;
     showLeading?: boolean;
     leadingIconName?: IconName;
@@ -27,16 +27,21 @@ export function useTopGlassBarOffset() {
 
 export function TopGlassBar({
     title,
-    subtitle,
     iconName,
     showLeading = false,
     leadingIconName = 'chevron-back',
     onPressLeading,
 }: TopGlassBarProps) {
+    const router = useRouter();
     const insets = useSafeAreaInsets();
     const { resolvedTheme } = useAppTheme();
     const theme = resolvedTheme;
     const colors = Colors[theme];
+
+    const handlePressProfile = () => {
+        if (title === 'Settings') return;
+        router.push('/(tabs)/settings');
+    };
 
     return (
         <View style={styles.wrap}>
@@ -75,14 +80,17 @@ export function TopGlassBar({
                             {title}
                         </Text>
                     </View>
-                    {subtitle ? (
-                        <Text numberOfLines={1} style={[styles.subtitle, { color: colors.textMuted }]}>
-                            {subtitle}
-                        </Text>
-                    ) : null}
                 </View>
 
-                <View style={styles.trailingPlaceholder} />
+                <Pressable
+                    accessibilityLabel="Open profile settings"
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={handlePressProfile}
+                    style={[styles.profileButton, { backgroundColor: colors.surfaceContainerLow }]}
+                >
+                    <Ionicons color={colors.text} name="person-circle-outline" size={18} />
+                </Pressable>
             </BlurView>
         </View>
     );
@@ -124,25 +132,24 @@ const styles = StyleSheet.create({
     centerCopy: {
         flex: 1,
         paddingHorizontal: 10,
+        justifyContent: 'center',
     },
     titleRow: {
         alignItems: 'center',
         flexDirection: 'row',
         gap: 6,
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
     },
     title: {
         fontSize: 16,
         fontWeight: '800',
         letterSpacing: -0.2,
     },
-    subtitle: {
-        fontSize: 11.5,
-        fontWeight: '600',
-        marginTop: 2,
-        textAlign: 'center',
-    },
-    trailingPlaceholder: {
+    profileButton: {
+        alignItems: 'center',
+        borderRadius: 12,
+        height: 34,
+        justifyContent: 'center',
         width: 34,
     },
 });

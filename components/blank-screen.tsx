@@ -11,11 +11,10 @@ type IconName = keyof typeof Ionicons.glyphMap;
 
 type BlankScreenProps = {
   title: string;
-  subtitle: string;
   iconName: IconName;
 };
 
-export function BlankScreen({ title, subtitle, iconName }: BlankScreenProps) {
+export function BlankScreen({ title, iconName }: BlankScreenProps) {
   const topOffset = useTopGlassBarOffset();
   const tabBarHeight = useBottomTabBarHeight();
   const { resolvedTheme } = useAppTheme();
@@ -24,7 +23,7 @@ export function BlankScreen({ title, subtitle, iconName }: BlankScreenProps) {
 
   return (
     <SafeAreaView edges={['left', 'right']} style={[styles.container, { backgroundColor: colors.surface }]}>
-      <TopGlassBar iconName={iconName} subtitle={subtitle} title={title} />
+      <TopGlassBar iconName={iconName} title={title} />
       <View
         style={[
           styles.placeholderWrap,

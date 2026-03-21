@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -162,13 +162,6 @@ export default function LogsScreen() {
     ]);
   };
 
-  const headerSubtitle = useMemo(() => {
-    const activeCount = entries.length;
-    if (activeCount === 0) return 'Recent-first timeline';
-    return `${activeCount} ${activeCount === 1 ? 'entry' : 'entries'} in ${LOG_VIEWS.find((view) => view.key === activeView)?.label ?? 'view'
-      }`;
-  }, [activeView, entries.length]);
-
   const renderItem = ({ item }: { item: LogEntryView }) => {
     const categories = LOG_CATEGORY_ORDER.filter((category) => Boolean(item.itemsByCategory[category]));
 
@@ -252,7 +245,7 @@ export default function LogsScreen() {
         />
       </View>
 
-      <TopGlassBar iconName="time-outline" subtitle={headerSubtitle} title="Logs" />
+      <TopGlassBar iconName="time-outline" title="Logs" />
 
       <View style={[styles.screenContent, { paddingTop: topOffset, paddingBottom: 8 }]}>
         <View
