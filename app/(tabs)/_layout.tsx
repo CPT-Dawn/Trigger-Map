@@ -30,12 +30,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="track"
-        options={{
-          title: 'Track',
-        }}
-      />
-      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',

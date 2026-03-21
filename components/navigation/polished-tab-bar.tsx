@@ -13,7 +13,6 @@ import { useAppTheme } from '@/lib/theme';
 const ICONS = {
   index: { active: 'home', inactive: 'home-outline' },
   logs: { active: 'list', inactive: 'list-outline' },
-  track: { active: 'pulse', inactive: 'pulse-outline' },
   settings: { active: 'settings', inactive: 'settings-outline' },
 } as const;
 
@@ -33,8 +32,7 @@ export function PolishedTabBar({ state, descriptors, navigation }: BottomTabBarP
   const theme = resolvedTheme;
   const colors = Colors[theme];
 
-  const leftRoutes = state.routes.slice(0, 2);
-  const rightRoutes = state.routes.slice(2);
+  const navRoutes = state.routes;
 
   const activeChip =
     theme === 'dark' ? 'rgba(186, 195, 255, 0.16)' : 'rgba(3, 22, 50, 0.08)';
@@ -110,26 +108,25 @@ export function PolishedTabBar({ state, descriptors, navigation }: BottomTabBarP
             paddingBottom: Math.max(insets.bottom, 10),
           },
         ]}>
-        <View style={styles.group}>{leftRoutes.map(renderRoute)}</View>
-        <View style={styles.centerGap} />
-        <View style={styles.group}>{rightRoutes.map(renderRoute)}</View>
-      </BlurView>
+        <View style={styles.row}>{navRoutes.map(renderRoute)}</View>
 
-      <Pressable
-        accessibilityLabel="Add or edit"
-        accessibilityRole="button"
-        style={[styles.addButton, { shadowColor: colors.primary }]}
-        onPress={onPressAdd}>
-        <LinearGradient
-          colors={[colors.gradientStart, colors.gradientEnd]}
-          end={{ x: 1, y: 1 }}
-          start={{ x: 0, y: 0 }}
-          style={styles.addGradient}>
-          <View style={[styles.addInnerRing, { borderColor: colors.ghostBorder }]}>
-            <Ionicons color={colors.onPrimary} name="add" size={30} />
-          </View>
-        </LinearGradient>
-      </Pressable>
+        <Pressable
+          accessibilityLabel="Add or edit"
+          accessibilityRole="button"
+          onPress={onPressAdd}
+          style={[styles.addButton, { shadowColor: colors.primary }]}
+        >
+          <LinearGradient
+            colors={[colors.gradientStart, colors.gradientEnd]}
+            end={{ x: 1, y: 1 }}
+            start={{ x: 0, y: 0 }}
+            style={styles.addGradient}>
+            <View style={[styles.addInnerRing, { borderColor: colors.ghostBorder }]}>
+              <Ionicons color={colors.onPrimary} name="add" size={22} />
+            </View>
+          </LinearGradient>
+        </Pressable>
+      </BlurView>
     </View>
   );
 }
@@ -146,10 +143,11 @@ const styles = StyleSheet.create({
   bar: {
     borderTopWidth: 1,
     flexDirection: 'row',
+    alignItems: 'center',
     width: '100%',
-    minHeight: 86,
+    minHeight: 82,
     paddingHorizontal: 12,
-    paddingTop: 14,
+    paddingTop: 10,
     shadowOffset: {
       width: 0,
       height: -8,
@@ -158,23 +156,21 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
-  group: {
-    alignItems: 'center',
+  row: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
-  },
-  centerGap: {
-    width: 74,
+    paddingRight: 10,
+    gap: 2,
   },
   tabButton: {
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: 16,
+    flex: 1,
     justifyContent: 'center',
-    minWidth: 62,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
+    minHeight: 46,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
   },
   tabLabel: {
     fontSize: 11,
@@ -182,19 +178,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   addButton: {
-    borderRadius: 32,
-    height: 64,
+    borderRadius: 16,
+    height: 50,
     overflow: 'hidden',
-    position: 'absolute',
-    top: -30,
-    width: 64,
+    width: 50,
     shadowOffset: {
       width: 0,
-      height: 12,
+      height: 8,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 30,
-    elevation: 12,
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 8,
   },
   addGradient: {
     alignItems: 'center',
@@ -203,10 +197,10 @@ const styles = StyleSheet.create({
   },
   addInnerRing: {
     alignItems: 'center',
-    borderRadius: 24,
+    borderRadius: 14,
     borderWidth: 1,
-    height: 48,
+    height: 40,
     justifyContent: 'center',
-    width: 48,
+    width: 40,
   },
 });
