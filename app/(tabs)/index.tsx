@@ -1,5 +1,0 @@
-import { BlankScreen } from '@/components/blank-screen';
-
-export default function HomeScreen() {
-  return <BlankScreen iconName="home-outline" title="Home" />;
-}

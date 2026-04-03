@@ -1,61 +1,31 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import { createClient } from '@supabase/supabase-js';
-import 'react-native-url-polyfill/auto';
+import * as SecureStore from 'expo-secure-store';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const env =
+	(globalThis as { process?: { env?: Record<string, string | undefined> } })
+		.process?.env ?? {};
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+const supabaseUrl = env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-export const supabaseConfigError =
-  'Supabase is not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.';
-
-if (!isSupabaseConfigured) {
-  // Keep development feedback explicit; auth calls still guard against this.
-  console.warn(supabaseConfigError);
+if (!supabaseUrl || !supabaseAnonKey) {
+	throw new Error(
+		'Missing Supabase environment variables. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env.'
+	);
 }
 
-/**
- * Supabase session payloads can exceed SecureStore limits (~2KB),
- * so we persist sessions in AsyncStorage.
- * We still read legacy SecureStore entries once and migrate them.
- */
-const authStorage = {
-  getItem: async (key: string) => {
-    const value = await AsyncStorage.getItem(key);
-    if (value !== null) {
-      return value;
-    }
-
-    try {
-      const legacyValue = await SecureStore.getItemAsync(key);
-      if (legacyValue !== null) {
-        await AsyncStorage.setItem(key, legacyValue);
-        await SecureStore.deleteItemAsync(key);
-      }
-      return legacyValue;
-    } catch {
-      return null;
-    }
-  },
-  setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
-  removeItem: async (key: string) => {
-    await AsyncStorage.removeItem(key);
-    try {
-      await SecureStore.deleteItemAsync(key);
-    } catch {
-      // Ignore legacy cleanup failures.
-    }
-  },
+const secureStoreAdapter = {
+	getItem: (key: string) => SecureStore.getItemAsync(key),
+	setItem: (key: string, value: string) =>
+		SecureStore.setItemAsync(key, value),
+	removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
-export const supabase = createClient(supabaseUrl ?? 'https://invalid.local', supabaseAnonKey ?? 'invalid-key', {
-  auth: {
-    storage: authStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-    flowType: 'pkce',
-  },
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+	auth: {
+		storage: secureStoreAdapter,
+		autoRefreshToken: true,
+		persistSession: true,
+		detectSessionInUrl: false,
+	},
 });

@@ -1,46 +1,29 @@
 {
   "expo": {
-    "name": "Trigger-Map",
-    "slug": "Trigger-Map",
+    "name": "TriggerMap",
+    "slug": "TriggerMap",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "triggermap",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#f2f4f6",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "edgeToEdgeEnabled": true
     },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#f7f9fb",
-          "dark": {
-            "backgroundColor": "#131313"
-          }
-        }
-      ],
-      "expo-secure-store",
-      "expo-font"
-    ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+    "web": {
+      "favicon": "./assets/favicon.png"
     }
   }
 }
