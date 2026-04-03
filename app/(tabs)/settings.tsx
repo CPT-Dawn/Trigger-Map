@@ -4,14 +4,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -356,7 +356,7 @@ export default function SettingsScreen() {
           ]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Account</Text>
           <Text style={[styles.themeDescription, { color: colors.textMuted }]}>
-            Manage your sign-in session and account access.
+            Log Out to switch your account?
           </Text>
 
           <Pressable

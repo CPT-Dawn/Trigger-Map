@@ -150,11 +150,11 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     shadowOffset: {
       width: 0,
-      height: -8,
+      height: -2,
     },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
   row: {
     flex: 1,

@@ -171,11 +171,11 @@ const styles = StyleSheet.create({
         paddingBottom: 10,
         shadowOffset: {
             width: 0,
-            height: 6,
+            height: 2,
         },
-        shadowOpacity: 0.1,
-        shadowRadius: 18,
-        elevation: 6,
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 2,
     },
     leadingButton: {
         alignItems: 'center',
