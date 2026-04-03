@@ -18,6 +18,7 @@ type TopGlassBarProps = {
     showLeading?: boolean;
     leadingIconName?: IconName;
     onPressLeading?: () => void;
+    isModal?: boolean;
 };
 
 const TOP_BAR_HEIGHT = 56;
@@ -41,9 +42,10 @@ function extractFullName(raw: unknown) {
     return raw.trim();
 }
 
-export function useTopGlassBarOffset() {
+export function useTopGlassBarOffset(isModal = false) {
     const insets = useSafeAreaInsets();
-    return insets.top + TOP_BAR_HEIGHT + TOP_BAR_SPACING;
+    const effectiveTop = Platform.OS === 'ios' && isModal ? 0 : insets.top;
+    return effectiveTop + TOP_BAR_HEIGHT + TOP_BAR_SPACING;
 }
 
 export function TopGlassBar({
@@ -52,6 +54,7 @@ export function TopGlassBar({
     showLeading = false,
     leadingIconName = 'chevron-back',
     onPressLeading,
+    isModal = false,
 }: TopGlassBarProps) {
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -60,6 +63,8 @@ export function TopGlassBar({
     const colors = Colors[theme];
     const [profileName, setProfileName] = useState('');
     const [profileEmail, setProfileEmail] = useState('');
+
+    const effectiveTop = Platform.OS === 'ios' && isModal ? 0 : insets.top;
 
     const profileInitials = useMemo(() => toInitials(profileName, profileEmail), [profileEmail, profileName]);
 
@@ -110,7 +115,7 @@ export function TopGlassBar({
                 style={[
                     styles.bar,
                     {
-                        paddingTop: insets.top + 6,
+                        paddingTop: effectiveTop + 19,
                     },
                     {
                         backgroundColor: colors.glassSurface,

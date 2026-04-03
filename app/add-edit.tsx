@@ -94,7 +94,7 @@ function toSingleParam(value: string | string[] | undefined) {
 }
 
 export default function AddEditScreen() {
-  const topOffset = useTopGlassBarOffset();
+  const topOffset = useTopGlassBarOffset(true);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ entryId?: string | string[]; focusCategory?: string | string[] }>();
@@ -268,6 +268,7 @@ export default function AddEditScreen() {
 
       <TopGlassBar
         iconName="create-outline"
+        isModal={true}
         leadingIconName="close"
         onPressLeading={closeModal}
         showLeading
