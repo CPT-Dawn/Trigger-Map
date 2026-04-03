@@ -4,14 +4,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -25,9 +25,9 @@ const THEME_OPTIONS: {
   label: string;
   helper: string;
 }[] = [
-    { value: 'auto', label: 'Auto', helper: 'Uses your device setting' },
-    { value: 'light', label: 'Light', helper: 'Clinical Curator mode' },
-    { value: 'dark', label: 'Dark', helper: 'Restorative Sanctuary mode' },
+    { value: 'auto', label: 'Auto', helper: 'Match your device appearance settings.' },
+    { value: 'light', label: 'Light', helper: 'Use a bright interface for daytime viewing.' },
+    { value: 'dark', label: 'Dark', helper: 'Use a darker interface for low-light comfort.' },
   ];
 
 function extractFullName(raw: unknown) {
@@ -48,12 +48,6 @@ function toInitials(name: string, email: string) {
   return parts.map((part) => part[0]?.toUpperCase() ?? '').join('');
 }
 
-function toAccountChip(userId: string) {
-  if (!userId) return 'No account id';
-  if (userId.length <= 14) return userId;
-  return `${userId.slice(0, 8)}...${userId.slice(-6)}`;
-}
-
 export default function SettingsScreen() {
   const topOffset = useTopGlassBarOffset();
   const tabBarHeight = useBottomTabBarHeight();
@@ -66,7 +60,6 @@ export default function SettingsScreen() {
   const [fullName, setFullName] = useState('');
   const [draftFullName, setDraftFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [userId, setUserId] = useState('');
   const [isNameFocused, setIsNameFocused] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -102,7 +95,6 @@ export default function SettingsScreen() {
       setFullName('');
       setDraftFullName('');
       setEmail('');
-      setUserId('');
       setProfileError('No authenticated session found. Please sign in again.');
       setIsProfileLoading(false);
       return;
@@ -113,7 +105,6 @@ export default function SettingsScreen() {
     setFullName(nextFullName);
     setDraftFullName(nextFullName);
     setEmail(user.email ?? '');
-    setUserId(user.id);
     setIsProfileLoading(false);
   }, []);
 
@@ -254,10 +245,10 @@ export default function SettingsScreen() {
 
             <View style={styles.profileTextWrap}>
               <Text style={[styles.profileName, { color: colors.text }]}>
-                {fullName || 'Personal Profile'}
+                {fullName || 'Your Profile'}
               </Text>
               <Text style={[styles.profileEmail, { color: colors.textMuted }]}>
-                {email || 'No email found for current session'}
+                {email || 'No email address is available for this account.'}
               </Text>
             </View>
           </View>
@@ -268,7 +259,7 @@ export default function SettingsScreen() {
             onBlur={() => setIsNameFocused(false)}
             onChangeText={setDraftFullName}
             onFocus={() => setIsNameFocused(true)}
-            placeholder="Enter your full name"
+            placeholder="Enter your display name"
             placeholderTextColor={colors.outline}
             style={[
               styles.input,
@@ -280,13 +271,6 @@ export default function SettingsScreen() {
             ]}
             value={draftFullName}
           />
-
-          <View style={styles.accountIdRow}>
-            <Ionicons color={colors.textMuted} name="finger-print-outline" size={15} />
-            <Text style={[styles.accountIdText, { color: colors.textMuted }]}>
-              Account: {toAccountChip(userId)}
-            </Text>
-          </View>
 
           {profileError ? (
             <Text style={[styles.profileErrorText, { color: colors.error }]}>{profileError}</Text>
@@ -325,7 +309,7 @@ export default function SettingsScreen() {
           ]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Theme</Text>
           <Text style={[styles.themeDescription, { color: colors.textMuted }]}>
-            Choose how Trigger Map should feel across iOS and Android.
+            Choose how Trigger Map appears across your devices.
           </Text>
 
           <View style={[styles.segmentedTrack, { backgroundColor: colors.surfaceContainerHigh }]}>
@@ -358,7 +342,7 @@ export default function SettingsScreen() {
           </View>
 
           <Text style={[styles.themeHelper, { color: colors.textMuted }]}>
-            {isThemeSaving ? 'Applying theme...' : selectedThemeHelper}
+            {isThemeSaving ? 'Updating appearance settings...' : selectedThemeHelper}
           </Text>
         </View>
 
@@ -372,7 +356,7 @@ export default function SettingsScreen() {
           ]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Account</Text>
           <Text style={[styles.themeDescription, { color: colors.textMuted }]}>
-            Manage your session securely.
+            Manage your sign-in session and account access.
           </Text>
 
           <Pressable
@@ -474,16 +458,6 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 14,
     paddingVertical: 10,
-  },
-  accountIdRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 10,
-  },
-  accountIdText: {
-    fontSize: 12,
-    fontWeight: '500',
   },
   profileErrorText: {
     fontSize: 13,
