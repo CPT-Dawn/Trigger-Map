@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,7 +16,6 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SmartDropdown } from '@/components/dropdowns/smart-dropdown';
-import { TopGlassBar, useTopGlassBarOffset } from '@/components/navigation/top-glass-bar';
 import { Colors } from '@/constants/theme';
 import {
   DROPDOWN_CATEGORY_CONFIGS,
@@ -94,7 +94,6 @@ function toSingleParam(value: string | string[] | undefined) {
 }
 
 export default function AddEditScreen() {
-  const topOffset = useTopGlassBarOffset(true);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ entryId?: string | string[]; focusCategory?: string | string[] }>();
@@ -266,17 +265,23 @@ export default function AddEditScreen() {
         />
       </View>
 
-      <TopGlassBar
-        iconName="create-outline"
-        isModal={true}
-        leadingIconName="close"
-        onPressLeading={closeModal}
-        showLeading
-        title={isEditMode ? 'Edit Log' : 'New Log'}
-      />
+      <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 24 : Math.max(insets.top + 12, 24) }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          {isEditMode ? 'Edit Log' : 'New Log'}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={closeModal}
+          style={[
+            styles.closeButton,
+            { backgroundColor: colors.surfaceContainerHigh },
+          ]}>
+          <Ionicons color={colors.text} name="close" size={24} />
+        </Pressable>
+      </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: topOffset, paddingBottom: insets.bottom + 20 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
         keyboardShouldPersistTaps="handled">
         <View
           style={[
@@ -458,6 +463,26 @@ export default function AddEditScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+  },
+  header: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    zIndex: 10,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  closeButton: {
+    alignItems: 'center',
+    borderRadius: 99,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
   },
   scrollContent: {
     gap: 14,

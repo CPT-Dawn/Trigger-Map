@@ -21,7 +21,7 @@ type TopGlassBarProps = {
     isModal?: boolean;
 };
 
-const TOP_BAR_HEIGHT = 56;
+const TOP_BAR_HEIGHT = 44;
 const TOP_BAR_SPACING = 18;
 
 function toInitials(name: string, email: string) {
@@ -115,7 +115,7 @@ export function TopGlassBar({
                 style={[
                     styles.bar,
                     {
-                        paddingTop: effectiveTop + 19,
+                        paddingTop: effectiveTop,
                     },
                     {
                         backgroundColor: colors.glassSurface,
