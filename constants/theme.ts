@@ -1,4 +1,5 @@
 import { DarkTheme, DefaultTheme, type Theme } from '@react-navigation/native';
+import type { ColorSchemeName } from 'react-native';
 
 /**
  * Semantic color tokens for Trigger Map.
@@ -144,6 +145,10 @@ export const Typography = {
 
 export type ThemeMode = keyof typeof Colors;
 export type ColorToken = keyof (typeof Colors)['light'];
+
+export function resolveColors(colorScheme: ColorSchemeName) {
+  return colorScheme === 'dark' ? Colors.dark : Colors.light;
+}
 
 export const NavigationThemes: Record<ThemeMode, Theme> = {
   light: {

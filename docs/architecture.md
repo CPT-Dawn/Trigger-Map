@@ -3,7 +3,7 @@
 ## 1. Project Overview
 Trigger-Map is a health tracking app designed to find correlations between food, medicine, weather, and symptom triggers (pain/stress). 
 - **Primary Target:** Android.
-- **Tech Stack:** React Native (Expo Router), Bun, Supabase, React Native Paper.
+- **Tech Stack:** React Native Expo SDK 55 (Expo Router), Bun, Supabase, React Native Paper.
 
 ## 2. Design System & UI Rules (CRITICAL)
 To maintain a modern, beautiful, and consistent Android-inclined aesthetic:
