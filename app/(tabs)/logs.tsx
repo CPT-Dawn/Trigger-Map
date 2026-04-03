@@ -2,13 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -24,6 +26,8 @@ import {
 } from '@/lib/dropdowns';
 import { deleteLogEntry, getLogEntries, type LogEntryView, type LogView } from '@/lib/logs';
 import { useAppTheme } from '@/lib/theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const LOG_VIEWS: { key: LogView; label: string }[] = [
   { key: 'combined', label: 'Combined' },
@@ -58,6 +62,174 @@ function formatLoggedAt(iso: string) {
   });
 }
 
+const CategoryLogList = memo(({
+  viewKey,
+  isActive,
+  onOpenEntry,
+  onConfirmDelete,
+  isDeletingId,
+  theme,
+  colors,
+  tabBarHeight
+}: {
+  viewKey: LogView;
+  isActive: boolean;
+  onOpenEntry: (entry: LogEntryView, viewKey: LogView) => void;
+  onConfirmDelete: (entry: LogEntryView) => void;
+  isDeletingId: string | null;
+  theme: 'light' | 'dark';
+  colors: any;
+  tabBarHeight: number;
+}) => {
+  const [entries, setEntries] = useState<LogEntryView[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const loadLogs = useCallback(
+    async (refreshing = false) => {
+      if (refreshing) setIsRefreshing(true);
+      else setIsLoading(true);
+
+      const result = await getLogEntries(viewKey, 80);
+
+      if (result.error) {
+        setErrorMessage(result.error);
+        setEntries([]);
+      } else {
+        setErrorMessage(null);
+        setEntries(result.data ?? []);
+      }
+      setIsLoading(false);
+      setIsRefreshing(false);
+    },
+    [viewKey]
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isActive) {
+        void loadLogs();
+      }
+    }, [isActive, loadLogs])
+  );
+
+  useEffect(() => {
+    if (isActive && entries.length === 0 && !isLoading) {
+      void loadLogs();
+    }
+  }, [isActive]);
+
+  const onRefresh = () => {
+    void loadLogs(true);
+  };
+
+  const renderItem = useCallback(
+    ({ item }: { item: LogEntryView }) => {
+      const categories = LOG_CATEGORY_ORDER.filter((category) => Boolean(item.itemsByCategory[category]));
+
+      return (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onOpenEntry(item, viewKey)}
+          style={[
+            styles.rowCard,
+            {
+              backgroundColor: colors.surfaceContainerLow,
+              borderColor: colors.ghostBorder,
+            },
+          ]}>
+          <View style={styles.rowTop}>
+            <View style={styles.rowTimeWrap}>
+              <Ionicons color={colors.textMuted} name="time-outline" size={14} />
+              <Text style={[styles.rowTimeText, { color: colors.textMuted }]}>{formatLoggedAt(item.loggedAt)}</Text>
+            </View>
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={Boolean(isDeletingId)}
+              hitSlop={8}
+              onPress={() => onConfirmDelete(item)}
+              style={styles.deleteButton}>
+              {isDeletingId === item.id ? (
+                <ActivityIndicator color={colors.error} size="small" />
+              ) : (
+                <Ionicons color={colors.error} name="trash-outline" size={18} />
+              )}
+            </Pressable>
+          </View>
+
+          <View style={styles.chipsWrap}>
+            {categories.map((category) => {
+              const option = item.itemsByCategory[category];
+              if (!option) return null;
+
+              const isViewCategory = viewKey !== 'combined' && viewKey === category;
+              const chipBackground = isViewCategory ? colors.primaryContainer : colors.surfaceContainerHigh;
+              const chipText = isViewCategory ? colors.onPrimaryContainer : colors.text;
+
+              return (
+                <View key={`${item.id}:${category}`} style={[styles.categoryChip, { backgroundColor: chipBackground }]}>
+                  <Text numberOfLines={1} style={[styles.categoryChipText, { color: chipText }]}>
+                    {CATEGORY_LABEL_MAP[category]}: {option.label}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {item.note ? (
+            <Text numberOfLines={2} style={[styles.noteText, { color: colors.textMuted }]}>
+              {item.note}
+            </Text>
+          ) : null}
+        </Pressable>
+      );
+    },
+    [viewKey, onOpenEntry, onConfirmDelete, isDeletingId, colors]
+  );
+
+  return (
+    <View style={{ width: SCREEN_WIDTH }}>
+      {isLoading && !isRefreshing && entries.length === 0 ? (
+        <View style={styles.loadingState}>
+          <ActivityIndicator color={colors.primary} size="small" />
+          <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading logs...</Text>
+        </View>
+      ) : (
+        <FlatList
+          contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 36, paddingHorizontal: 16 }]}
+          data={entries}
+          keyExtractor={(item) => item.id}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View
+              style={[
+                styles.emptyCard,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.ghostBorder,
+                },
+              ]}>
+              <Ionicons color={colors.textMuted} name="sparkles-outline" size={22} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No logs yet in this view</Text>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>Create one using the center + button.</Text>
+            </View>
+          }
+        />
+      )}
+      {errorMessage ? (
+        <View style={[styles.errorCard, { backgroundColor: colors.surfaceContainer, marginHorizontal: 16 }]}>
+          <Text style={[styles.errorText, { color: colors.error }]}>{errorMessage}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+});
+
 export default function LogsScreen() {
   const topOffset = useTopGlassBarOffset();
   const tabBarHeight = useBottomTabBarHeight();
@@ -66,68 +238,33 @@ export default function LogsScreen() {
   const theme = resolvedTheme;
   const colors = Colors[theme];
 
-  const [activeView, setActiveView] = useState<LogView>('combined');
-  const [entries, setEntries] = useState<LogEntryView[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const flatListRef = useRef<FlatList>(null);
+  const navScrollRef = useRef<ScrollView>(null);
 
   const activeFilterBackground = theme === 'dark' ? 'rgba(186, 195, 255, 0.22)' : 'rgba(3, 22, 50, 0.08)';
 
-  const loadLogs = useCallback(
-    async (refreshing = false) => {
-      if (refreshing) {
-        setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
-      }
-
-      const result = await getLogEntries(activeView, 80);
-
-      if (result.error) {
-        setErrorMessage(result.error);
-        setEntries([]);
-        setIsLoading(false);
-        setIsRefreshing(false);
+  const openEntry = useCallback(
+    (entry: LogEntryView, viewKey: LogView) => {
+      if (viewKey === 'combined') {
+        router.push({
+          pathname: '/add-edit',
+          params: { entryId: entry.id },
+        });
         return;
       }
-
-      setErrorMessage(null);
-      setEntries(result.data ?? []);
-      setIsLoading(false);
-      setIsRefreshing(false);
-    },
-    [activeView]
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadLogs(false);
-    }, [loadLogs])
-  );
-
-  const onRefresh = () => {
-    void loadLogs(true);
-  };
-
-  const openEntry = (entry: LogEntryView) => {
-    if (activeView === 'combined') {
       router.push({
         pathname: '/add-edit',
-        params: { entryId: entry.id },
+        params: {
+          entryId: entry.id,
+          focusCategory: viewKey,
+        },
       });
-      return;
-    }
-
-    router.push({
-      pathname: '/add-edit',
-      params: {
-        entryId: entry.id,
-        focusCategory: activeView,
-      },
-    });
-  };
+    },
+    [router]
+  );
 
   const handleDeleteEntry = async (entryId: string) => {
     if (isDeletingId) return;
@@ -140,198 +277,140 @@ export default function LogsScreen() {
       Alert.alert('Delete Failed', result.error);
       return;
     }
-
-    await loadLogs(false);
+    
+    // Changing standard refetch logic, might need to re-trigger for active pane:
+    // Focus effect in the CategoryLogList should re-fetch natively if log deleted,
+    // or we can refresh just by a small event, but we don't have global state. Let's just 
+    // force an update but since child relies on `useFocusEffect`, we may need a global trigger.
+    // For simplicity, a user deleting it directly causes it to disappear on next focus, 
+    // or we can rely on a fast reload. Let's rely on standard reload by setting state slightly,
+    // or we'll just let React navigation unmount/mount doing its thing, but it stays mounted...
+    // To simplify: I'll increment a key to remount the list.
+    setRefetchTick(t => t + 1);
   };
 
-  const confirmDeleteEntry = (entry: LogEntryView) => {
-    if (isDeletingId) return;
+  const [refetchTick, setRefetchTick] = useState(0);
 
-    Alert.alert('Delete Log', 'This permanently removes this bundled log entry.', [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          void handleDeleteEntry(entry.id);
-        },
-      },
-    ]);
+  const confirmDeleteEntry = useCallback(
+    (entry: LogEntryView) => {
+      if (isDeletingId) return;
+
+      Alert.alert('Delete Log', 'This permanently removes this bundled log entry.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => void handleDeleteEntry(entry.id) },
+      ]);
+    },
+    [isDeletingId]
+  );
+
+  const handleTabPress = (index: number) => {
+    setActiveIndex(index);
+    flatListRef.current?.scrollToIndex({ index, animated: true });
   };
 
-  const renderItem = ({ item }: { item: LogEntryView }) => {
-    const categories = LOG_CATEGORY_ORDER.filter((category) => Boolean(item.itemsByCategory[category]));
-
-    return (
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => openEntry(item)}
-        style={[
-          styles.rowCard,
-          {
-            backgroundColor: colors.surfaceContainerLow,
-            borderColor: colors.ghostBorder,
-          },
-        ]}>
-        <View style={styles.rowTop}>
-          <View style={styles.rowTimeWrap}>
-            <Ionicons color={colors.textMuted} name="time-outline" size={14} />
-            <Text style={[styles.rowTimeText, { color: colors.textMuted }]}>{formatLoggedAt(item.loggedAt)}</Text>
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            disabled={Boolean(isDeletingId)}
-            hitSlop={8}
-            onPress={() => confirmDeleteEntry(item)}
-            style={styles.deleteButton}>
-            {isDeletingId === item.id ? (
-              <ActivityIndicator color={colors.error} size="small" />
-            ) : (
-              <Ionicons color={colors.error} name="trash-outline" size={18} />
-            )}
-          </Pressable>
-        </View>
-
-        <View style={styles.chipsWrap}>
-          {categories.map((category) => {
-            const option = item.itemsByCategory[category];
-            if (!option) return null;
-
-            const isViewCategory = activeView !== 'combined' && activeView === category;
-            const chipBackground = isViewCategory ? colors.primaryContainer : colors.surfaceContainerHigh;
-            const chipText = isViewCategory ? colors.onPrimaryContainer : colors.text;
-
-            return (
-              <View key={`${item.id}:${category}`} style={[styles.categoryChip, { backgroundColor: chipBackground }]}>
-                <Text numberOfLines={1} style={[styles.categoryChipText, { color: chipText }]}>
-                  {CATEGORY_LABEL_MAP[category]}: {option.label}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-
-        {item.note ? (
-          <Text numberOfLines={2} style={[styles.noteText, { color: colors.textMuted }]}>
-            {item.note}
-          </Text>
-        ) : null}
-      </Pressable>
-    );
+  const handleMomentumScrollEnd = (e: any) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / SCREEN_WIDTH);
+    if (index >= 0 && index < LOG_VIEWS.length && index !== activeIndex) {
+      setActiveIndex(index);
+      navScrollRef.current?.scrollTo({ x: Math.max(0, index * 80 - SCREEN_WIDTH / 2 + 50), animated: true });
+    }
   };
 
   return (
     <SafeAreaView edges={['left', 'right']} style={[styles.safeArea, { backgroundColor: colors.surface }]}>
       <View style={StyleSheet.absoluteFill}>
-        <View
-          style={[
-            styles.glowTop,
-            {
-              backgroundColor: theme === 'dark' ? 'rgba(186, 195, 255, 0.08)' : 'rgba(3, 22, 50, 0.06)',
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.glowBottom,
-            {
-              backgroundColor: theme === 'dark' ? 'rgba(102, 217, 204, 0.08)' : 'rgba(0, 104, 118, 0.07)',
-            },
-          ]}
-        />
+        <View style={[styles.glowTop, { backgroundColor: theme === 'dark' ? 'rgba(186, 195, 255, 0.08)' : 'rgba(3, 22, 50, 0.06)' }]} />
+        <View style={[styles.glowBottom, { backgroundColor: theme === 'dark' ? 'rgba(102, 217, 204, 0.08)' : 'rgba(0, 104, 118, 0.07)' }]} />
       </View>
 
       <TopGlassBar iconName="time-outline" title="Logs" />
 
-      <View style={[styles.screenContent, { paddingTop: topOffset, paddingBottom: 8 }]}>
-        <View
-          style={[
-            styles.filterWrap,
-            {
-              backgroundColor: colors.surfaceContainerLow,
-              borderColor: colors.ghostBorder,
-            },
-          ]}>
-          {LOG_VIEWS.map((view) => {
-            const selected = activeView === view.key;
-            return (
-              <Pressable
-                key={view.key}
-                accessibilityRole="button"
-                disabled={isLoading || Boolean(isDeletingId)}
-                onPress={() => setActiveView(view.key)}
-                style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: selected ? activeFilterBackground : colors.surfaceContainerHigh,
-                  },
-                ]}>
-                <Text style={[styles.filterChipText, { color: selected ? colors.primary : colors.textMuted }]}>
-                  {view.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+      <View style={[styles.screenContent, { paddingTop: topOffset }]}>
+        <View style={[styles.navContainer, {
+          backgroundColor: theme === 'dark' ? 'rgba(30,30,40,0.1)' : 'rgba(3, 22, 50, 0.02)',
+          borderBottomColor: colors.ghostBorder,
+        }]}>
+          <ScrollView
+            ref={navScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.navScrollContent}
+          >
+            {LOG_VIEWS.map((view, index) => {
+              const selected = activeIndex === index;
+              return (
+                <Pressable
+                  key={view.key}
+                  accessibilityRole="button"
+                  onPress={() => handleTabPress(index)}
+                  style={[
+                    styles.navChip,
+                    { backgroundColor: selected ? activeFilterBackground : 'transparent' },
+                  ]}>
+                  <Text style={[styles.navChipText, { color: selected ? colors.primary : colors.textMuted }]}>
+                    {view.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
 
-        {isLoading ? (
-          <View style={styles.loadingState}>
-            <ActivityIndicator color={colors.primary} size="small" />
-            <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading logs...</Text>
-          </View>
-        ) : (
-          <FlatList
-            contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 36 }]}
-            data={entries}
-            keyExtractor={(item) => item.id}
-            keyboardShouldPersistTaps="handled"
-            refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-            renderItem={renderItem}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View
-                style={[
-                  styles.emptyCard,
-                  {
-                    backgroundColor: colors.surfaceContainerLow,
-                    borderColor: colors.ghostBorder,
-                  },
-                ]}>
-                <Ionicons color={colors.textMuted} name="sparkles-outline" size={22} />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>No logs yet in this view</Text>
-                <Text style={[styles.emptyText, { color: colors.textMuted }]}>Create one using the center + button.</Text>
-              </View>
-            }
-          />
-        )}
-
-        {errorMessage ? (
-          <View
-            style={[
-              styles.errorCard,
-              {
-                backgroundColor: colors.surfaceContainer,
-              },
-            ]}>
-            <Text style={[styles.errorText, { color: colors.error }]}>{errorMessage}</Text>
-          </View>
-        ) : null}
+        <FlatList
+          key={refetchTick}
+          ref={flatListRef}
+          data={LOG_VIEWS}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+          keyExtractor={(item) => item.key}
+          renderItem={({ item, index }) => (
+            <CategoryLogList
+              viewKey={item.key}
+              isActive={activeIndex === index}
+              onOpenEntry={openEntry}
+              onConfirmDelete={confirmDeleteEntry}
+              isDeletingId={isDeletingId}
+              theme={theme}
+              colors={colors}
+              tabBarHeight={tabBarHeight}
+            />
+          )}
+          getItemLayout={(_, index) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * index, index })}
+          initialNumToRender={1}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
+  safeArea: { flex: 1 },
+  screenContent: { flex: 1 },
+  navContainer: {
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginBottom: 8,
   },
-  screenContent: {
-    flex: 1,
+  navScrollContent: {
     paddingHorizontal: 16,
+    gap: 8,
+  },
+  navChip: {
+    alignItems: 'center',
+    borderRadius: 999,
+    minHeight: 34,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  navChipText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   glowTop: {
     borderRadius: 999,
@@ -348,27 +427,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -150,
     width: 340,
-  },
-  filterWrap: {
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  filterChip: {
-    alignItems: 'center',
-    borderRadius: 999,
-    minHeight: 34,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-  },
-  filterChipText: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   listContent: {
     gap: 10,
