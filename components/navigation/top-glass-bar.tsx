@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
+import { getCurrentUser } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { useAppTheme } from '@/lib/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -19,6 +22,24 @@ type TopGlassBarProps = {
 
 const TOP_BAR_HEIGHT = 56;
 const TOP_BAR_SPACING = 18;
+
+function toInitials(name: string, email: string) {
+    const fallback = email.split('@')[0]?.trim() ?? '';
+    const source = name || fallback || 'Trigger Map';
+    const parts = source
+        .split(/\s+/)
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .slice(0, 2);
+
+    if (!parts.length) return 'TM';
+    return parts.map((part) => part[0]?.toUpperCase() ?? '').join('');
+}
+
+function extractFullName(raw: unknown) {
+    if (typeof raw !== 'string') return '';
+    return raw.trim();
+}
 
 export function useTopGlassBarOffset() {
     const insets = useSafeAreaInsets();
@@ -37,6 +58,43 @@ export function TopGlassBar({
     const { resolvedTheme } = useAppTheme();
     const theme = resolvedTheme;
     const colors = Colors[theme];
+    const [profileName, setProfileName] = useState('');
+    const [profileEmail, setProfileEmail] = useState('');
+
+    const profileInitials = useMemo(() => toInitials(profileName, profileEmail), [profileEmail, profileName]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadProfile = async () => {
+            const result = await getCurrentUser();
+            if (!isMounted || result.error || !result.data) {
+                if (isMounted) {
+                    setProfileName('');
+                    setProfileEmail('');
+                }
+                return;
+            }
+
+            setProfileName(extractFullName(result.data.user_metadata?.full_name));
+            setProfileEmail(result.data.email ?? '');
+        };
+
+        void loadProfile();
+
+        const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (!isMounted) return;
+
+            const user = session?.user;
+            setProfileName(extractFullName(user?.user_metadata?.full_name));
+            setProfileEmail(user?.email ?? '');
+        });
+
+        return () => {
+            isMounted = false;
+            data.subscription.unsubscribe();
+        };
+    }, []);
 
     const handlePressProfile = () => {
         if (title === 'Settings') return;
@@ -89,7 +147,7 @@ export function TopGlassBar({
                     onPress={handlePressProfile}
                     style={[styles.profileButton, { backgroundColor: colors.surfaceContainerLow }]}
                 >
-                    <Ionicons color={colors.text} name="person-circle-outline" size={18} />
+                    <Text style={[styles.profileInitials, { color: colors.text }]}>{profileInitials}</Text>
                 </Pressable>
             </BlurView>
         </View>
@@ -151,5 +209,10 @@ const styles = StyleSheet.create({
         height: 34,
         justifyContent: 'center',
         width: 34,
+    },
+    profileInitials: {
+        fontSize: 12,
+        fontWeight: '800',
+        letterSpacing: 0.3,
     },
 });
