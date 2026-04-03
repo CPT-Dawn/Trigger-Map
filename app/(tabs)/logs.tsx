@@ -6,6 +6,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
   FlatList,
   Pressable,
@@ -28,6 +29,7 @@ import { deleteLogEntry, getLogEntries, type LogEntryView, type LogView } from '
 import { useAppTheme } from '@/lib/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const TAB_ITEM_WIDTH = 104;
 
 const LOG_VIEWS: { key: LogView; label: string }[] = [
   { key: 'combined', label: 'Combined' },
@@ -68,7 +70,6 @@ const CategoryLogList = memo(({
   onOpenEntry,
   onConfirmDelete,
   isDeletingId,
-  theme,
   colors,
   tabBarHeight
 }: {
@@ -77,7 +78,6 @@ const CategoryLogList = memo(({
   onOpenEntry: (entry: LogEntryView, viewKey: LogView) => void;
   onConfirmDelete: (entry: LogEntryView) => void;
   isDeletingId: string | null;
-  theme: 'light' | 'dark';
   colors: any;
   tabBarHeight: number;
 }) => {
@@ -118,7 +118,7 @@ const CategoryLogList = memo(({
     if (isActive && entries.length === 0 && !isLoading) {
       void loadLogs();
     }
-  }, [isActive]);
+  }, [entries.length, isActive, isLoading, loadLogs]);
 
   const onRefresh = () => {
     void loadLogs(true);
@@ -230,6 +230,8 @@ const CategoryLogList = memo(({
   );
 });
 
+CategoryLogList.displayName = 'CategoryLogList';
+
 export default function LogsScreen() {
   const topOffset = useTopGlassBarOffset();
   const tabBarHeight = useBottomTabBarHeight();
@@ -243,6 +245,7 @@ export default function LogsScreen() {
 
   const flatListRef = useRef<FlatList>(null);
   const navScrollRef = useRef<ScrollView>(null);
+  const pagerX = useRef(new Animated.Value(0)).current;
 
   const activeFilterBackground = theme === 'dark' ? 'rgba(186, 195, 255, 0.22)' : 'rgba(3, 22, 50, 0.08)';
 
@@ -266,7 +269,7 @@ export default function LogsScreen() {
     [router]
   );
 
-  const handleDeleteEntry = async (entryId: string) => {
+  const handleDeleteEntry = useCallback(async (entryId: string) => {
     if (isDeletingId) return;
 
     setIsDeletingId(entryId);
@@ -278,16 +281,8 @@ export default function LogsScreen() {
       return;
     }
     
-    // Changing standard refetch logic, might need to re-trigger for active pane:
-    // Focus effect in the CategoryLogList should re-fetch natively if log deleted,
-    // or we can refresh just by a small event, but we don't have global state. Let's just 
-    // force an update but since child relies on `useFocusEffect`, we may need a global trigger.
-    // For simplicity, a user deleting it directly causes it to disappear on next focus, 
-    // or we can rely on a fast reload. Let's rely on standard reload by setting state slightly,
-    // or we'll just let React navigation unmount/mount doing its thing, but it stays mounted...
-    // To simplify: I'll increment a key to remount the list.
     setRefetchTick(t => t + 1);
-  };
+  }, [isDeletingId]);
 
   const [refetchTick, setRefetchTick] = useState(0);
 
@@ -300,12 +295,18 @@ export default function LogsScreen() {
         { text: 'Delete', style: 'destructive', onPress: () => void handleDeleteEntry(entry.id) },
       ]);
     },
-    [isDeletingId]
+    [handleDeleteEntry, isDeletingId]
   );
+
+  const centerTabInView = useCallback((index: number) => {
+    const targetX = Math.max(0, index * TAB_ITEM_WIDTH - SCREEN_WIDTH / 2 + TAB_ITEM_WIDTH / 2 + 16);
+    navScrollRef.current?.scrollTo({ x: targetX, animated: true });
+  }, []);
 
   const handleTabPress = (index: number) => {
     setActiveIndex(index);
     flatListRef.current?.scrollToIndex({ index, animated: true });
+    centerTabInView(index);
   };
 
   const handleMomentumScrollEnd = (e: any) => {
@@ -313,9 +314,15 @@ export default function LogsScreen() {
     const index = Math.round(offsetX / SCREEN_WIDTH);
     if (index >= 0 && index < LOG_VIEWS.length && index !== activeIndex) {
       setActiveIndex(index);
-      navScrollRef.current?.scrollTo({ x: Math.max(0, index * 80 - SCREEN_WIDTH / 2 + 50), animated: true });
+      centerTabInView(index);
     }
   };
+
+  const indicatorTranslateX = pagerX.interpolate({
+    inputRange: LOG_VIEWS.map((_, index) => index * SCREEN_WIDTH),
+    outputRange: LOG_VIEWS.map((_, index) => index * TAB_ITEM_WIDTH),
+    extrapolate: 'clamp',
+  });
 
   return (
     <SafeAreaView edges={['left', 'right']} style={[styles.safeArea, { backgroundColor: colors.surface }]}>
@@ -324,40 +331,46 @@ export default function LogsScreen() {
         <View style={[styles.glowBottom, { backgroundColor: theme === 'dark' ? 'rgba(102, 217, 204, 0.08)' : 'rgba(0, 104, 118, 0.07)' }]} />
       </View>
 
-      <TopGlassBar iconName="time-outline" title="Logs" />
-
-      <View style={[styles.screenContent, { paddingTop: topOffset }]}>
-        <View style={[styles.navContainer, {
-          backgroundColor: theme === 'dark' ? 'rgba(30,30,40,0.1)' : 'rgba(3, 22, 50, 0.02)',
-          borderBottomColor: colors.ghostBorder,
-        }]}>
+      <TopGlassBar iconName="time-outline" title="Logs">
+        <View style={styles.navDock}>
           <ScrollView
             ref={navScrollRef}
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.navScrollContent}
-          >
-            {LOG_VIEWS.map((view, index) => {
-              const selected = activeIndex === index;
-              return (
-                <Pressable
-                  key={view.key}
-                  accessibilityRole="button"
-                  onPress={() => handleTabPress(index)}
-                  style={[
-                    styles.navChip,
-                    { backgroundColor: selected ? activeFilterBackground : 'transparent' },
-                  ]}>
-                  <Text style={[styles.navChipText, { color: selected ? colors.primary : colors.textMuted }]}>
-                    {view.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            contentContainerStyle={styles.navScrollContent}>
+            <View style={[styles.navTrack, { backgroundColor: colors.surfaceContainerHighest }]}> 
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.navActivePill,
+                  {
+                    backgroundColor: activeFilterBackground,
+                    borderColor: colors.ghostBorder,
+                    transform: [{ translateX: indicatorTranslateX }],
+                  },
+                ]}
+              />
+              {LOG_VIEWS.map((view, index) => {
+                const selected = activeIndex === index;
+                return (
+                  <Pressable
+                    key={view.key}
+                    accessibilityRole="button"
+                    onPress={() => handleTabPress(index)}
+                    style={styles.navChip}>
+                    <Text style={[styles.navChipText, { color: selected ? colors.primary : colors.textMuted }]}> 
+                      {view.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </ScrollView>
         </View>
+      </TopGlassBar>
 
-        <FlatList
+      <View style={[styles.screenContent, { paddingTop: topOffset + 52 }]}> 
+        <Animated.FlatList
           key={refetchTick}
           ref={flatListRef}
           data={LOG_VIEWS}
@@ -365,6 +378,11 @@ export default function LogsScreen() {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           bounces={false}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { x: pagerX } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
           onMomentumScrollEnd={handleMomentumScrollEnd}
           keyExtractor={(item) => item.key}
           renderItem={({ item, index }) => (
@@ -374,7 +392,6 @@ export default function LogsScreen() {
               onOpenEntry={openEntry}
               onConfirmDelete={confirmDeleteEntry}
               isDeletingId={isDeletingId}
-              theme={theme}
               colors={colors}
               tabBarHeight={tabBarHeight}
             />
@@ -392,24 +409,37 @@ export default function LogsScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   screenContent: { flex: 1 },
-  navContainer: {
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginBottom: 8,
+  navDock: {
+    paddingVertical: 8,
+    paddingTop: 4,
+    width: '100%',
   },
   navScrollContent: {
     paddingHorizontal: 16,
-    gap: 8,
+  },
+  navTrack: {
+    borderRadius: 14,
+    flexDirection: 'row',
+    minHeight: 42,
+    position: 'relative',
   },
   navChip: {
     alignItems: 'center',
-    borderRadius: 999,
-    minHeight: 34,
-    paddingHorizontal: 16,
+    height: 42,
     justifyContent: 'center',
+    width: TAB_ITEM_WIDTH,
+  },
+  navActivePill: {
+    borderRadius: 12,
+    borderWidth: 1,
+    height: 36,
+    left: 3,
+    position: 'absolute',
+    top: 3,
+    width: TAB_ITEM_WIDTH - 6,
   },
   navChipText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   glowTop: {

@@ -19,6 +19,7 @@ type TopGlassBarProps = {
     leadingIconName?: IconName;
     onPressLeading?: () => void;
     isModal?: boolean;
+    children?: React.ReactNode;
 };
 
 const TOP_BAR_HEIGHT = 44;
@@ -54,6 +55,7 @@ export function TopGlassBar({
     showLeading = false,
     leadingIconName = 'chevron-back',
     onPressLeading,
+    children,
     isModal = false,
 }: TopGlassBarProps) {
     const router = useRouter();
@@ -123,37 +125,40 @@ export function TopGlassBar({
                         shadowColor: colors.primary,
                     },
                 ]}>
-                {showLeading ? (
+                <View style={styles.topRow}>
+                    {showLeading ? (
+                        <Pressable
+                            accessibilityRole="button"
+                            hitSlop={8}
+                            onPress={onPressLeading}
+                            style={[styles.leadingButton, { backgroundColor: colors.surfaceContainerLow }]}
+                        >
+                            <Ionicons color={colors.text} name={leadingIconName} size={18} />
+                        </Pressable>
+                    ) : (
+                        <View style={styles.leadingPlaceholder} />
+                    )}
+
+                    <View style={styles.centerCopy}>
+                        <View style={styles.titleRow}>
+                            {iconName ? <Ionicons color={colors.textMuted} name={iconName} size={14} /> : null}
+                            <Text numberOfLines={1} style={[styles.title, { color: colors.text }]}>
+                                {title}
+                            </Text>
+                        </View>
+                    </View>
+
                     <Pressable
+                        accessibilityLabel="Open profile settings"
                         accessibilityRole="button"
                         hitSlop={8}
-                        onPress={onPressLeading}
-                        style={[styles.leadingButton, { backgroundColor: colors.surfaceContainerLow }]}
+                        onPress={handlePressProfile}
+                        style={[styles.profileButton, { backgroundColor: colors.surfaceContainerLow }]}
                     >
-                        <Ionicons color={colors.text} name={leadingIconName} size={18} />
+                        <Text style={[styles.profileInitials, { color: colors.text }]}>{profileInitials}</Text>
                     </Pressable>
-                ) : (
-                    <View style={styles.leadingPlaceholder} />
-                )}
-
-                <View style={styles.centerCopy}>
-                    <View style={styles.titleRow}>
-                        {iconName ? <Ionicons color={colors.textMuted} name={iconName} size={14} /> : null}
-                        <Text numberOfLines={1} style={[styles.title, { color: colors.text }]}>
-                            {title}
-                        </Text>
-                    </View>
                 </View>
-
-                <Pressable
-                    accessibilityLabel="Open profile settings"
-                    accessibilityRole="button"
-                    hitSlop={8}
-                    onPress={handlePressProfile}
-                    style={[styles.profileButton, { backgroundColor: colors.surfaceContainerLow }]}
-                >
-                    <Text style={[styles.profileInitials, { color: colors.text }]}>{profileInitials}</Text>
-                </Pressable>
+                {children}
             </BlurView>
         </View>
     );
@@ -168,10 +173,9 @@ const styles = StyleSheet.create({
         zIndex: 30,
     },
     bar: {
-        alignItems: 'center',
+        alignItems: 'stretch',
         borderBottomWidth: 1,
-        flexDirection: 'row',
-        minHeight: TOP_BAR_HEIGHT,
+        flexDirection: 'column',
         paddingHorizontal: 12,
         paddingBottom: 10,
         shadowOffset: {
@@ -181,6 +185,11 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.03,
         shadowRadius: 8,
         elevation: 2,
+    },
+    topRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        minHeight: TOP_BAR_HEIGHT,
     },
     leadingButton: {
         alignItems: 'center',
