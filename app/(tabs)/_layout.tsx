@@ -82,7 +82,7 @@ export default function TabLayout() {
           letterSpacing: -0.3,
         },
         headerLeftContainerStyle: {
-          paddingLeft: Spacing.xs,
+          paddingLeft: Spacing.sm,
         },
         headerRightContainerStyle: {
           paddingRight: Spacing.lg,
