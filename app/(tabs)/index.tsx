@@ -207,7 +207,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
   const { showNav } = useBottomNavVisibility();
-  const { onScroll, resetScrollTracking, scrollEventThrottle } = useBottomNavScrollBehavior();
+  const { onScroll, onScrollBeginDrag, resetScrollTracking, scrollEventThrottle } = useBottomNavScrollBehavior();
 
   const [entries, setEntries] = useState<DashboardEntry[]>([]);
   const [dailyContexts, setDailyContexts] = useState<DailyContextRow[]>([]);
@@ -542,6 +542,7 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        onScrollBeginDrag={onScrollBeginDrag}
         onScroll={onScroll}
         scrollEventThrottle={scrollEventThrottle}
         refreshControl={

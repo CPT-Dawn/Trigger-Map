@@ -17,7 +17,7 @@ export default function SettingsScreen() {
   const { user } = useAuth();
   const isFocused = useIsFocused();
   const { showNav } = useBottomNavVisibility();
-  const { onScroll, resetScrollTracking, scrollEventThrottle } = useBottomNavScrollBehavior();
+  const { onScroll, onScrollBeginDrag, resetScrollTracking, scrollEventThrottle } = useBottomNavScrollBehavior();
 
   const initialDisplayName = useMemo(
     () =>
@@ -125,6 +125,7 @@ export default function SettingsScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        onScrollBeginDrag={onScrollBeginDrag}
         onScroll={onScroll}
         scrollEventThrottle={scrollEventThrottle}
       >

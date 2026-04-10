@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Button, Text, TouchableRipple } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -155,23 +155,24 @@ export function BottomNavBar({ state, navigation, onAddPress, visible }: BottomN
   const dockProgress = useRef(new Animated.Value(visible ? 1 : 0)).current;
 
   useEffect(() => {
-    Animated.spring(dockProgress, {
+    dockProgress.stopAnimation();
+
+    Animated.timing(dockProgress, {
       toValue: visible ? 1 : 0,
       useNativeDriver: true,
-      damping: 16,
-      stiffness: 170,
-      mass: 0.9,
+      duration: visible ? 180 : 90,
+      easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
     }).start();
   }, [dockProgress, visible]);
 
   const dockTranslateY = dockProgress.interpolate({
     inputRange: [0, 1],
-    outputRange: [118, 0],
+    outputRange: [96, 0],
   });
 
   const dockScale = dockProgress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.96, 1],
+    outputRange: [0.975, 1],
   });
 
   const dockOpacity = dockProgress.interpolate({

@@ -71,26 +71,36 @@ export function useBottomNavScrollBehavior() {
 
       lastOffsetY.current = nextOffsetY;
 
-      if (nextOffsetY <= 24) {
+      if (nextOffsetY <= 8) {
         showNav();
         return;
       }
 
-      if (deltaY > 10 && nextOffsetY > 56) {
+      if (deltaY > 1 && nextOffsetY > 12) {
         hideNav();
         return;
       }
 
-      if (deltaY < -10) {
+      if (deltaY < -1) {
         showNav();
       }
     },
     [hideNav, showNav]
   );
 
+  const onScrollBeginDrag = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (event.nativeEvent.contentOffset.y > 12) {
+        hideNav();
+      }
+    },
+    [hideNav]
+  );
+
   return {
     onScroll,
+    onScrollBeginDrag,
     resetScrollTracking,
-    scrollEventThrottle: 16 as const,
+    scrollEventThrottle: 8 as const,
   };
 }

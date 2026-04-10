@@ -144,7 +144,7 @@ export default function LogsScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
   const { showNav } = useBottomNavVisibility();
-  const { onScroll, resetScrollTracking, scrollEventThrottle } = useBottomNavScrollBehavior();
+  const { onScroll, onScrollBeginDrag, resetScrollTracking, scrollEventThrottle } = useBottomNavScrollBehavior();
 
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -373,7 +373,7 @@ export default function LogsScreen() {
     );
   };
 
-  const renderHeader = () => {
+  const renderListHeader = () => {
     if (loading && entries.length === 0) {
       return (
         <View style={styles.headerStack}>
@@ -396,8 +396,12 @@ export default function LogsScreen() {
       );
     }
 
+    return null;
+  };
+
+  const renderFilterBar = () => {
     return (
-      <View style={styles.headerStack}>
+      <View style={styles.filterBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           {filterOptions.map((option) => {
             const selected = filter === option.value;
@@ -455,36 +459,41 @@ export default function LogsScreen() {
 
   return (
     <ScreenWrapper>
-      <SectionList
-        sections={visibleSections}
-        keyExtractor={(item) => item.id}
-        renderItem={renderEntry}
-        onScroll={onScroll}
-        scrollEventThrottle={scrollEventThrottle}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.sectionHeader}>
-            <Text variant="titleMedium" style={{ color: colors.text }}>
-              {section.title}
-            </Text>
-            <Text variant="labelMedium" style={{ color: colors.textMuted }}>
-              {section.data.length} {section.data.length === 1 ? 'entry' : 'entries'}
-            </Text>
-          </View>
-        )}
-        ListHeaderComponent={renderHeader()}
-        ListEmptyComponent={renderEmptyState()}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        stickySectionHeadersEnabled={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => void loadLogs('refresh')}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-      />
+      <View style={styles.screenContent}>
+        {renderFilterBar()}
+
+        <SectionList
+          style={styles.list}
+          sections={visibleSections}
+          keyExtractor={(item) => item.id}
+          renderItem={renderEntry}
+          onScroll={onScroll}
+          scrollEventThrottle={scrollEventThrottle}
+          renderSectionHeader={({ section }) => (
+            <View style={styles.sectionHeader}>
+              <Text variant="titleMedium" style={{ color: colors.text }}>
+                {section.title}
+              </Text>
+              <Text variant="labelMedium" style={{ color: colors.textMuted }}>
+                {section.data.length} {section.data.length === 1 ? 'entry' : 'entries'}
+              </Text>
+            </View>
+          )}
+          ListHeaderComponent={renderListHeader()}
+          ListEmptyComponent={renderEmptyState()}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          stickySectionHeadersEnabled={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void loadLogs('refresh')}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+        />
+      </View>
 
       <Snackbar
         visible={snackbarVisible}
@@ -500,6 +509,16 @@ export default function LogsScreen() {
 }
 
 const styles = StyleSheet.create({
+  screenContent: {
+    flex: 1,
+  },
+  list: {
+    flex: 1,
+  },
+  filterBar: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+  },
   listContent: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
