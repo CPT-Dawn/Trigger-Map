@@ -49,6 +49,7 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: 'Settings',
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="cog" size={24} color={color} />
           ),
