@@ -88,6 +88,7 @@ export default function TabLayout() {
           paddingRight: Spacing.lg,
         },
         headerTintColor: colors.text,
+        animation: 'fade',
       }}
     >
       <Tabs.Screen

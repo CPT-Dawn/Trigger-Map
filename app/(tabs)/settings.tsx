@@ -1,14 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SegmentedButtons, Snackbar, Text } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Radius, resolveColors, Spacing, Typography } from '../../constants/theme';
+import { Radius, resolveColors, Spacing } from '../../constants/theme';
 import { CustomButton } from '../../components/ui/CustomButton';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
 import { ThemePreference, useAppColors, useThemePreference } from '../../providers/ThemeProvider';
+import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 
 export default function SettingsScreen() {
   const colors = useAppColors();
@@ -30,10 +29,21 @@ export default function SettingsScreen() {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
+  useEffect(() => {
+    setDisplayName(initialDisplayName);
+  }, [initialDisplayName]);
+
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const userEmail = user?.email ?? 'No email found';
   const trimmedDisplayName = displayName.trim();
+  const initials =
+    trimmedDisplayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((chunk) => chunk[0]?.toUpperCase())
+      .join('') || 'TM';
   const canSaveProfile =
     trimmedDisplayName.length > 0 && trimmedDisplayName !== initialDisplayName && !isSavingProfile;
 
@@ -98,33 +108,32 @@ export default function SettingsScreen() {
   const activeTheme = appliedTheme;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.backgroundAccentTop} />
-      <View style={styles.backgroundAccentBottom} />
-
+    <ScreenWrapper>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
-          <Text style={[Typography.header, styles.sectionTitle]}>Profile</Text>
+          <Text variant="headlineSmall" style={styles.sectionTitle}>Profile</Text>
 
           <View style={styles.profileRow}>
             <View style={[styles.profileAvatar, { backgroundColor: colors.primaryContainer }]}>
-              <Text style={[styles.profileAvatarLabel, { color: colors.onPrimaryContainer }]}>TM</Text>
+              <Text variant="titleLarge" style={[styles.profileAvatarLabel, { color: colors.onPrimaryContainer }]}>
+                {initials}
+              </Text>
             </View>
             <View style={styles.profileMeta}>
-              <Text style={[Typography.title, styles.profileName]} numberOfLines={1}>
+              <Text variant="titleMedium" style={styles.profileName} numberOfLines={1}>
                 {trimmedDisplayName || 'Set your name'}
               </Text>
-              <Text style={[Typography.body, styles.profileEmail]} numberOfLines={1}>
+              <Text variant="bodyMedium" style={styles.profileEmail} numberOfLines={1}>
                 {userEmail}
               </Text>
             </View>
           </View>
 
-          <Text style={[Typography.label, styles.inputLabel]}>Display name</Text>
+          <Text variant="labelLarge" style={styles.inputLabel}>Display name</Text>
           <CustomTextInput
             mode="outlined"
             value={displayName}
@@ -148,8 +157,8 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={[Typography.header, styles.sectionTitle]}>Theme</Text>
-          <Text style={[Typography.body, styles.sectionBody]}>
+          <Text variant="headlineSmall" style={styles.sectionTitle}>Theme</Text>
+          <Text variant="bodyMedium" style={styles.sectionBody}>
             Choose how Trigger Map appears across your devices.
           </Text>
 
@@ -177,24 +186,25 @@ export default function SettingsScreen() {
             }}
           />
 
-          <Text style={[Typography.caption, styles.themeHint]}>
+          <Text variant="bodySmall" style={styles.themeHint}>
             {themeHelperText} Current preview: {activeTheme} mode.
           </Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={[Typography.header, styles.sectionTitle]}>Account</Text>
-          <Text style={[Typography.body, styles.sectionBody]}>
+          <Text variant="headlineSmall" style={styles.sectionTitle}>Account</Text>
+          <Text variant="bodyMedium" style={styles.sectionBody}>
             Log out to switch your account.
           </Text>
 
           <CustomButton
-            mode="outlined"
+            mode="contained"
             icon="logout"
             onPress={handleSignOut}
             isLoading={isSigningOut}
+            buttonColor={colors.errorContainer}
+            textColor={colors.onErrorContainer}
             style={styles.logoutButton}
-            textColor={colors.error}
           >
             Log Out
           </CustomButton>
@@ -204,126 +214,92 @@ export default function SettingsScreen() {
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
-        duration={3200}
-        style={styles.snackbar}
+        duration={3000}
+        style={{ backgroundColor: colors.surfaceContainerHighest }}
+        theme={{ colors: { onSurface: colors.text } }}
       >
         {snackbarMessage}
       </Snackbar>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 
 const createStyles = (colors: ReturnType<typeof resolveColors>) =>
   StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
-    gap: Spacing.lg,
-  },
-  backgroundAccentTop: {
-    position: 'absolute',
-    top: -Spacing.xxl,
-    left: -Spacing.xxl,
-    width: 220,
-    height: 220,
-    borderRadius: Radius.full,
-    backgroundColor: colors.primaryContainer,
-    opacity: 0.18,
-  },
-  backgroundAccentBottom: {
-    position: 'absolute',
-    bottom: -Spacing.xxl,
-    right: -Spacing.xxl,
-    width: 260,
-    height: 260,
-    borderRadius: Radius.full,
-    backgroundColor: colors.secondaryContainer,
-    opacity: 0.14,
-  },
-  card: {
-    backgroundColor: colors.surfaceContainerLow,
-    borderRadius: Radius.xl,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.ghostBorder,
-    shadowColor: colors.shadowAmbient,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 2,
-    gap: Spacing.sm,
-  },
-  sectionTitle: {
-    color: colors.text,
-  },
-  sectionBody: {
-    color: colors.textMuted,
-    marginBottom: Spacing.sm,
-  },
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.sm,
-  },
-  profileAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: Radius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileAvatarLabel: {
-    fontWeight: '700',
-    fontSize: Typography.title.fontSize,
-  },
-  profileMeta: {
-    marginLeft: Spacing.md,
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  profileName: {
-    color: colors.text,
-  },
-  profileEmail: {
-    color: colors.textMuted,
-  },
-  inputLabel: {
-    color: colors.text,
-    marginBottom: Spacing.xs,
-  },
-  input: {
-    marginBottom: 0,
-  },
-  saveButton: {
-    marginTop: Spacing.xs,
-    borderColor: colors.outlineVariant,
-    backgroundColor: colors.surfaceContainer,
-  },
-  segmentedRoot: {
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: Radius.xl,
-  },
-  segmentedButton: {
-    minHeight: 48,
-  },
-  themeHint: {
-    color: colors.textMuted,
-    marginTop: Spacing.sm,
-  },
-  logoutButton: {
-    marginTop: Spacing.sm,
-    borderColor: colors.error,
-    backgroundColor: colors.surfaceContainer,
-  },
-  snackbar: {
-    backgroundColor: colors.surfaceContainerHigh,
-  }
-});
+    scroll: {
+      flex: 1,
+    },
+    contentContainer: {
+      padding: Spacing.lg,
+      gap: Spacing.xl,
+      paddingBottom: Spacing.xxxl,
+    },
+    card: {
+      backgroundColor: colors.glassSurface,
+      borderColor: colors.ghostBorder,
+      borderWidth: 1,
+      borderRadius: Radius.xl,
+      padding: Spacing.lg,
+    },
+    sectionTitle: {
+      color: colors.text,
+      marginBottom: Spacing.md,
+      fontWeight: '700',
+    },
+    sectionBody: {
+      color: colors.textMuted,
+      marginBottom: Spacing.lg,
+    },
+    profileRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
+      marginBottom: Spacing.xl,
+    },
+    profileAvatar: {
+      width: 60,
+      height: 60,
+      borderRadius: Radius.full,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    profileAvatarLabel: {
+      fontWeight: '700',
+    },
+    profileMeta: {
+      flex: 1,
+      gap: Spacing.xs,
+    },
+    profileName: {
+      fontWeight: '700',
+      color: colors.text,
+    },
+    profileEmail: {
+      color: colors.textMuted,
+    },
+    inputLabel: {
+      color: colors.textMuted,
+      marginBottom: Spacing.xs,
+      marginLeft: Spacing.xs,
+    },
+    input: {
+      marginBottom: Spacing.lg,
+      backgroundColor: 'transparent',
+    },
+    saveButton: {
+      marginTop: Spacing.md,
+    },
+    segmentedRoot: {
+      marginBottom: Spacing.lg,
+    },
+    segmentedButton: {
+      borderColor: colors.ghostBorder,
+    },
+    themeHint: {
+      color: colors.textMuted,
+      textAlign: 'center',
+    },
+    logoutButton: {
+      marginTop: Spacing.sm,
+    },
+  });

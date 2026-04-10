@@ -5,7 +5,8 @@ import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { CustomButton } from '../../components/ui/CustomButton';
-import { Radius, Spacing, Typography } from '../../constants/theme';
+import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
+import { Radius, Spacing } from '../../constants/theme';
 import { useAppColors } from '../../providers/ThemeProvider';
 
 export default function SignInScreen() {
@@ -38,94 +39,73 @@ export default function SignInScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={[styles.accentOrbTop, { backgroundColor: colors.primaryContainer }]} />
-      <View style={[styles.accentOrbBottom, { backgroundColor: colors.secondaryContainer }]} />
+    <ScreenWrapper style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={[styles.formCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder, borderWidth: 1 }]}> 
+            <View style={styles.header}>
+              <Text variant="headlineMedium" style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
+              <Text variant="bodyLarge" style={[styles.subtitle, { color: colors.textMuted }]}>Sign in to continue tracking your health context.</Text>
+            </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={[styles.formCard, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.ghostBorder }]}> 
-          <View style={styles.header}>
-            <Text style={[styles.title, Typography.header, { color: colors.text }]}>Welcome Back</Text>
-            <Text style={[styles.subtitle, Typography.body, { color: colors.textMuted }]}>Sign in to continue tracking your health context.</Text>
-          </View>
+            <View style={styles.formContainer}>
+              <CustomTextInput
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+              />
 
-          <View style={styles.formContainer}>
-            <CustomTextInput
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-            />
+              <CustomTextInput
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+              />
 
-            <CustomTextInput
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
-
-            {errorMsg ? (
-              <Text style={[styles.errorText, Typography.caption, { color: colors.error }]}>
-                {errorMsg}
-              </Text>
-            ) : null}
-
-            <CustomButton
-              mode="contained"
-              onPress={handleSignIn}
-              isLoading={loading}
-              style={styles.submitButton}
-            >
-              Sign In
-            </CustomButton>
-
-            <View style={styles.linkContainer}>
-              <Text style={[Typography.body, { color: colors.textMuted }]}>Don't have an account? </Text>
-              <Link href="/(auth)/sign-up" asChild>
-                <Text
-                  style={StyleSheet.flatten([
-                    Typography.body,
-                    { color: colors.primary, fontWeight: '700' },
-                  ])}
-                >
-                  Sign Up
+              {errorMsg ? (
+                <Text variant="bodySmall" style={[styles.errorText, { color: colors.error }]}>
+                  {errorMsg}
                 </Text>
-              </Link>
+              ) : null}
+
+              <CustomButton
+                mode="contained"
+                onPress={handleSignIn}
+                isLoading={loading}
+                style={styles.submitButton}
+              >
+                Sign In
+              </CustomButton>
+
+              <View style={styles.linkContainer}>
+                <Text variant="bodyLarge" style={{ color: colors.textMuted }}>Don't have an account? </Text>
+                <Link href="/(auth)/sign-up" asChild>
+                  <Text
+                    variant="bodyLarge"
+                    style={{ color: colors.primary, fontWeight: '700' }}
+                  >
+                    Sign Up
+                  </Text>
+                </Link>
+              </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  accentOrbTop: {
-    position: 'absolute',
-    top: -80,
-    right: -50,
-    width: 220,
-    height: 220,
-    borderRadius: Radius.full,
-    opacity: 0.22,
-  },
-  accentOrbBottom: {
-    position: 'absolute',
-    bottom: -90,
-    left: -60,
-    width: 220,
-    height: 220,
-    borderRadius: Radius.full,
-    opacity: 0.16,
   },
   scrollContent: {
     flexGrow: 1,

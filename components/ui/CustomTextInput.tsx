@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { TextInput, Text } from 'react-native-paper';
 import type { TextInputProps } from 'react-native-paper';
-import { Spacing, Radius, Typography } from '../../constants/theme';
+import { Spacing, Radius } from '../../constants/theme';
 import { useAppColors } from '../../providers/ThemeProvider';
 
 export interface CustomTextInputProps extends Omit<TextInputProps, 'theme'> {
@@ -40,7 +40,7 @@ export function CustomTextInput({
         {...props}
       />
       {hasError && (
-        <Text style={[styles.errorText, { color: currentColors.error, ...Typography.caption }]}>
+        <Text variant="bodySmall" style={[styles.errorText, { color: currentColors.error }]}>
           {errorMessage}
         </Text>
       )}
@@ -57,7 +57,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   inputContent: {
-    ...Typography.body,
   },
   errorText: {
     marginTop: Spacing.xs,

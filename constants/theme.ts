@@ -1,11 +1,6 @@
 import { DarkTheme, DefaultTheme, type Theme } from '@react-navigation/native';
 import type { ColorSchemeName } from 'react-native';
 
-/**
- * Semantic color tokens for Trigger Map.
- * `light`: Precision Health Editorial ("Clinical Curator")
- * `dark`: Restorative Sanctuary
- */
 export const Colors = {
   light: {
     text: '#191c1e',
@@ -112,35 +107,6 @@ export const Radius = {
   lg: 12,
   xl: 16,
   full: 9999,
-} as const;
-
-// Optional but highly recommended for RN Paper / generic Text components
-export const Typography = {
-  header: {
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-  },
-  body: {
-    fontSize: 16,
-    fontWeight: '400',
-    letterSpacing: 0,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    letterSpacing: 0.1,
-  },
-  caption: {
-    fontSize: 12,
-    fontWeight: '400',
-    letterSpacing: 0.2,
-  },
 } as const;
 
 export type ThemeMode = keyof typeof Colors;

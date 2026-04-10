@@ -1,8 +1,8 @@
-import React from 'react';
-import { StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { StyleSheet, Pressable, Animated } from 'react-native';
 import { Button } from 'react-native-paper';
 import type { ButtonProps } from 'react-native-paper';
-import { Spacing, Radius, Typography } from '../../constants/theme';
+import { Spacing, Radius } from '../../constants/theme';
 import { useAppColors } from '../../providers/ThemeProvider';
 
 export interface CustomButtonProps extends Omit<ButtonProps, 'theme'> {
@@ -32,37 +32,61 @@ export function CustomButton({
       ? currentColors.text
       : currentColors.primary;
 
+  const scaleValue = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleValue, {
+      toValue: 0.96,
+      useNativeDriver: true,
+      damping: 15,
+      stiffness: 200,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleValue, {
+      toValue: 1,
+      useNativeDriver: true,
+      damping: 15,
+      stiffness: 200,
+    }).start();
+  };
+
   return (
-    <Button
-      mode={mode}
-      loading={isLoading}
-      disabled={isLoading || props.disabled}
-      buttonColor={buttonColor}
-      textColor={textColor}
-      style={[
-        styles.button,
-        {
-          borderRadius: Radius.xl,
-          borderColor: isOutlined ? currentColors.outlineVariant : undefined,
-        },
-        style,
-      ]}
-      contentStyle={[
-        styles.content,
-        { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg },
-        contentStyle,
-      ]}
-      labelStyle={[styles.label, props.labelStyle]}
-      theme={{
-        colors: {
-          surfaceDisabled: currentColors.surfaceContainerHigh,
-          onSurfaceDisabled: currentColors.textMuted,
-        },
-      }}
-      {...props}
-    >
-      {children}
-    </Button>
+    <Animated.View style={[styles.button, { transform: [{ scale: scaleValue }] }, style as any]}>
+      <Pressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={isLoading || props.disabled}
+      >
+        <Button
+          mode={mode}
+          loading={isLoading}
+          disabled={isLoading || props.disabled}
+          buttonColor={buttonColor}
+          textColor={textColor}
+          style={{
+            borderRadius: Radius.xl,
+            borderColor: isOutlined ? currentColors.outlineVariant : undefined,
+          }}
+          contentStyle={[
+            styles.content,
+            { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg },
+            contentStyle,
+          ]}
+          labelStyle={[styles.label, props.labelStyle]}
+          theme={{
+            colors: {
+              surfaceDisabled: currentColors.surfaceContainerHigh,
+              onSurfaceDisabled: currentColors.textMuted,
+            },
+          }}
+          {...props}
+        >
+          {children}
+        </Button>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -74,7 +98,6 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   label: {
-    ...Typography.body,
     fontWeight: '700',
   },
 });
