@@ -39,6 +39,7 @@ function RootLayoutNav() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="add-log" options={{ presentation: 'modal' }} />
         </Stack>
       </View>
     </PaperProvider>
