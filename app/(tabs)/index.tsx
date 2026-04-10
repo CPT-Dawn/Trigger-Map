@@ -503,14 +503,6 @@ export default function HomeScreen() {
     return (
       <ScreenWrapper>
         <View style={styles.loadingScreen}>
-          <View style={styles.header}>
-            <Text variant="headlineSmall" style={{ color: colors.text }}>
-              Daily Snapshot
-            </Text>
-            <Text variant="bodyMedium" style={{ color: colors.textMuted }}>
-              A quick view of your patterns today.
-            </Text>
-          </View>
 
           <View style={[styles.loadingCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
             <ActivityIndicator color={colors.primary} />
@@ -549,14 +541,6 @@ export default function HomeScreen() {
           />
         }
       >
-        <View style={styles.header}>
-          <Text variant="headlineSmall" style={{ color: colors.text }}>
-            Daily Snapshot
-          </Text>
-          <Text variant="bodyMedium" style={{ color: colors.textMuted }}>
-            A quick view of your patterns today.
-          </Text>
-        </View>
 
         <View style={[styles.heroCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
           <View style={styles.heroTopRow}>

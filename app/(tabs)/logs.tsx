@@ -314,37 +314,6 @@ export default function LogsScreen() {
     },
   };
 
-  const summaryCards = [
-    {
-      label: 'Visible',
-      value: String(visibleEntries.length),
-      icon: 'timeline-text',
-      backgroundColor: colors.primaryContainer,
-      iconColor: colors.onPrimaryContainer,
-    },
-    {
-      label: 'Today',
-      value: String(visibleTodayCount),
-      icon: 'calendar-today',
-      backgroundColor: colors.secondaryContainer,
-      iconColor: colors.onSecondaryContainer,
-    },
-    {
-      label: 'Symptoms',
-      value: String(visibleSymptomsCount),
-      icon: 'thermometer-lines',
-      backgroundColor: colors.tertiaryContainer,
-      iconColor: colors.onTertiaryContainer,
-    },
-    {
-      label: 'Context',
-      value: String(visibleContextCount),
-      icon: 'food-apple',
-      backgroundColor: colors.surfaceContainerHighest,
-      iconColor: colors.text,
-    },
-  ] as const;
-
   const filterOptions: Array<{ value: LogFilter; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = [
     { value: 'all', label: 'All', icon: 'timeline-text' },
     { value: 'pain', label: 'Pain', icon: 'thermometer-lines' },
@@ -419,33 +388,6 @@ export default function LogsScreen() {
 
     return (
       <View style={styles.headerStack}>
-        <View style={styles.headerBlock}>
-          <Text variant="headlineSmall" style={{ color: colors.text }}>
-            Recent Logs
-          </Text>
-          <Text variant="bodyMedium" style={{ color: colors.textMuted }}>
-            Track what happened and when.
-          </Text>
-        </View>
-
-        <View style={[styles.summaryCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
-          <View style={styles.summaryGrid}>
-            {summaryCards.map((card) => (
-              <View key={card.label} style={[styles.metricCard, { backgroundColor: card.backgroundColor }]}> 
-                <View style={styles.metricTopRow}>
-                  <Text variant="labelMedium" style={{ color: card.iconColor }}>
-                    {card.label}
-                  </Text>
-                  <MaterialCommunityIcons name={card.icon} size={18} color={card.iconColor} />
-                </View>
-                <Text variant="headlineMedium" style={{ color: card.iconColor, fontWeight: '700' }}>
-                  {card.value}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           {filterOptions.map((option) => {
             const selected = filter === option.value;
