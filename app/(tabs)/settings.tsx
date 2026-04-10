@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Avatar, SegmentedButtons, Snackbar, Text } from 'react-native-paper';
+import { SegmentedButtons, Snackbar, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Radius, resolveColors, Spacing, Typography } from '../../constants/theme';
@@ -33,13 +33,6 @@ export default function SettingsScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const userEmail = user?.email ?? 'No email found';
-  const initials =
-    displayName
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((chunk) => chunk[0]?.toUpperCase())
-      .join('') || 'TM';
   const trimmedDisplayName = displayName.trim();
   const canSaveProfile =
     trimmedDisplayName.length > 0 && trimmedDisplayName !== initialDisplayName && !isSavingProfile;
@@ -114,31 +107,13 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerRow}>
-          <View style={styles.headerTitleRow}>
-            <MaterialCommunityIcons name="cog-outline" size={20} color={colors.textMuted} />
-            <Text style={[Typography.header, styles.headerTitle]}>Settings</Text>
-          </View>
-          <Avatar.Text
-            size={44}
-            label={initials}
-            color={colors.onPrimaryContainer}
-            style={styles.headerAvatar}
-            labelStyle={styles.avatarLabel}
-          />
-        </View>
-
         <View style={styles.card}>
           <Text style={[Typography.header, styles.sectionTitle]}>Profile</Text>
 
           <View style={styles.profileRow}>
-            <Avatar.Text
-              size={64}
-              label={initials}
-              color={colors.onPrimaryContainer}
-              style={styles.profileAvatar}
-              labelStyle={styles.profileAvatarLabel}
-            />
+            <View style={[styles.profileAvatar, { backgroundColor: colors.primaryContainer }]}>
+              <Text style={[styles.profileAvatarLabel, { color: colors.onPrimaryContainer }]}>TM</Text>
+            </View>
             <View style={styles.profileMeta}>
               <Text style={[Typography.title, styles.profileName]} numberOfLines={1}>
                 {trimmedDisplayName || 'Set your name'}
@@ -272,29 +247,6 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     backgroundColor: colors.secondaryContainer,
     opacity: 0.14,
   },
-  headerRow: {
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  headerTitle: {
-    color: colors.text,
-  },
-  headerAvatar: {
-    backgroundColor: colors.surfaceContainerHigh,
-  },
-  avatarLabel: {
-    color: colors.onPrimaryContainer,
-    fontWeight: '700',
-    fontSize: Typography.title.fontSize,
-  },
   card: {
     backgroundColor: colors.surfaceContainerLow,
     borderRadius: Radius.xl,
@@ -322,12 +274,15 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     marginBottom: Spacing.sm,
   },
   profileAvatar: {
-    backgroundColor: colors.primaryContainer,
+    width: 64,
+    height: 64,
+    borderRadius: Radius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profileAvatarLabel: {
-    color: colors.onPrimaryContainer,
     fontWeight: '700',
-    fontSize: Typography.header.fontSize,
+    fontSize: Typography.title.fontSize,
   },
   profileMeta: {
     marginLeft: Spacing.md,
