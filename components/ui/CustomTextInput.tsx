@@ -27,6 +27,7 @@ export function CustomTextInput({
         outlineColor={currentColors.outline}
         activeOutlineColor={currentColors.primary}
         textColor={currentColors.text}
+        contentStyle={styles.inputContent}
         theme={{
           colors: {
             background: currentColors.surfaceContainerLowest,
@@ -52,8 +53,11 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   input: {
-    minHeight: 48, // Android Material 3 minimum touch target
-    fontSize: Typography.body.fontSize,
+    minHeight: 52,
+    backgroundColor: 'transparent',
+  },
+  inputContent: {
+    ...Typography.body,
   },
   errorText: {
     marginTop: Spacing.xs,

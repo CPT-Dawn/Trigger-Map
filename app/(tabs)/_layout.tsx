@@ -2,6 +2,7 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppColors } from '../../providers/ThemeProvider';
+import { Radius, Spacing } from '../../constants/theme';
 
 export default function TabLayout() {
   const colors = useAppColors();
@@ -11,13 +12,26 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: colors.tabIconSelected,
         tabBarInactiveTintColor: colors.tabIconDefault,
+        tabBarShowLabel: true,
+        tabBarLabelStyle: {
+          fontWeight: '600',
+          marginBottom: Spacing.xs,
+        },
+        tabBarItemStyle: {
+          paddingVertical: Spacing.xs,
+          borderRadius: Radius.lg,
+        },
         tabBarStyle: {
-          backgroundColor: colors.surfaceContainerLowest,
+          backgroundColor: colors.surfaceContainerLow,
           borderTopColor: colors.ghostBorder,
+          borderTopWidth: 1,
+          height: 76,
+          paddingTop: Spacing.xs,
+          paddingBottom: Spacing.xs,
           elevation: 0,
         },
         headerStyle: {
-          backgroundColor: colors.surfaceContainerLowest,
+          backgroundColor: colors.surfaceContainerLow,
           elevation: 0,
           shadowOpacity: 0,
           borderBottomWidth: 1,

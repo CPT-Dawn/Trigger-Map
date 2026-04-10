@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Button } from 'react-native-paper';
 import type { ButtonProps } from 'react-native-paper';
-import { Spacing, Radius } from '../../constants/theme';
+import { Spacing, Radius, Typography } from '../../constants/theme';
 import { useAppColors } from '../../providers/ThemeProvider';
 
 export interface CustomButtonProps extends Omit<ButtonProps, 'theme'> {
@@ -19,9 +19,18 @@ export function CustomButton({
 }: CustomButtonProps) {
   const currentColors = useAppColors();
 
-  // We map standard modes to our custom semantic colors
-  const buttonColor = mode === 'contained' ? currentColors.primary : undefined;
-  const textColor = mode === 'contained' ? currentColors.onPrimary : currentColors.primary;
+  const isContained = mode === 'contained';
+  const isOutlined = mode === 'outlined';
+  const buttonColor = isContained
+    ? currentColors.primary
+    : isOutlined
+      ? currentColors.surfaceContainer
+      : undefined;
+  const textColor = isContained
+    ? currentColors.onPrimary
+    : isOutlined
+      ? currentColors.text
+      : currentColors.primary;
 
   return (
     <Button
@@ -30,13 +39,26 @@ export function CustomButton({
       disabled={isLoading || props.disabled}
       buttonColor={buttonColor}
       textColor={textColor}
-      style={[styles.button, { borderRadius: Radius.md }, style]}
+      style={[
+        styles.button,
+        {
+          borderRadius: Radius.xl,
+          borderColor: isOutlined ? currentColors.outlineVariant : undefined,
+        },
+        style,
+      ]}
       contentStyle={[
         styles.content,
-        { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
+        { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg },
         contentStyle,
       ]}
       labelStyle={[styles.label, props.labelStyle]}
+      theme={{
+        colors: {
+          surfaceDisabled: currentColors.surfaceContainerHigh,
+          onSurfaceDisabled: currentColors.textMuted,
+        },
+      }}
       {...props}
     >
       {children}
@@ -49,11 +71,10 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.xs,
   },
   content: {
-    minHeight: 48, // Android Material 3 minimum touch target
+    minHeight: 52,
   },
   label: {
-    fontWeight: '600',
-    fontSize: 16,
-    letterSpacing: 0,
+    ...Typography.body,
+    fontWeight: '700',
   },
 });
