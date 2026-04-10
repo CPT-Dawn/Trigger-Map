@@ -7,21 +7,11 @@ import { useAppColors } from '../../providers/ThemeProvider';
 import { Radius, Spacing } from '../../constants/theme';
 import { useAuth } from '../../providers/AuthProvider';
 import { BottomNavBar } from '../../components/ui/BottomNavBar';
-import { BottomNavVisibilityProvider, useBottomNavVisibility } from '../../providers/BottomNavVisibilityProvider';
 
 export default function TabLayout() {
-  return (
-    <BottomNavVisibilityProvider>
-      <TabLayoutContent />
-    </BottomNavVisibilityProvider>
-  );
-}
-
-function TabLayoutContent() {
   const colors = useAppColors();
   const { user } = useAuth();
   const router = useRouter();
-  const { visible } = useBottomNavVisibility();
 
   const initials =
     (user?.user_metadata?.display_name as string | undefined)?.trim().slice(0, 2).toUpperCase() ||
@@ -59,7 +49,7 @@ function TabLayoutContent() {
   return (
     <View style={styles.container}>
       <Tabs
-        tabBar={(props) => <BottomNavBar {...props} visible={visible} onAddPress={() => router.push('/add-log')} />}
+        tabBar={(props) => <BottomNavBar {...props} onAddPress={() => router.push('/add-log')} />}
         screenOptions={{
           headerStyle: {
             backgroundColor: colors.surfaceContainerLow,

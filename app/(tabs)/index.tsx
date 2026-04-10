@@ -7,7 +7,6 @@ import { Radius, Spacing } from '../../constants/theme';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { useAuth } from '../../providers/AuthProvider';
 import { supabase } from '../../lib/supabase';
-import { useBottomNavScrollBehavior, useBottomNavVisibility } from '../../providers/BottomNavVisibilityProvider';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 import { CustomButton } from '../../components/ui/CustomButton';
 
@@ -206,8 +205,6 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const isFocused = useIsFocused();
-  const { showNav } = useBottomNavVisibility();
-  const { onScroll, onScrollBeginDrag, resetScrollTracking, scrollEventThrottle } = useBottomNavScrollBehavior();
 
   const [entries, setEntries] = useState<DashboardEntry[]>([]);
   const [dailyContexts, setDailyContexts] = useState<DailyContextRow[]>([]);
@@ -364,13 +361,6 @@ export default function HomeScreen() {
     void loadDashboard(hasLoadedOnce ? 'refresh' : 'initial');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused, user?.id]);
-
-  useEffect(() => {
-    if (isFocused) {
-      showNav();
-      resetScrollTracking();
-    }
-  }, [isFocused, resetScrollTracking, showNav]);
 
   const todayKey = formatDateKey(new Date());
   const latestEntry = entries[0] ?? null;
@@ -542,9 +532,6 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={onScrollBeginDrag}
-        onScroll={onScroll}
-        scrollEventThrottle={scrollEventThrottle}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

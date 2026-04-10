@@ -1,23 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SegmentedButtons, Snackbar, Text } from 'react-native-paper';
-import { useIsFocused } from '@react-navigation/native';
 import { Radius, resolveColors, Spacing } from '../../constants/theme';
 import { CustomButton } from '../../components/ui/CustomButton';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
 import { ThemePreference, useAppColors, useThemePreference } from '../../providers/ThemeProvider';
-import { useBottomNavScrollBehavior, useBottomNavVisibility } from '../../providers/BottomNavVisibilityProvider';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 
 export default function SettingsScreen() {
   const colors = useAppColors();
   const { themePreference, appliedTheme, setThemePreference } = useThemePreference();
   const { user } = useAuth();
-  const isFocused = useIsFocused();
-  const { showNav } = useBottomNavVisibility();
-  const { onScroll, onScrollBeginDrag, resetScrollTracking, scrollEventThrottle } = useBottomNavScrollBehavior();
 
   const initialDisplayName = useMemo(
     () =>
@@ -37,13 +32,6 @@ export default function SettingsScreen() {
   useEffect(() => {
     setDisplayName(initialDisplayName);
   }, [initialDisplayName]);
-
-  useEffect(() => {
-    if (isFocused) {
-      showNav();
-      resetScrollTracking();
-    }
-  }, [isFocused, resetScrollTracking, showNav]);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -125,9 +113,6 @@ export default function SettingsScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={onScrollBeginDrag}
-        onScroll={onScroll}
-        scrollEventThrottle={scrollEventThrottle}
       >
         <View style={styles.card}>
           <Text variant="headlineSmall" style={styles.sectionTitle}>Profile</Text>

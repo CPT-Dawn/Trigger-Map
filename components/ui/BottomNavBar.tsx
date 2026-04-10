@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Button, Text, TouchableRipple } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,7 +11,6 @@ import { useAppColors, useThemePreference } from '../../providers/ThemeProvider'
 
 type BottomNavBarProps = BottomTabBarProps & {
   onAddPress: () => void;
-  visible: boolean;
 };
 
 type TabName = 'index' | 'logs' | 'settings';
@@ -60,37 +59,6 @@ function NavTabButton({
   unfocusedIcon,
 }: NavTabButtonProps) {
   const colors = useAppColors();
-  const animatedFocus = useRef(new Animated.Value(focused ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.spring(animatedFocus, {
-      toValue: focused ? 1 : 0,
-      useNativeDriver: true,
-      damping: 16,
-      stiffness: 180,
-      mass: 0.85,
-    }).start();
-  }, [animatedFocus, focused]);
-
-  const focusScale = animatedFocus.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.965, 1.04],
-  });
-
-  const focusTranslateY = animatedFocus.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -2],
-  });
-
-  const labelOpacity = animatedFocus.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.78, 1],
-  });
-
-  const iconScale = animatedFocus.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.08],
-  });
 
   const isCenterTab = routeName === 'logs';
   const tabColor = focused ? colors.primary : colors.tabIconDefault;
@@ -120,78 +88,32 @@ function NavTabButton({
         styles.tabItem,
         isCenterTab && styles.centerTabItem,
         {
-          backgroundColor: focused ? colors.surfaceContainerHighest : 'transparent',
+          backgroundColor: focused ? colors.surfaceContainerHigh : 'transparent',
           borderColor: focused ? colors.ghostBorder : 'transparent',
         },
       ]}
       rippleColor={colors.surfaceContainerHigh}
     >
-      <Animated.View
-        style={[
-          styles.tabContent,
-          {
-            opacity: labelOpacity,
-            transform: [{ scale: focusScale }, { translateY: focusTranslateY }],
-          },
-          focused && { backgroundColor: colors.surfaceContainerHighest },
-        ]}
-      >
-        <Animated.View style={{ transform: [{ scale: iconScale }] }}>
-          <MaterialCommunityIcons name={focused ? focusedIcon : unfocusedIcon} size={focused ? 26 : 24} color={tabColor} />
-        </Animated.View>
+      <View style={styles.tabContent}>
+        <MaterialCommunityIcons name={focused ? focusedIcon : unfocusedIcon} size={focused ? 26 : 24} color={tabColor} />
         <Text variant="labelSmall" style={[styles.tabLabel, { color: tabColor }, focused && styles.tabLabelFocused]}>
           {label}
         </Text>
         {focused && <View style={[styles.activeIndicator, { backgroundColor: colors.primary }]} />}
-      </Animated.View>
+      </View>
     </TouchableRipple>
   );
 }
 
-export function BottomNavBar({ state, navigation, onAddPress, visible }: BottomNavBarProps) {
+export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProps) {
   const colors = useAppColors();
   const { appliedTheme } = useThemePreference();
   const insets = useSafeAreaInsets();
-  const dockProgress = useRef(new Animated.Value(visible ? 1 : 0)).current;
-
-  useEffect(() => {
-    dockProgress.stopAnimation();
-
-    Animated.timing(dockProgress, {
-      toValue: visible ? 1 : 0,
-      useNativeDriver: true,
-      duration: visible ? 180 : 90,
-      easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
-    }).start();
-  }, [dockProgress, visible]);
-
-  const dockTranslateY = dockProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [96, 0],
-  });
-
-  const dockScale = dockProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.975, 1],
-  });
-
-  const dockOpacity = dockProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
 
   return (
-    <Animated.View
-      pointerEvents={visible ? 'box-none' : 'none'}
-      style={[
-        styles.shell,
-        {
-          bottom: insets.bottom + Spacing.sm,
-          shadowColor: colors.shadowAmbient,
-          opacity: dockOpacity,
-          transform: [{ translateY: dockTranslateY }, { scale: dockScale }],
-        },
-      ]}
+    <View
+      pointerEvents="box-none"
+      style={[styles.shell, { shadowColor: colors.shadowAmbient }]}
     >
       <View
         style={[
@@ -199,6 +121,7 @@ export function BottomNavBar({ state, navigation, onAddPress, visible }: BottomN
           {
             backgroundColor: colors.surfaceContainerLow,
             borderColor: colors.ghostBorder,
+            paddingBottom: Math.min(insets.bottom, Spacing.xs),
           },
         ]}
       >
@@ -273,57 +196,61 @@ export function BottomNavBar({ state, navigation, onAddPress, visible }: BottomN
           </View>
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   shell: {
     position: 'absolute',
-    left: Spacing.lg,
-    right: Spacing.lg,
+    left: 0,
+    right: 0,
+    bottom: 0,
     zIndex: 50,
     elevation: 16,
   },
   surface: {
-    borderRadius: Radius.xl,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     borderWidth: 1,
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.18,
     shadowRadius: 16,
-    minHeight: 78,
+    minHeight: 84,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
-    paddingBottom: Spacing.sm,
+    paddingBottom: Spacing.xs,
     gap: Spacing.xs,
   },
   tabItem: {
-    flex: 1,
+    flex: 0.98,
     borderRadius: Radius.lg,
-    minHeight: 60,
+    minHeight: 56,
     borderWidth: 1,
     borderColor: 'transparent',
     overflow: 'hidden',
   },
   centerTabItem: {
-    flex: 1.08,
+    flex: 1,
   },
   tabContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    paddingVertical: Spacing.xs,
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
     borderRadius: Radius.lg,
   },
   addSlot: {
-    flex: 1.55,
+    flex: 1.5,
     justifyContent: 'center',
     paddingHorizontal: Spacing.xs,
   },
@@ -335,30 +262,29 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   addButtonContent: {
-    minHeight: 52,
-    paddingHorizontal: Spacing.lg,
+    minHeight: 48,
+    paddingHorizontal: Spacing.md,
     paddingVertical: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
   addButtonLabel: {
     fontWeight: '700',
-    fontSize: 12,
-    lineHeight: 14,
     letterSpacing: 0.15,
   },
   tabLabel: {
-    opacity: 0.82,
+    opacity: 0.74,
   },
   tabLabelFocused: {
     opacity: 1,
     fontWeight: '700',
+    letterSpacing: 0.15,
   },
   activeIndicator: {
-    width: 16,
+    width: 20,
     height: 3,
     borderRadius: Radius.full,
-    marginTop: 1,
+    marginTop: Spacing.xxs,
   },
   topSheen: {
     position: 'absolute',
