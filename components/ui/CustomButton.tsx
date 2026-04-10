@@ -2,8 +2,8 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Button } from 'react-native-paper';
 import type { ButtonProps } from 'react-native-paper';
-import { resolveColors, Spacing, Radius } from '../../constants/theme';
-import { useColorScheme } from 'react-native';
+import { Spacing, Radius } from '../../constants/theme';
+import { useAppColors } from '../../providers/ThemeProvider';
 
 export interface CustomButtonProps extends Omit<ButtonProps, 'theme'> {
   isLoading?: boolean;
@@ -17,7 +17,7 @@ export function CustomButton({
   children,
   ...props
 }: CustomButtonProps) {
-  const currentColors = resolveColors(useColorScheme());
+  const currentColors = useAppColors();
 
   // We map standard modes to our custom semantic colors
   const buttonColor = mode === 'contained' ? currentColors.primary : undefined;

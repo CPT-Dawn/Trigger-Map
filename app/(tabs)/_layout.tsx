@@ -1,11 +1,10 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { useColorScheme } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { resolveColors } from '../../constants/theme';
+import { useAppColors } from '../../providers/ThemeProvider';
 
 export default function TabLayout() {
-  const colors = resolveColors(useColorScheme());
+  const colors = useAppColors();
 
   return (
     <Tabs

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, useColorScheme, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Avatar, Snackbar, Text, TouchableRipple } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,12 +8,11 @@ import { CustomButton } from '../../components/ui/CustomButton';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
-
-type ThemePreference = 'auto' | 'light' | 'dark';
+import { ThemePreference, useAppColors, useThemePreference } from '../../providers/ThemeProvider';
 
 export default function SettingsScreen() {
-  const systemScheme = useColorScheme();
-  const colors = resolveColors(systemScheme);
+  const colors = useAppColors();
+  const { themePreference, appliedTheme, setThemePreference } = useThemePreference();
   const { user } = useAuth();
 
   const initialDisplayName = useMemo(
@@ -28,7 +27,6 @@ export default function SettingsScreen() {
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [themePreference, setThemePreference] = useState<ThemePreference>('auto');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
@@ -104,7 +102,7 @@ export default function SettingsScreen() {
     { value: 'dark', label: 'Dark' },
   ];
 
-  const activeTheme = themePreference === 'auto' ? systemScheme ?? 'light' : themePreference;
+  const activeTheme = appliedTheme;
 
   const getThemeOptionStyle = (value: ThemePreference) => {
     const isSelected = value === themePreference;
@@ -204,11 +202,11 @@ export default function SettingsScreen() {
 
           <View style={styles.themeSelector}>
             {themeOptions.map((option) => (
-              <TouchableRipple
+                <TouchableRipple
                 key={option.value}
                 borderless={false}
                 rippleColor={colors.ghostBorder}
-                onPress={() => setThemePreference(option.value)}
+                  onPress={() => void setThemePreference(option.value)}
                 style={getThemeOptionStyle(option.value)}
               >
                 <View style={styles.themeOptionInner}>

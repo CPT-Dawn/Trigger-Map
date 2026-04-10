@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, useColorScheme } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { resolveColors, Typography, Spacing } from '../../constants/theme';
+import { Typography, Spacing } from '../../constants/theme';
+import { useAppColors } from '../../providers/ThemeProvider';
 
 export default function HomeScreen() {
-  const colors = resolveColors(useColorScheme());
+  const colors = useAppColors();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

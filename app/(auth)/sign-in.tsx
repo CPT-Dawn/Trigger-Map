@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, useColorScheme, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { CustomButton } from '../../components/ui/CustomButton';
-import { resolveColors, Spacing, Typography } from '../../constants/theme';
+import { Spacing, Typography } from '../../constants/theme';
+import { useAppColors } from '../../providers/ThemeProvider';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -13,7 +14,7 @@ export default function SignInScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
-  const colors = resolveColors(useColorScheme());
+  const colors = useAppColors();
 
   const handleSignIn = async () => {
     if (!email || !password) {

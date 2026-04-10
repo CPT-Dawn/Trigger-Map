@@ -1,18 +1,18 @@
 import React, { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { PaperProvider, MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
-import { useColorScheme } from 'react-native';
 import { Colors } from '../constants/theme';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
+import { ThemeProvider, useThemePreference } from '../providers/ThemeProvider';
 
 function RootLayoutNav() {
   const { session, isInitialized } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
+  const { appliedTheme } = useThemePreference();
 
   const paperTheme =
-    colorScheme === 'dark'
+    appliedTheme === 'dark'
       ? { ...MD3DarkTheme, colors: { ...MD3DarkTheme.colors, ...Colors.dark } }
       : { ...MD3LightTheme, colors: { ...MD3LightTheme.colors, ...Colors.light } };
 
@@ -42,8 +42,10 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

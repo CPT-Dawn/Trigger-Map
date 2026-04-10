@@ -2,8 +2,8 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { TextInput, Text } from 'react-native-paper';
 import type { TextInputProps } from 'react-native-paper';
-import { resolveColors, Spacing, Radius, Typography } from '../../constants/theme';
-import { useColorScheme } from 'react-native';
+import { Spacing, Radius, Typography } from '../../constants/theme';
+import { useAppColors } from '../../providers/ThemeProvider';
 
 export interface CustomTextInputProps extends Omit<TextInputProps, 'theme'> {
   errorMessage?: string;
@@ -15,7 +15,7 @@ export function CustomTextInput({
   mode = 'outlined',
   ...props
 }: CustomTextInputProps) {
-  const currentColors = resolveColors(useColorScheme());
+  const currentColors = useAppColors();
   const hasError = !!errorMessage;
 
   return (
