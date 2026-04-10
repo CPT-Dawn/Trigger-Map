@@ -1,13 +1,17 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Button, Text, TouchableRipple } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Radius, Spacing } from '../../constants/theme';
-import { useAppColors } from '../../providers/ThemeProvider';
+import { useAppColors, useThemePreference } from '../../providers/ThemeProvider';
 
 type BottomNavBarProps = BottomTabBarProps & {
   onAddPress: () => void;
+  visible: boolean;
 };
 
 type TabName = 'index' | 'logs' | 'settings';
@@ -36,70 +40,155 @@ const TAB_CONFIG: Record<TabName, TabConfig> = {
   },
 };
 
-export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProps) {
+interface NavTabButtonProps {
+  routeName: TabName;
+  routeKey: string;
+  focused: boolean;
+  navigation: BottomTabBarProps['navigation'];
+  label: string;
+  focusedIcon: keyof typeof MaterialCommunityIcons.glyphMap;
+  unfocusedIcon: keyof typeof MaterialCommunityIcons.glyphMap;
+}
+
+function NavTabButton({
+  routeName,
+  routeKey,
+  focused,
+  navigation,
+  label,
+  focusedIcon,
+  unfocusedIcon,
+}: NavTabButtonProps) {
   const colors = useAppColors();
+  const animatedFocus = useRef(new Animated.Value(focused ? 1 : 0)).current;
 
-  const renderTab = (routeName: TabName, routeKey: string, routeIndex: number) => {
-    const config = TAB_CONFIG[routeName];
-    const focused = state.index === routeIndex;
-    const isCenterTab = routeName === 'logs';
-    const color = focused ? colors.primary : colors.tabIconDefault;
+  useEffect(() => {
+    Animated.spring(animatedFocus, {
+      toValue: focused ? 1 : 0,
+      useNativeDriver: true,
+      damping: 16,
+      stiffness: 180,
+      mass: 0.85,
+    }).start();
+  }, [animatedFocus, focused]);
 
-    return (
-      <TouchableRipple
-        key={routeKey}
-        onPress={() => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: routeKey,
-            canPreventDefault: true,
-          });
+  const focusScale = animatedFocus.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.965, 1.04],
+  });
 
-          if (!focused && !event.defaultPrevented) {
-            navigation.navigate(routeName as never);
-          }
-        }}
-        onLongPress={() => {
-          navigation.emit({
-            type: 'tabLongPress',
-            target: routeKey,
-          });
-        }}
-        borderless={false}
-        style={[
-          styles.tabItem,
-          isCenterTab && styles.centerTabItem,
-          {
-            backgroundColor: focused ? colors.surfaceContainerHighest : 'transparent',
-            borderColor: focused ? colors.ghostBorder : 'transparent',
-            elevation: focused ? 2 : 0,
-          },
-        ]}
-        rippleColor={colors.surfaceContainerHigh}
-      >
-        <View style={[styles.tabContent, focused && { backgroundColor: colors.surfaceContainerHighest }]}> 
-          <MaterialCommunityIcons
-            name={focused ? config.focusedIcon : config.unfocusedIcon}
-            size={focused ? 26 : 24}
-            color={color}
-          />
-          <Text variant="labelSmall" style={[styles.tabLabel, { color }, focused && styles.tabLabelFocused]}>
-            {config.label}
-          </Text>
-          {focused && <View style={[styles.activeIndicator, { backgroundColor: colors.primary }]} />}
-        </View>
-      </TouchableRipple>
-    );
-  };
+  const focusTranslateY = animatedFocus.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -2],
+  });
+
+  const labelOpacity = animatedFocus.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.78, 1],
+  });
+
+  const iconScale = animatedFocus.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.08],
+  });
+
+  const isCenterTab = routeName === 'logs';
+  const tabColor = focused ? colors.primary : colors.tabIconDefault;
 
   return (
-    <View
-      pointerEvents="box-none"
+    <TouchableRipple
+      key={routeKey}
+      onPress={() => {
+        const event = navigation.emit({
+          type: 'tabPress',
+          target: routeKey,
+          canPreventDefault: true,
+        });
+
+        if (!focused && !event.defaultPrevented) {
+          navigation.navigate(routeName as never);
+        }
+      }}
+      onLongPress={() => {
+        navigation.emit({
+          type: 'tabLongPress',
+          target: routeKey,
+        });
+      }}
+      borderless={false}
+      style={[
+        styles.tabItem,
+        isCenterTab && styles.centerTabItem,
+        {
+          backgroundColor: focused ? colors.surfaceContainerHighest : 'transparent',
+          borderColor: focused ? colors.ghostBorder : 'transparent',
+        },
+      ]}
+      rippleColor={colors.surfaceContainerHigh}
+    >
+      <Animated.View
+        style={[
+          styles.tabContent,
+          {
+            opacity: labelOpacity,
+            transform: [{ scale: focusScale }, { translateY: focusTranslateY }],
+          },
+          focused && { backgroundColor: colors.surfaceContainerHighest },
+        ]}
+      >
+        <Animated.View style={{ transform: [{ scale: iconScale }] }}>
+          <MaterialCommunityIcons name={focused ? focusedIcon : unfocusedIcon} size={focused ? 26 : 24} color={tabColor} />
+        </Animated.View>
+        <Text variant="labelSmall" style={[styles.tabLabel, { color: tabColor }, focused && styles.tabLabelFocused]}>
+          {label}
+        </Text>
+        {focused && <View style={[styles.activeIndicator, { backgroundColor: colors.primary }]} />}
+      </Animated.View>
+    </TouchableRipple>
+  );
+}
+
+export function BottomNavBar({ state, navigation, onAddPress, visible }: BottomNavBarProps) {
+  const colors = useAppColors();
+  const { appliedTheme } = useThemePreference();
+  const insets = useSafeAreaInsets();
+  const dockProgress = useRef(new Animated.Value(visible ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(dockProgress, {
+      toValue: visible ? 1 : 0,
+      useNativeDriver: true,
+      damping: 16,
+      stiffness: 170,
+      mass: 0.9,
+    }).start();
+  }, [dockProgress, visible]);
+
+  const dockTranslateY = dockProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [118, 0],
+  });
+
+  const dockScale = dockProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.96, 1],
+  });
+
+  const dockOpacity = dockProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  return (
+    <Animated.View
+      pointerEvents={visible ? 'box-none' : 'none'}
       style={[
         styles.shell,
         {
-          bottom: Spacing.md,
+          bottom: insets.bottom + Spacing.sm,
           shadowColor: colors.shadowAmbient,
+          opacity: dockOpacity,
+          transform: [{ translateY: dockTranslateY }, { scale: dockScale }],
         },
       ]}
     >
@@ -107,15 +196,58 @@ export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProp
         style={[
           styles.surface,
           {
-            backgroundColor: colors.glassSurface,
+            backgroundColor: colors.surfaceContainerLow,
             borderColor: colors.ghostBorder,
           },
         ]}
       >
+        <BlurView
+          intensity={88}
+          tint={appliedTheme === 'dark' ? 'dark' : 'light'}
+          experimentalBlurMethod="dimezisBlurView"
+          style={StyleSheet.absoluteFill}
+        />
+        <LinearGradient
+          pointerEvents="none"
+          colors={[
+            colors.surfaceBright,
+            colors.glassSurface,
+            colors.surfaceContainerLow,
+          ]}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.topSheen, { backgroundColor: colors.onPrimary, opacity: 0.08 }]} />
         <View style={styles.row}>
-          {renderTab('index', state.routes[0]?.key ?? 'index', 0)}
-          {renderTab('logs', state.routes[1]?.key ?? 'logs', 1)}
-          {renderTab('settings', state.routes[2]?.key ?? 'settings', 2)}
+          <NavTabButton
+            routeName="index"
+            routeKey={state.routes[0]?.key ?? 'index'}
+            focused={state.index === 0}
+            navigation={navigation}
+            label={TAB_CONFIG.index.label}
+            focusedIcon={TAB_CONFIG.index.focusedIcon}
+            unfocusedIcon={TAB_CONFIG.index.unfocusedIcon}
+          />
+          <NavTabButton
+            routeName="logs"
+            routeKey={state.routes[1]?.key ?? 'logs'}
+            focused={state.index === 1}
+            navigation={navigation}
+            label={TAB_CONFIG.logs.label}
+            focusedIcon={TAB_CONFIG.logs.focusedIcon}
+            unfocusedIcon={TAB_CONFIG.logs.unfocusedIcon}
+          />
+          <NavTabButton
+            routeName="settings"
+            routeKey={state.routes[2]?.key ?? 'settings'}
+            focused={state.index === 2}
+            navigation={navigation}
+            label={TAB_CONFIG.settings.label}
+            focusedIcon={TAB_CONFIG.settings.focusedIcon}
+            unfocusedIcon={TAB_CONFIG.settings.unfocusedIcon}
+          />
 
           <View style={styles.addSlot}>
             <Button
@@ -127,13 +259,20 @@ export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProp
               style={styles.addButton}
               contentStyle={styles.addButtonContent}
               labelStyle={styles.addButtonLabel}
+              theme={{
+                roundness: Radius.full,
+                colors: {
+                  primary: colors.primary,
+                  onPrimary: colors.onPrimary,
+                },
+              }}
             >
               Add
             </Button>
           </View>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -152,6 +291,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.18,
     shadowRadius: 16,
+    minHeight: 78,
   },
   row: {
     flexDirection: 'row',
@@ -182,26 +322,29 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
   },
   addSlot: {
-    flex: 1.45,
+    flex: 1.55,
     justifyContent: 'center',
     paddingHorizontal: Spacing.xs,
   },
   addButton: {
     width: '100%',
-    minWidth: 100,
+    minWidth: 112,
     marginVertical: 0,
     borderRadius: Radius.full,
     elevation: 3,
   },
   addButtonContent: {
     minHeight: 52,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
   addButtonLabel: {
     fontWeight: '700',
+    fontSize: 12,
+    lineHeight: 14,
+    letterSpacing: 0.15,
   },
   tabLabel: {
     opacity: 0.82,
@@ -215,5 +358,12 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: Radius.full,
     marginTop: 1,
+  },
+  topSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
   },
 });

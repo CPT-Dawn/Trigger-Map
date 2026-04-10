@@ -8,6 +8,7 @@ import { Radius, Spacing } from '../../constants/theme';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { useAuth } from '../../providers/AuthProvider';
 import { supabase } from '../../lib/supabase';
+import { useBottomNavScrollBehavior, useBottomNavVisibility } from '../../providers/BottomNavVisibilityProvider';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 import { CustomButton } from '../../components/ui/CustomButton';
 
@@ -142,6 +143,8 @@ export default function LogsScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const isFocused = useIsFocused();
+  const { showNav } = useBottomNavVisibility();
+  const { onScroll, resetScrollTracking, scrollEventThrottle } = useBottomNavScrollBehavior();
 
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -278,6 +281,13 @@ export default function LogsScreen() {
     void loadLogs(entries.length === 0 ? 'initial' : 'refresh');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused, user?.id]);
+
+  useEffect(() => {
+    if (isFocused) {
+      showNav();
+      resetScrollTracking();
+    }
+  }, [isFocused, resetScrollTracking, showNav]);
 
   const visibleEntries = entries.filter((entry) => filter === 'all' || entry.type === filter);
   const visibleSections = groupEntriesByDate(visibleEntries);
@@ -449,6 +459,8 @@ export default function LogsScreen() {
         sections={visibleSections}
         keyExtractor={(item) => item.id}
         renderItem={renderEntry}
+        onScroll={onScroll}
+        scrollEventThrottle={scrollEventThrottle}
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>
             <Text variant="titleMedium" style={{ color: colors.text }}>
