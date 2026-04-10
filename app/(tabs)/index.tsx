@@ -540,7 +540,7 @@ export default function HomeScreen() {
             colors={[colors.primary]}
           />
         }
-      >
+      > 
 
         <View style={[styles.heroCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
           <View style={styles.heroTopRow}>
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.lg,
     gap: Spacing.lg,
-    paddingBottom: Spacing.xxxl * 2,
+    paddingBottom: Spacing.xxxl * 2 + Spacing.lg,
   },
   header: {
     gap: Spacing.xs,

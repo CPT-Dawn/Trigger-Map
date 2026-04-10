@@ -232,7 +232,7 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     contentContainer: {
       padding: Spacing.lg,
       gap: Spacing.xl,
-      paddingBottom: Spacing.xxxl,
+      paddingBottom: Spacing.xxxl * 2 + Spacing.lg,
     },
     card: {
       backgroundColor: colors.glassSurface,

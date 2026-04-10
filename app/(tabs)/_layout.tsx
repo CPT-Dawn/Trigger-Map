@@ -1,11 +1,12 @@
 import React from 'react';
 import { Tabs, useRouter } from 'expo-router';
-import { View, StyleSheet, Platform } from 'react-native';
-import { Avatar, Text, FAB } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { Avatar, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { Radius, Spacing } from '../../constants/theme';
 import { useAuth } from '../../providers/AuthProvider';
+import { BottomNavBar } from '../../components/ui/BottomNavBar';
 
 export default function TabLayout() {
   const colors = useAppColors();
@@ -18,11 +19,10 @@ export default function TabLayout() {
 
   const headerAvatar = (
     <Avatar.Text
-      size={38}
+      size={40}
       label={initials}
       color={colors.onPrimaryContainer}
       style={{ backgroundColor: colors.surfaceContainerHigh }}
-      labelStyle={{ fontSize: 14, fontWeight: '700' }}
     />
   );
 
@@ -40,7 +40,7 @@ export default function TabLayout() {
       >
         <MaterialCommunityIcons name={iconName} size={16} color={colors.textMuted} />
       </View>
-      <Text style={{ color: colors.text, fontSize: 22, fontWeight: '700', letterSpacing: -0.3 }}>
+      <Text variant="titleLarge" style={{ color: colors.text, fontWeight: '700' }}>
         {title}
       </Text>
     </View>
@@ -49,25 +49,8 @@ export default function TabLayout() {
   return (
     <View style={styles.container}>
       <Tabs
+        tabBar={(props) => <BottomNavBar {...props} onAddPress={() => router.push('/add-log')} />}
         screenOptions={{
-          tabBarActiveTintColor: colors.tabIconSelected,
-          tabBarInactiveTintColor: colors.tabIconDefault,
-          tabBarShowLabel: false,
-          tabBarStyle: {
-            position: 'absolute',
-            backgroundColor: colors.glassSurface,
-            borderTopColor: colors.ghostBorder,
-            borderTopWidth: 1,
-            borderTopLeftRadius: Radius.xl,
-            borderTopRightRadius: Radius.xl,
-            borderLeftWidth: 1,
-            borderRightWidth: 1,
-            borderLeftColor: colors.ghostBorder,
-            borderRightColor: colors.ghostBorder,
-            height: Platform.OS === 'ios' ? 88 : 68,
-            elevation: 0,
-            paddingBottom: Platform.OS === 'ios' ? 20 : 0,
-          },
           headerStyle: {
             backgroundColor: colors.surfaceContainerLow,
             elevation: 0,
@@ -78,7 +61,6 @@ export default function TabLayout() {
           headerTitleAlign: 'left',
           headerTitleStyle: {
             fontWeight: '700',
-            fontSize: 22,
             letterSpacing: -0.3,
           },
           headerLeftContainerStyle: {
@@ -89,6 +71,7 @@ export default function TabLayout() {
           },
           headerTintColor: colors.text,
           animation: 'fade',
+          tabBarHideOnKeyboard: true,
         }}
       >
         <Tabs.Screen
@@ -97,9 +80,6 @@ export default function TabLayout() {
             title: 'Home',
             headerTitle: () => createHeaderTitle('home-variant', 'Home'),
             headerRight: () => headerAvatar,
-            tabBarIcon: ({ color, focused }) => (
-              <MaterialCommunityIcons name={focused ? 'home-variant' : 'home-variant-outline'} size={28} color={color} />
-            ),
           }}
         />
         <Tabs.Screen
@@ -108,9 +88,6 @@ export default function TabLayout() {
             title: 'Logs',
             headerTitle: () => createHeaderTitle('format-list-bulleted', 'Logs'),
             headerRight: () => headerAvatar,
-            tabBarIcon: ({ color }) => (
-              <MaterialCommunityIcons name="format-list-bulleted" size={28} color={color} />
-            ),
           }}
         />
         <Tabs.Screen
@@ -119,24 +96,9 @@ export default function TabLayout() {
             title: 'Settings',
             headerTitle: () => createHeaderTitle('cog', 'Settings'),
             headerRight: () => headerAvatar,
-            tabBarIcon: ({ color, focused }) => (
-              <MaterialCommunityIcons name={focused ? 'cog' : 'cog-outline'} size={28} color={color} />
-            ),
           }}
         />
       </Tabs>
-      
-      {/* Floating Action Button */}
-      <View style={styles.fabContainer} pointerEvents="box-none">
-        <FAB
-          icon="plus-thick"
-          color={colors.onPrimary}
-          style={[styles.fab, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('/add-log')}
-          mode="elevated"
-          customSize={64}
-        />
-      </View>
     </View>
   );
 }
@@ -144,22 +106,5 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  fabContainer: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 70 : 50,
-    alignSelf: 'center',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  fab: {
-    borderRadius: 32,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
 });

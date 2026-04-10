@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xxxl * 2,
+    paddingBottom: Spacing.xxxl * 2 + Spacing.lg,
     gap: Spacing.md,
   },
   headerStack: {
