@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { PaperProvider, MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
+import { StatusBar } from 'expo-status-bar';
 import { Colors } from '../constants/theme';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { ThemeProvider, useThemePreference } from '../providers/ThemeProvider';
@@ -34,6 +35,7 @@ function RootLayoutNav() {
   return (
     <PaperProvider theme={paperTheme}>
       <View style={styles.root}>
+        <StatusBar style={appliedTheme === 'dark' ? 'light' : 'dark'} backgroundColor="transparent" translucent />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
