@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Avatar, Snackbar, Text, TouchableRipple } from 'react-native-paper';
+import { Avatar, SegmentedButtons, Snackbar, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Radius, resolveColors, Spacing, Typography } from '../../constants/theme';
@@ -104,28 +104,6 @@ export default function SettingsScreen() {
 
   const activeTheme = appliedTheme;
 
-  const getThemeOptionStyle = (value: ThemePreference) => {
-    const isSelected = value === themePreference;
-
-    return [
-      styles.themeOption,
-      {
-        backgroundColor: isSelected ? colors.primaryContainer : 'transparent',
-      },
-    ];
-  };
-
-  const getThemeOptionTextStyle = (value: ThemePreference) => {
-    const isSelected = value === themePreference;
-
-    return [
-      Typography.label,
-      {
-        color: isSelected ? colors.onPrimaryContainer : colors.textMuted,
-      },
-    ];
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.backgroundAccentTop} />
@@ -200,21 +178,29 @@ export default function SettingsScreen() {
             Choose how Trigger Map appears across your devices.
           </Text>
 
-          <View style={styles.themeSelector}>
-            {themeOptions.map((option) => (
-                <TouchableRipple
-                key={option.value}
-                borderless={false}
-                rippleColor={colors.ghostBorder}
-                  onPress={() => void setThemePreference(option.value)}
-                style={getThemeOptionStyle(option.value)}
-              >
-                <View style={styles.themeOptionInner}>
-                  <Text style={getThemeOptionTextStyle(option.value)}>{option.label}</Text>
-                </View>
-              </TouchableRipple>
-            ))}
-          </View>
+          <SegmentedButtons
+            value={themePreference}
+            onValueChange={(value) => {
+              if (value === 'auto' || value === 'light' || value === 'dark') {
+                void setThemePreference(value);
+              }
+            }}
+            density="small"
+            style={styles.segmentedRoot}
+            buttons={themeOptions.map((option) => ({
+              value: option.value,
+              label: option.label,
+              showSelectedCheck: false,
+              style: styles.segmentedButton,
+            }))}
+            theme={{
+              colors: {
+                secondaryContainer: colors.primaryContainer,
+                onSecondaryContainer: colors.onPrimaryContainer,
+                outline: colors.ghostBorder,
+              },
+            }}
+          />
 
           <Text style={[Typography.caption, styles.themeHint]}>
             {themeHelperText} Current preview: {activeTheme} mode.
@@ -366,24 +352,12 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     borderColor: colors.outlineVariant,
     backgroundColor: colors.surfaceContainer,
   },
-  themeSelector: {
+  segmentedRoot: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: colors.ghostBorder,
-    flexDirection: 'row',
-    padding: Spacing.xs,
-    gap: Spacing.xs,
   },
-  themeOption: {
-    flex: 1,
-    borderRadius: Radius.lg,
-  },
-  themeOptionInner: {
+  segmentedButton: {
     minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.sm,
   },
   themeHint: {
     color: colors.textMuted,
