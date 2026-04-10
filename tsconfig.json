@@ -1,4 +1,4 @@
 {
   "compilerOptions": {},
-  "extends": "./node_modules/expo/tsconfig.base"
+  "extends": "/home/CPTDawn/Trigger-Map/node_modules/expo/tsconfig.base.json"
 }
