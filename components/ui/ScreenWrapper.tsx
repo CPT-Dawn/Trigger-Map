@@ -17,7 +17,7 @@ export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps)
       style={[styles.container, style]}
       {...props}
     >
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
         {children}
       </SafeAreaView>
     </LinearGradient>

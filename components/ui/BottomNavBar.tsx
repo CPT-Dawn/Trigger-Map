@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -108,11 +108,13 @@ export function BottomNavBar({ state, navigation, onAddPress, blurTarget }: Bott
   const colors = useAppColors();
   const { appliedTheme } = useThemePreference();
   const insets = useSafeAreaInsets();
+  const hasPersistentNavigationBar = Platform.OS === 'android' && insets.bottom >= 24;
+  const dockBottomOffset = hasPersistentNavigationBar ? insets.bottom : 0;
 
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.shell, { shadowColor: colors.shadowAmbient, bottom: -insets.bottom }]}
+      style={[styles.shell, { shadowColor: colors.shadowAmbient, bottom: dockBottomOffset }]}
     >
       <View
         style={[
@@ -120,7 +122,7 @@ export function BottomNavBar({ state, navigation, onAddPress, blurTarget }: Bott
           {
             backgroundColor: colors.surfaceContainerLow,
             borderColor: colors.ghostBorder,
-            paddingBottom: Spacing.xs,
+            paddingBottom: hasPersistentNavigationBar ? Spacing.sm : Spacing.xs,
           },
         ]}
       >
@@ -213,10 +215,9 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 14,
     paddingTop: 5,
-    paddingBottom: 20,
-    gap: 1,
+    gap: 0,
   },
   tabItem: {
     flex: 0.98,
@@ -245,7 +246,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     width: '100%',
-    minWidth: 120,
+    minWidth: 100,
   },
   addButtonContent: {
     flexDirection: 'row',
