@@ -1,7 +1,7 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Button, Text, TouchableRipple } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,6 +11,7 @@ import { useAppColors, useThemePreference } from '../../providers/ThemeProvider'
 
 type BottomNavBarProps = BottomTabBarProps & {
   onAddPress: () => void;
+  blurTarget: React.RefObject<View | null>;
 };
 
 type TabName = 'index' | 'logs' | 'settings';
@@ -64,7 +65,7 @@ function NavTabButton({
   const tabColor = focused ? colors.primary : colors.tabIconDefault;
 
   return (
-    <TouchableRipple
+    <Pressable
       key={routeKey}
       onPress={() => {
         const event = navigation.emit({
@@ -83,7 +84,6 @@ function NavTabButton({
           target: routeKey,
         });
       }}
-      borderless={false}
       style={[
         styles.tabItem,
         isCenterTab && styles.centerTabItem,
@@ -92,7 +92,6 @@ function NavTabButton({
           borderColor: focused ? colors.ghostBorder : 'transparent',
         },
       ]}
-      rippleColor={colors.surfaceContainerHigh}
     >
       <View style={styles.tabContent}>
         <MaterialCommunityIcons name={focused ? focusedIcon : unfocusedIcon} size={focused ? 26 : 24} color={tabColor} />
@@ -101,11 +100,11 @@ function NavTabButton({
         </Text>
         {focused && <View style={[styles.activeIndicator, { backgroundColor: colors.primary }]} />}
       </View>
-    </TouchableRipple>
+    </Pressable>
   );
 }
 
-export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProps) {
+export function BottomNavBar({ state, navigation, onAddPress, blurTarget }: BottomNavBarProps) {
   const colors = useAppColors();
   const { appliedTheme } = useThemePreference();
   const insets = useSafeAreaInsets();
@@ -113,7 +112,7 @@ export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProp
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.shell, { shadowColor: colors.shadowAmbient }]}
+      style={[styles.shell, { shadowColor: colors.shadowAmbient, bottom: -insets.bottom }]}
     >
       <View
         style={[
@@ -121,14 +120,15 @@ export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProp
           {
             backgroundColor: colors.surfaceContainerLow,
             borderColor: colors.ghostBorder,
-            paddingBottom: Math.min(insets.bottom, Spacing.xs),
+            paddingBottom: Spacing.xs,
           },
         ]}
       >
         <BlurView
           intensity={88}
           tint={appliedTheme === 'dark' ? 'dark' : 'light'}
-          experimentalBlurMethod="dimezisBlurView"
+          blurMethod="dimezisBlurViewSdk31Plus"
+          blurTarget={blurTarget}
           style={StyleSheet.absoluteFill}
         />
         <LinearGradient
@@ -174,25 +174,14 @@ export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProp
           />
 
           <View style={styles.addSlot}>
-            <Button
-              mode="contained"
-              icon="plus-thick"
-              onPress={onAddPress}
-              buttonColor={colors.primary}
-              textColor={colors.onPrimary}
-              style={styles.addButton}
-              contentStyle={styles.addButtonContent}
-              labelStyle={styles.addButtonLabel}
-              theme={{
-                roundness: Radius.full,
-                colors: {
-                  primary: colors.primary,
-                  onPrimary: colors.onPrimary,
-                },
-              }}
-            >
-              Add
-            </Button>
+            <Pressable onPress={onAddPress} accessibilityRole="button" style={styles.addButton}>
+              <View style={[styles.addButtonContent, { backgroundColor: colors.primary }]}> 
+                <MaterialCommunityIcons name="plus-thick" size={18} color={colors.onPrimary} />
+                <Text variant="labelMedium" numberOfLines={1} style={[styles.addButtonLabel, { color: colors.onPrimary }]}> 
+                  Add
+                </Text>
+              </View>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -203,8 +192,8 @@ export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProp
 const styles = StyleSheet.create({
   shell: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: -1,
+    right: -1,
     bottom: 0,
     zIndex: 50,
     elevation: 16,
@@ -224,10 +213,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xs,
-    gap: Spacing.xs,
+    paddingHorizontal: 10,
+    paddingTop: 5,
+    paddingBottom: 20,
+    gap: 1,
   },
   tabItem: {
     flex: 0.98,
@@ -256,17 +245,19 @@ const styles = StyleSheet.create({
   },
   addButton: {
     width: '100%',
-    minWidth: 112,
-    marginVertical: 0,
-    borderRadius: Radius.full,
-    elevation: 3,
+    minWidth: 120,
   },
   addButtonContent: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    width: '100%',
     minHeight: 48,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: 0,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: Radius.full,
+    elevation: 3,
   },
   addButtonLabel: {
     fontWeight: '700',

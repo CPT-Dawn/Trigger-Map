@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import { Avatar, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { BlurTargetView } from 'expo-blur';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { Radius, Spacing } from '../../constants/theme';
 import { useAuth } from '../../providers/AuthProvider';
@@ -12,6 +13,7 @@ export default function TabLayout() {
   const colors = useAppColors();
   const { user } = useAuth();
   const router = useRouter();
+  const blurTargetRef = useRef<View | null>(null);
 
   const initials =
     (user?.user_metadata?.display_name as string | undefined)?.trim().slice(0, 2).toUpperCase() ||
@@ -48,63 +50,70 @@ export default function TabLayout() {
 
   return (
     <View style={styles.container}>
-      <Tabs
-        tabBar={(props) => <BottomNavBar {...props} onAddPress={() => router.push('/add-log')} />}
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: colors.surfaceContainerLow,
-            elevation: 0,
-            shadowOpacity: 0,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.ghostBorder,
-          },
-          headerTitleAlign: 'left',
-          headerTitleStyle: {
-            fontWeight: '700',
-            letterSpacing: -0.3,
-          },
-          headerLeftContainerStyle: {
-            paddingLeft: Spacing.sm,
-          },
-          headerRightContainerStyle: {
-            paddingRight: Spacing.lg,
-          },
-          headerTintColor: colors.text,
-          animation: 'fade',
-          tabBarHideOnKeyboard: true,
-        }}
-      >
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: 'Home',
-            headerTitle: () => createHeaderTitle('home-variant', 'Home'),
-            headerRight: () => headerAvatar,
+      <BlurTargetView ref={blurTargetRef} style={styles.blurTarget}>
+        <Tabs
+          tabBar={(props) => (
+            <BottomNavBar {...props} blurTarget={blurTargetRef} onAddPress={() => router.push('/add-log')} />
+          )}
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: colors.surfaceContainerLow,
+              elevation: 0,
+              shadowOpacity: 0,
+              borderBottomWidth: 1,
+              borderBottomColor: colors.ghostBorder,
+            },
+            headerTitleAlign: 'left',
+            headerTitleStyle: {
+              fontWeight: '700',
+              letterSpacing: -0.3,
+            },
+            headerLeftContainerStyle: {
+              paddingLeft: Spacing.sm,
+            },
+            headerRightContainerStyle: {
+              paddingRight: Spacing.lg,
+            },
+            headerTintColor: colors.text,
+            animation: 'none',
+            tabBarHideOnKeyboard: true,
           }}
-        />
-        <Tabs.Screen
-          name="logs"
-          options={{
-            title: 'Logs',
-            headerTitle: () => createHeaderTitle('format-list-bulleted', 'Logs'),
-            headerRight: () => headerAvatar,
-          }}
-        />
-        <Tabs.Screen
-          name="settings"
-          options={{
-            title: 'Settings',
-            headerTitle: () => createHeaderTitle('cog', 'Settings'),
-            headerRight: () => headerAvatar,
-          }}
-        />
-      </Tabs>
+        >
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: 'Home',
+              headerTitle: () => createHeaderTitle('home-variant', 'Home'),
+              headerRight: () => headerAvatar,
+            }}
+          />
+          <Tabs.Screen
+            name="logs"
+            options={{
+              title: 'Logs',
+              headerTitle: () => createHeaderTitle('format-list-bulleted', 'Logs'),
+              headerRight: () => headerAvatar,
+            }}
+          />
+          <Tabs.Screen
+            name="settings"
+            options={{
+              title: 'Settings',
+              headerTitle: () => createHeaderTitle('cog', 'Settings'),
+              headerRight: () => headerAvatar,
+            }}
+          />
+        </Tabs>
+      </BlurTargetView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  blurTarget: {
     flex: 1,
   },
 });
