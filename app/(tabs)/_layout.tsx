@@ -1,9 +1,10 @@
 import React, { useRef } from 'react';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurTargetView } from 'expo-blur';
+import { useRouter } from 'expo-router';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { Radius, Spacing } from '../../constants/theme';
 import { useAuth } from '../../providers/AuthProvider';
@@ -51,7 +52,11 @@ export default function TabLayout() {
       <BlurTargetView ref={blurTargetRef} style={styles.blurTarget}>
         <Tabs
           tabBar={(props) => (
-            <BottomNavBar {...props} blurTarget={blurTargetRef} onAddPress={() => router.push('/add-log')} />
+            <BottomNavBar
+              {...props}
+              blurTarget={blurTargetRef}
+              onAddPress={() => router.push('/add-log')}
+            />
           )}
           screenOptions={{
             headerStyle: {

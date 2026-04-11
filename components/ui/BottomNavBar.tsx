@@ -110,6 +110,9 @@ export function BottomNavBar({ state, navigation, onAddPress, blurTarget }: Bott
   const insets = useSafeAreaInsets();
   const hasPersistentNavigationBar = Platform.OS === 'android' && insets.bottom >= 24;
   const dockBottomOffset = hasPersistentNavigationBar ? insets.bottom : 0;
+  const activeRouteName = state.routes[state.index]?.name;
+
+  const routeByName = (routeName: TabName) => state.routes.find((route) => route.name === routeName);
 
   return (
     <View
@@ -149,8 +152,8 @@ export function BottomNavBar({ state, navigation, onAddPress, blurTarget }: Bott
         <View style={styles.row}>
           <NavTabButton
             routeName="index"
-            routeKey={state.routes[0]?.key ?? 'index'}
-            focused={state.index === 0}
+            routeKey={routeByName('index')?.key ?? 'index'}
+            focused={activeRouteName === 'index'}
             navigation={navigation}
             label={TAB_CONFIG.index.label}
             focusedIcon={TAB_CONFIG.index.focusedIcon}
@@ -158,8 +161,8 @@ export function BottomNavBar({ state, navigation, onAddPress, blurTarget }: Bott
           />
           <NavTabButton
             routeName="logs"
-            routeKey={state.routes[1]?.key ?? 'logs'}
-            focused={state.index === 1}
+            routeKey={routeByName('logs')?.key ?? 'logs'}
+            focused={activeRouteName === 'logs'}
             navigation={navigation}
             label={TAB_CONFIG.logs.label}
             focusedIcon={TAB_CONFIG.logs.focusedIcon}
@@ -167,8 +170,8 @@ export function BottomNavBar({ state, navigation, onAddPress, blurTarget }: Bott
           />
           <NavTabButton
             routeName="settings"
-            routeKey={state.routes[2]?.key ?? 'settings'}
-            focused={state.index === 2}
+            routeKey={routeByName('settings')?.key ?? 'settings'}
+            focused={activeRouteName === 'settings'}
             navigation={navigation}
             label={TAB_CONFIG.settings.label}
             focusedIcon={TAB_CONFIG.settings.focusedIcon}
