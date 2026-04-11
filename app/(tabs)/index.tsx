@@ -11,19 +11,22 @@ import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 import { CustomButton } from '../../components/ui/CustomButton';
 
 type LogType = 'pain' | 'stress' | 'medicine' | 'food';
+type StressLevelValue = number | 'none' | 'low' | 'moderate' | 'high';
 
 interface PainLogRow {
   id: string;
   logged_at: string;
   log_date: string;
-  level: number;
+  body_part: string | null;
+  pain_level: number | null;
+  swelling: boolean | null;
 }
 
 interface StressLogRow {
   id: string;
   logged_at: string;
   log_date: string;
-  level: number;
+  level: StressLevelValue | null;
 }
 
 interface MedicineLogRow {
@@ -142,6 +145,74 @@ function readNumberValue(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function titleCase(value: string) {
+  if (!value) {
+    return value;
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatPainEntryTitle(row: PainLogRow) {
+  const bodyPart = row.body_part?.trim() || 'Pain entry';
+  const painLevel = row.pain_level;
+
+  return painLevel !== null && painLevel !== undefined ? `${bodyPart} · Pain ${painLevel}` : bodyPart;
+}
+
+function formatPainEntrySubtitle(row: PainLogRow) {
+  const pieces: string[] = [formatSectionLabel(row.log_date), `Logged at ${formatTime(row.logged_at)}`];
+
+  if (row.swelling) {
+    pieces.push('Swelling present');
+  }
+
+  return pieces.join(' • ');
+}
+
+function formatStressLabel(value: StressLevelValue | null | undefined) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  if (typeof value === 'string') {
+    return titleCase(value);
+  }
+
+  return 'Unknown';
+}
+
+function resolveStressScore(value: StressLevelValue | null | undefined) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  switch (value) {
+    case 'none':
+      return 1;
+    case 'low':
+      return 3;
+    case 'moderate':
+      return 6;
+    case 'high':
+      return 9;
+    default:
+      return null;
+  }
+}
+
+function formatStressEntryTitle(value: StressLevelValue | null | undefined) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return `Stress level ${value}`;
+  }
+
+  if (typeof value === 'string') {
+    return `Stress: ${formatStressLabel(value)}`;
+  }
+
+  return 'Stress';
+}
+
 function summarizeWeather(weatherData: unknown) {
   if (typeof weatherData === 'string') {
     const trimmed = weatherData.trim();
@@ -244,7 +315,7 @@ export default function HomeScreen() {
         await Promise.all([
           supabase
             .from('pain_logs')
-            .select('id, logged_at, log_date, level')
+            .select('id, logged_at, log_date, body_part, pain_level, swelling')
             .eq('user_id', user.id)
             .gte('log_date', weekStartKey)
             .order('logged_at', { ascending: false }),
@@ -305,9 +376,9 @@ export default function HomeScreen() {
         type: 'pain',
         logDate: row.log_date,
         loggedAt: row.logged_at,
-        level: row.level,
-        title: `Pain level ${row.level}`,
-        subtitle: `${formatSectionLabel(row.log_date)} • ${formatTime(row.logged_at)}`,
+        level: row.pain_level ?? undefined,
+        title: formatPainEntryTitle(row),
+        subtitle: formatPainEntrySubtitle(row),
       }));
 
       const stressEntries: DashboardEntry[] = (stressResult.data ?? []).map((row: StressLogRow) => ({
@@ -315,8 +386,8 @@ export default function HomeScreen() {
         type: 'stress',
         logDate: row.log_date,
         loggedAt: row.logged_at,
-        level: row.level,
-        title: `Stress level ${row.level}`,
+        level: resolveStressScore(row.level) ?? undefined,
+        title: formatStressEntryTitle(row.level),
         subtitle: `${formatSectionLabel(row.log_date)} • ${formatTime(row.logged_at)}`,
       }));
 

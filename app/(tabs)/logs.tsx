@@ -13,19 +13,22 @@ import { CustomButton } from '../../components/ui/CustomButton';
 
 type LogFilter = 'all' | 'pain' | 'stress' | 'medicine' | 'food';
 type LogType = Exclude<LogFilter, 'all'>;
+type StressLevelValue = number | 'none' | 'low' | 'moderate' | 'high';
 
 interface PainLogRow {
   id: string;
   logged_at: string;
   log_date: string;
-  level: number;
+  body_part: string | null;
+  pain_level: number | null;
+  swelling: boolean | null;
 }
 
 interface StressLogRow {
   id: string;
   logged_at: string;
   log_date: string;
-  level: number;
+  level: StressLevelValue | null;
 }
 
 interface MedicineLogRow {
@@ -106,6 +109,55 @@ function formatTime(dateString: string) {
   });
 }
 
+function titleCase(value: string) {
+  if (!value) {
+    return value;
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatPainEntryTitle(row: PainLogRow) {
+  const bodyPart = row.body_part?.trim() || 'Pain entry';
+  const painLevel = row.pain_level;
+
+  return painLevel !== null && painLevel !== undefined ? `${bodyPart} · Pain ${painLevel}` : bodyPart;
+}
+
+function formatPainEntrySubtitle(row: PainLogRow) {
+  const pieces: string[] = [`Logged at ${formatTime(row.logged_at)}`];
+
+  if (row.swelling) {
+    pieces.push('Swelling present');
+  }
+
+  return pieces.join(' • ');
+}
+
+function formatStressLabel(value: StressLevelValue | null | undefined) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  if (typeof value === 'string') {
+    return titleCase(value);
+  }
+
+  return 'Unknown';
+}
+
+function formatStressEntryTitle(value: StressLevelValue | null | undefined) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return `Stress level ${value}`;
+  }
+
+  if (typeof value === 'string') {
+    return `Stress: ${formatStressLabel(value)}`;
+  }
+
+  return 'Stress';
+}
+
 function buildDisplayName(item?: UserItemRow | null) {
   if (!item) {
     return 'Unknown item';
@@ -174,7 +226,7 @@ export default function LogsScreen() {
         await Promise.all([
           supabase
             .from('pain_logs')
-            .select('id, logged_at, log_date, level')
+            .select('id, logged_at, log_date, body_part, pain_level, swelling')
             .eq('user_id', user.id)
             .order('logged_at', { ascending: false }),
           supabase
@@ -226,8 +278,8 @@ export default function LogsScreen() {
         type: 'pain',
         logDate: row.log_date,
         loggedAt: row.logged_at,
-        title: `Pain level ${row.level}`,
-        subtitle: `Logged at ${formatTime(row.logged_at)}`,
+        title: formatPainEntryTitle(row),
+        subtitle: formatPainEntrySubtitle(row),
       }));
 
       const stressEntries: TimelineEntry[] = (stressResult.data ?? []).map((row: StressLogRow) => ({
@@ -235,7 +287,7 @@ export default function LogsScreen() {
         type: 'stress',
         logDate: row.log_date,
         loggedAt: row.logged_at,
-        title: `Stress level ${row.level}`,
+        title: formatStressEntryTitle(row.level),
         subtitle: `Logged at ${formatTime(row.logged_at)}`,
       }));
 

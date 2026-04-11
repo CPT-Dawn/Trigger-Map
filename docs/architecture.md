@@ -29,8 +29,8 @@ We use a normalized relational database.
 
 - `user_medicines`: id, user_id, name, quantity, unit, display_name
 - `user_foods`: id, user_id, name, quantity, unit, display_name
-- `pain_logs`: id, user_id, logged_at, log_date, level (1-10)
-- `stress_logs`: id, user_id, logged_at, log_date, level (1-10)
+- `pain_logs`: id, user_id, logged_at, log_date, body_part, pain_level (1-5), swelling
+- `stress_logs`: id, user_id, logged_at, log_date, level (none|low|moderate|high)
 - `medicine_logs`: id, user_id, medicine_id, logged_at, log_date
 - `food_logs`: id, user_id, food_id, logged_at, log_date
 - `daily_context`: id, user_id, date, weather_data, day_rating
