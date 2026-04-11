@@ -86,13 +86,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const themeHelperText =
-    themePreference === 'auto'
-      ? 'Match your device appearance settings.'
-      : themePreference === 'light'
-        ? 'Always use the light appearance.'
-        : 'Always use the dark appearance.';
-
   const themeOptions: Array<{ value: ThemePreference; label: string }> = [
     { value: 'auto', label: 'Auto' },
     { value: 'light', label: 'Light' },
@@ -175,10 +168,6 @@ export default function SettingsScreen() {
               },
             }}
           />
-
-          <Text variant="bodySmall" style={styles.themeHint}>
-            {themeHelperText} Current preview: {activeTheme} mode.
-          </Text>
         </View>
 
         <View style={styles.card}>
