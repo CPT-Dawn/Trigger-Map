@@ -102,10 +102,17 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
-          <Text variant="headlineSmall" style={styles.sectionTitle}>Profile</Text>
+          <View style={styles.profileHeader}>
+            <View style={styles.profileHeaderCopy}>
+              <Text variant="titleMedium" style={styles.sectionTitle}>Profile</Text>
+              <Text variant="bodySmall" style={styles.sectionBody}>
+                Update your profile name.
+              </Text>
+            </View>
+          </View>
 
           <View style={styles.profileRow}>
-            <ProfileInitialAvatar name={displayName} size={60} />
+            <ProfileInitialAvatar name={displayName} size={56} />
             <View style={styles.profileMeta}>
               <Text variant="titleMedium" style={styles.profileName} numberOfLines={1}>
                 {trimmedDisplayName || 'Set your name'}
@@ -116,9 +123,9 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <Text variant="labelLarge" style={styles.inputLabel}>Display name</Text>
           <CustomTextInput
             mode="outlined"
+            label="Display name"
             value={displayName}
             onChangeText={setDisplayName}
             placeholder="Your display name"
@@ -127,20 +134,19 @@ export default function SettingsScreen() {
           />
 
           <CustomButton
-            mode="outlined"
+            mode="contained"
             icon="content-save-outline"
             onPress={handleSaveProfile}
             isLoading={isSavingProfile}
             disabled={!canSaveProfile}
             style={styles.saveButton}
-            textColor={colors.text}
           >
             Save Profile
           </CustomButton>
         </View>
 
         <View style={styles.card}>
-          <Text variant="headlineSmall" style={styles.sectionTitle}>Theme</Text>
+          <Text variant="titleMedium" style={styles.sectionTitle}>Theme</Text>
           <Text variant="bodyMedium" style={styles.sectionBody}>
             Choose how Trigger Map appears across your devices.
           </Text>
@@ -171,7 +177,7 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text variant="headlineSmall" style={styles.sectionTitle}>Account</Text>
+          <Text variant="titleMedium" style={styles.sectionTitle}>Account</Text>
           <Text variant="bodyMedium" style={styles.sectionBody}>
             Log out to switch your account.
           </Text>
@@ -210,9 +216,9 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     },
     contentContainer: {
       paddingHorizontal: Spacing.lg,
-      paddingTop: Spacing.sm,
+      paddingTop: Spacing.xs,
       paddingBottom: Spacing.xxxl * 2 + Spacing.lg,
-      gap: Spacing.xl,
+      gap: Spacing.lg,
     },
     card: {
       backgroundColor: colors.glassSurface,
@@ -223,18 +229,40 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     },
     sectionTitle: {
       color: colors.text,
-      marginBottom: Spacing.md,
+      marginBottom: Spacing.xs,
       fontWeight: '700',
     },
     sectionBody: {
       color: colors.textMuted,
-      marginBottom: Spacing.lg,
+      marginBottom: Spacing.md,
+    },
+    profileHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: Spacing.sm,
+    },
+    profileHeaderCopy: {
+      flex: 1,
+      gap: Spacing.xxs,
+    },
+    headerBadge: {
+      alignSelf: 'flex-start',
+      borderRadius: Radius.full,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+    },
+    headerBadgeText: {
+      color: colors.textMuted,
+      fontWeight: '700',
+      letterSpacing: 0.3,
     },
     profileRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: Spacing.md,
-      marginBottom: Spacing.xl,
+      gap: Spacing.sm,
+      marginTop: Spacing.sm,
+      marginBottom: Spacing.md,
     },
     profileMeta: {
       flex: 1,
@@ -247,20 +275,16 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     profileEmail: {
       color: colors.textMuted,
     },
-    inputLabel: {
-      color: colors.textMuted,
-      marginBottom: Spacing.xs,
-      marginLeft: Spacing.xs,
-    },
     input: {
-      marginBottom: Spacing.lg,
+      marginBottom: Spacing.sm,
+      minHeight: 48,
       backgroundColor: 'transparent',
     },
     saveButton: {
-      marginTop: Spacing.md,
+      marginTop: Spacing.xs,
     },
     segmentedRoot: {
-      marginBottom: Spacing.lg,
+      marginBottom: Spacing.md,
     },
     segmentedButton: {
       borderColor: colors.ghostBorder,
@@ -270,6 +294,6 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
       textAlign: 'center',
     },
     logoutButton: {
-      marginTop: Spacing.sm,
+      marginTop: Spacing.xs,
     },
   });
