@@ -4,6 +4,7 @@ import { SegmentedButtons, Snackbar, Text } from 'react-native-paper';
 import { Radius, resolveColors, Spacing } from '../../constants/theme';
 import { CustomButton } from '../../components/ui/CustomButton';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
+import { ProfileInitialAvatar } from '../../components/ui/ProfileInitialAvatar';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
 import { ThemePreference, useAppColors, useThemePreference } from '../../providers/ThemeProvider';
@@ -37,13 +38,6 @@ export default function SettingsScreen() {
 
   const userEmail = user?.email ?? 'No email found';
   const trimmedDisplayName = displayName.trim();
-  const initials =
-    trimmedDisplayName
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((chunk) => chunk[0]?.toUpperCase())
-      .join('') || 'TM';
   const canSaveProfile =
     trimmedDisplayName.length > 0 && trimmedDisplayName !== initialDisplayName && !isSavingProfile;
 
@@ -118,11 +112,7 @@ export default function SettingsScreen() {
           <Text variant="headlineSmall" style={styles.sectionTitle}>Profile</Text>
 
           <View style={styles.profileRow}>
-            <View style={[styles.profileAvatar, { backgroundColor: colors.primaryContainer }]}>
-              <Text variant="titleLarge" style={[styles.profileAvatarLabel, { color: colors.onPrimaryContainer }]}>
-                {initials}
-              </Text>
-            </View>
+            <ProfileInitialAvatar name={displayName} size={60} />
             <View style={styles.profileMeta}>
               <Text variant="titleMedium" style={styles.profileName} numberOfLines={1}>
                 {trimmedDisplayName || 'Set your name'}
@@ -255,16 +245,6 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
       alignItems: 'center',
       gap: Spacing.md,
       marginBottom: Spacing.xl,
-    },
-    profileAvatar: {
-      width: 60,
-      height: 60,
-      borderRadius: Radius.full,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    profileAvatarLabel: {
-      fontWeight: '700',
     },
     profileMeta: {
       flex: 1,

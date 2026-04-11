@@ -1,13 +1,14 @@
 import React, { useRef } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
-import { Avatar, Text } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurTargetView } from 'expo-blur';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { Radius, Spacing } from '../../constants/theme';
 import { useAuth } from '../../providers/AuthProvider';
 import { BottomNavBar } from '../../components/ui/BottomNavBar';
+import { ProfileInitialAvatar } from '../../components/ui/ProfileInitialAvatar';
 
 export default function TabLayout() {
   const colors = useAppColors();
@@ -15,17 +16,14 @@ export default function TabLayout() {
   const router = useRouter();
   const blurTargetRef = useRef<View | null>(null);
 
-  const initials =
-    (user?.user_metadata?.display_name as string | undefined)?.trim().slice(0, 2).toUpperCase() ||
-    (user?.email?.[0]?.toUpperCase() ?? 'TM');
+  const profileName =
+    (user?.user_metadata?.display_name as string | undefined) ??
+    (user?.user_metadata?.full_name as string | undefined) ??
+    user?.email?.split('@')[0] ??
+    '';
 
   const headerAvatar = (
-    <Avatar.Text
-      size={40}
-      label={initials}
-      color={colors.onPrimaryContainer}
-      style={{ backgroundColor: colors.surfaceContainerHigh }}
-    />
+    <ProfileInitialAvatar name={profileName} size={40} style={{ marginRight: 0 }} />
   );
 
   const createHeaderTitle = (iconName: keyof typeof MaterialCommunityIcons.glyphMap, title: string) => (
