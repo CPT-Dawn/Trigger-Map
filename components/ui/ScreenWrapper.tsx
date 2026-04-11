@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, ViewProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Spacing } from '../../constants/theme';
 import { useAppColors } from '../../providers/ThemeProvider';
 
 export interface ScreenWrapperProps extends ViewProps {
@@ -17,7 +18,7 @@ export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps)
       style={[styles.container, style]}
       {...props}
     >
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         {children}
       </SafeAreaView>
     </LinearGradient>
@@ -30,5 +31,6 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+    paddingTop: Spacing.sm,
   },
 });

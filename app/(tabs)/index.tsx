@@ -696,7 +696,9 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   loadingScreen: {
     flex: 1,
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.lg,
     gap: Spacing.lg,
   },
   loadingCard: {
@@ -709,9 +711,10 @@ const styles = StyleSheet.create({
     minHeight: 160,
   },
   content: {
-    padding: Spacing.lg,
-    gap: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
     paddingBottom: Spacing.xxxl * 2 + Spacing.lg,
+    gap: Spacing.lg,
   },
   header: {
     gap: Spacing.xs,

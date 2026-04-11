@@ -505,11 +505,11 @@ const styles = StyleSheet.create({
   },
   filterBar: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.sm,
   },
   listContent: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.sm,
     paddingBottom: Spacing.xxxl * 2 + Spacing.lg,
     gap: Spacing.md,
   },

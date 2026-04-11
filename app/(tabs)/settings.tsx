@@ -209,9 +209,10 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
       flex: 1,
     },
     contentContainer: {
-      padding: Spacing.lg,
-      gap: Spacing.xl,
+      paddingHorizontal: Spacing.lg,
+      paddingTop: Spacing.sm,
       paddingBottom: Spacing.xxxl * 2 + Spacing.lg,
+      gap: Spacing.xl,
     },
     card: {
       backgroundColor: colors.glassSurface,
