@@ -364,8 +364,7 @@ export default function AddLogScreen() {
 const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xxxl,
+    paddingTop: 30,
     gap: Spacing.lg,
   },
   header: {

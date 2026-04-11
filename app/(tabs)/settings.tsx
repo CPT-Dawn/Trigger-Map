@@ -105,7 +105,7 @@ export default function SettingsScreen() {
           <View style={styles.profileHeader}>
             <View style={styles.profileHeaderCopy}>
               <Text variant="titleMedium" style={styles.sectionTitle}>Profile</Text>
-              <Text variant="bodySmall" style={styles.sectionBody}>
+              <Text variant="bodyMedium" style={styles.sectionBody}>
                 Update your profile name.
               </Text>
             </View>
@@ -217,7 +217,7 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     contentContainer: {
       paddingHorizontal: Spacing.lg,
       paddingTop: Spacing.xs,
-      paddingBottom: Spacing.xxxl * 2 + Spacing.lg,
+      paddingBottom: 95,
       gap: Spacing.lg,
     },
     card: {

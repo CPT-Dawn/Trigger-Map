@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xxxl * 2 + Spacing.lg,
+    paddingBottom: 75,
     gap: Spacing.md,
   },
   headerStack: {
