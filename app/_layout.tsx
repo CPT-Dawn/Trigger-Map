@@ -1,5 +1,9 @@
+import 'react-native-gesture-handler';
+
 import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { PaperProvider, MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
@@ -35,13 +39,15 @@ function RootLayoutNav() {
 
   return (
     <PaperProvider theme={paperTheme}>
-      <View style={styles.root}>
-        <StatusBar style={appliedTheme === 'dark' ? 'light' : 'dark'} backgroundColor="transparent" translucent />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </View>
+      <BottomSheetModalProvider>
+        <View style={styles.root}>
+          <StatusBar style={appliedTheme === 'dark' ? 'light' : 'dark'} backgroundColor="transparent" translucent />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+          </Stack>
+        </View>
+      </BottomSheetModalProvider>
     </PaperProvider>
   );
 }
@@ -49,11 +55,13 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <ThemeProvider>
-        <AuthProvider>
-          <RootLayoutNav />
-        </AuthProvider>
-      </ThemeProvider>
+      <GestureHandlerRootView style={styles.root}>
+        <ThemeProvider>
+          <AuthProvider>
+            <RootLayoutNav />
+          </AuthProvider>
+        </ThemeProvider>
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }

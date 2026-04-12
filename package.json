@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@gorhom/bottom-sheet": "^5.2.9",
     "@react-native-community/datetimepicker": "~8.6.0",
     "@react-native-community/slider": "^5.2.0",
     "@supabase/supabase-js": "^2.103.0",

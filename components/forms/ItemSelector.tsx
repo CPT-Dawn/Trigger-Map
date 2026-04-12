@@ -1,375 +1,770 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, List, IconButton, ActivityIndicator, Snackbar, TextInput } from 'react-native-paper';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, IconButton, Snackbar, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAppColors } from '../../providers/ThemeProvider';
-import { useAuth } from '../../providers/AuthProvider';
-import { supabase } from '../../lib/supabase';
+import { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetModal } from '@gorhom/bottom-sheet';
+import { Swipeable } from 'react-native-gesture-handler';
+import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { Radius, Spacing } from '../../constants/theme';
-import { ScreenWrapper } from '../ui/ScreenWrapper';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../providers/AuthProvider';
+import { useAppColors } from '../../providers/ThemeProvider';
 import { CustomButton } from '../ui/CustomButton';
 import { CustomTextInput } from '../ui/CustomTextInput';
 
-interface Item {
+export interface ItemRecord {
   id: string;
-  display_name: string;
-  name?: string;
-  quantity?: number;
-  unit?: string;
+  display_name: string | null;
+  name: string | null;
+  quantity: number | null;
+  unit: string | null;
+}
+
+export interface ItemSelectorHandle {
+  present: () => void;
+  dismiss: () => void;
 }
 
 interface ItemSelectorProps {
   type: 'medicine' | 'food';
-  visible: boolean;
-  onClose: () => void;
+  visible?: boolean;
+  onClose?: () => void;
   onSelect: (id: string, displayName: string) => void;
+  onMasterItemChange?: (item: ItemRecord) => void;
+  onMasterItemDelete?: (id: string) => void;
 }
 
-export function ItemSelector({ type, visible, onClose, onSelect }: ItemSelectorProps) {
+function buildMasterItemDisplayName(name: string, quantity: number | null, unit: string | null) {
+  const pieces = [name.trim(), quantity !== null && Number.isFinite(quantity) ? String(quantity) : null, unit?.trim() || null].filter(
+    (piece): piece is string => !!piece,
+  );
+
+  return pieces.length > 0 ? pieces.join(' ') : 'Saved item';
+}
+
+function getMasterItemDisplayName(item: Pick<ItemRecord, 'display_name' | 'name' | 'quantity' | 'unit'>) {
+  const displayName = item.display_name?.trim();
+
+  if (displayName) {
+    return displayName;
+  }
+
+  return buildMasterItemDisplayName(item.name ?? '', item.quantity, item.unit ?? null);
+}
+
+function getMasterItemSearchText(item: Pick<ItemRecord, 'display_name' | 'name' | 'quantity' | 'unit'>) {
+  return [item.display_name, item.name, item.quantity !== null ? String(item.quantity) : null, item.unit]
+    .filter((piece): piece is string => !!piece && piece.trim().length > 0)
+    .join(' ')
+    .toLowerCase();
+}
+
+function sortMasterItems(items: ItemRecord[]) {
+  return [...items].sort((left, right) => getMasterItemDisplayName(left).localeCompare(getMasterItemDisplayName(right)));
+}
+
+interface ItemRowProps {
+  item: ItemRecord;
+  index: number;
+  iconName: keyof typeof MaterialCommunityIcons.glyphMap;
+  colors: ReturnType<typeof useAppColors>;
+  onSelect: (item: ItemRecord) => void;
+  onEdit: (item: ItemRecord) => void;
+  onDelete: (item: ItemRecord) => void;
+}
+
+function ItemRow({ item, index, iconName, colors, onSelect, onEdit, onDelete }: ItemRowProps) {
+  const swipeableRef = useRef<Swipeable>(null);
+  const displayName = getMasterItemDisplayName(item);
+  const subtitle = item.name?.trim() || [item.quantity !== null ? String(item.quantity) : null, item.unit?.trim() || null]
+    .filter((piece): piece is string => !!piece)
+    .join(' • ');
+
+  const closeSwipeable = () => {
+    swipeableRef.current?.close();
+  };
+
+  return (
+    <Animated.View entering={FadeInDown.delay(index * 35).springify()} layout={Layout.springify()}>
+      <Swipeable
+        ref={swipeableRef}
+        overshootLeft={false}
+        overshootRight={false}
+        renderLeftActions={() => (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              closeSwipeable();
+              onDelete(item);
+            }}
+            style={[styles.swipeAction, styles.deleteAction, { backgroundColor: colors.errorContainer }]}
+          >
+            <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.error} />
+            <Text variant="labelSmall" style={[styles.swipeActionLabel, { color: colors.error }]}>Delete</Text>
+          </Pressable>
+        )}
+        renderRightActions={() => (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              closeSwipeable();
+              onEdit(item);
+            }}
+            style={[styles.swipeAction, styles.editAction, { backgroundColor: colors.primaryContainer }]}
+          >
+            <MaterialCommunityIcons name="pencil-outline" size={22} color={colors.onPrimaryContainer} />
+            <Text variant="labelSmall" style={[styles.swipeActionLabel, { color: colors.onPrimaryContainer }]}>Edit</Text>
+          </Pressable>
+        )}
+      >
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            closeSwipeable();
+            onSelect(item);
+          }}
+          style={[styles.itemCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}
+        >
+          <View style={[styles.itemIconContainer, { backgroundColor: colors.surfaceContainerLow }]}> 
+            <MaterialCommunityIcons name={iconName} size={20} color={colors.primary} />
+          </View>
+          <View style={styles.itemTextBlock}>
+            <Text variant="titleSmall" style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
+              {displayName}
+            </Text>
+            {!!subtitle && (
+              <Text variant="bodySmall" style={[styles.itemSubtitle, { color: colors.textMuted }]} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            )}
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
+        </Pressable>
+      </Swipeable>
+    </Animated.View>
+  );
+}
+
+export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(function ItemSelector(
+  { type, visible, onClose, onSelect, onMasterItemChange, onMasterItemDelete },
+  ref,
+) {
   const colors = useAppColors();
   const { user } = useAuth();
-  
-  // States
-  const [items, setItems] = useState<Item[]>([]);
+  const sheetRef = useRef<BottomSheetModal>(null);
+
+  const [items, setItems] = useState<ItemRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // New Entry States
-  const [showNewEntryForm, setShowNewEntryForm] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newQuantity, setNewQuantity] = useState('');
-  const [newUnit, setNewUnit] = useState('');
+  const [activeForm, setActiveForm] = useState<{ mode: 'create' | 'edit'; itemId?: string } | null>(null);
+  const [draftName, setDraftName] = useState('');
+  const [draftQuantity, setDraftQuantity] = useState('');
+  const [draftUnit, setDraftUnit] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  
-  // Snackbar
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   const tableName = type === 'medicine' ? 'user_medicines' : 'user_foods';
+  const logTableName = type === 'medicine' ? 'medicine_logs' : 'food_logs';
+  const logForeignKey = type === 'medicine' ? 'medicine_id' : 'food_id';
   const iconName = type === 'medicine' ? 'pill' : 'food-apple';
   const displayType = type === 'medicine' ? 'Medicine' : 'Food';
+  const createLabel = `Create New ${displayType}`;
+  const normalizedSearch = searchQuery.trim().toLowerCase();
 
-  useEffect(() => {
-    if (visible && user) {
-      fetchItems();
-    } else {
-      // Reset form states when closed
-      setSearchQuery('');
-      setShowNewEntryForm(false);
-      setNewName('');
-      setNewQuantity('');
-      setNewUnit('');
+  const showError = useCallback((message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  }, []);
+
+  const resetForm = useCallback(() => {
+    setActiveForm(null);
+    setDraftName('');
+    setDraftQuantity('');
+    setDraftUnit('');
+  }, []);
+
+  const fetchItems = useCallback(async () => {
+    if (!user) {
+      setItems([]);
+      return;
     }
-  }, [visible, user]);
 
-  const fetchItems = async () => {
-    if (!user) return;
     setLoading(true);
+
     try {
       const { data, error } = await supabase
         .from(tableName)
-        .select('*')
+        .select('id, display_name, name, quantity, unit')
         .eq('user_id', user.id)
         .order('display_name', { ascending: true });
 
-      if (error) throw error;
-      setItems(data || []);
-    } catch (err: any) {
-      showError(err.message || 'Error fetching items');
+      if (error) {
+        throw error;
+      }
+
+      setItems((data ?? []) as ItemRecord[]);
+    } catch (error: any) {
+      showError(error?.message ?? `Unable to load ${displayType.toLowerCase()} items.`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [displayType, showError, tableName, user]);
 
-  const handleAddNewItem = async () => {
-    if (!user) return;
-    if (!newName.trim()) {
+  const openSheet = useCallback(() => {
+    sheetRef.current?.present();
+    void fetchItems();
+  }, [fetchItems]);
+
+  const closeSheet = useCallback(() => {
+    sheetRef.current?.dismiss();
+  }, []);
+
+  useImperativeHandle(ref, () => ({
+    present: openSheet,
+    dismiss: closeSheet,
+  }), [closeSheet, openSheet]);
+
+  useEffect(() => {
+    if (visible === undefined) {
+      return;
+    }
+
+    if (visible) {
+      openSheet();
+    } else {
+      closeSheet();
+    }
+  }, [closeSheet, openSheet, visible]);
+
+  const filteredItems = useMemo(
+    () => items.filter((item) => getMasterItemSearchText(item).includes(normalizedSearch)),
+    [items, normalizedSearch],
+  );
+
+  const hasExactMatch = useMemo(() => {
+    if (normalizedSearch.length === 0) {
+      return false;
+    }
+
+    return items.some((item) => getMasterItemDisplayName(item).toLowerCase() === normalizedSearch);
+  }, [items, normalizedSearch]);
+
+  const handleSelectItem = useCallback(
+    (item: ItemRecord) => {
+      onSelect(item.id, getMasterItemDisplayName(item));
+      closeSheet();
+    },
+    [closeSheet, onSelect],
+  );
+
+  const handleOpenCreateForm = useCallback(() => {
+    setActiveForm({ mode: 'create' });
+    setDraftName(searchQuery.trim());
+    setDraftQuantity('');
+    setDraftUnit('');
+  }, [searchQuery]);
+
+  const handleEditMasterItem = useCallback((item: ItemRecord) => {
+    setActiveForm({ mode: 'edit', itemId: item.id });
+    setDraftName(item.name?.trim() || getMasterItemDisplayName(item));
+    setDraftQuantity(item.quantity !== null ? String(item.quantity) : '');
+    setDraftUnit(item.unit?.trim() || '');
+  }, []);
+
+  const performDeleteMasterItem = useCallback(
+    async (item: ItemRecord) => {
+      if (!user) {
+        showError('You must be logged in to delete saved items.');
+        return;
+      }
+
+      setIsSaving(true);
+
+      try {
+        const logsDeleteResult = await supabase
+          .from(logTableName)
+          .delete()
+          .eq('user_id', user.id)
+          .eq(logForeignKey, item.id);
+
+        if (logsDeleteResult.error) {
+          throw logsDeleteResult.error;
+        }
+
+        const { error } = await supabase
+          .from(tableName)
+          .delete()
+          .eq('id', item.id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          throw error;
+        }
+
+        setItems((currentItems) => sortMasterItems(currentItems.filter((currentItem) => currentItem.id !== item.id)));
+        onMasterItemDelete?.(item.id);
+
+        if (activeForm?.itemId === item.id) {
+          resetForm();
+        }
+
+        showError(`${displayType} deleted.`);
+      } catch (error: any) {
+        showError(error?.message ?? `Unable to delete this ${displayType.toLowerCase()}.`);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [activeForm, displayType, logForeignKey, logTableName, onMasterItemDelete, resetForm, showError, tableName, user],
+  );
+
+  const handleDeleteMasterItem = useCallback(
+    (item: ItemRecord) => {
+      Alert.alert(
+        'Delete saved item?',
+        'Delete this saved item? This will remove historical logs associated with it.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              void performDeleteMasterItem(item);
+            },
+          },
+        ],
+      );
+    },
+    [performDeleteMasterItem],
+  );
+
+  const handleSubmitMasterItem = useCallback(async () => {
+    if (!user) {
+      showError('You must be logged in to save items.');
+      return;
+    }
+
+    const trimmedName = draftName.trim();
+
+    if (!trimmedName) {
       showError('Name is required.');
       return;
     }
 
+    const trimmedUnit = draftUnit.trim();
+    const parsedQuantity = draftQuantity.trim().length > 0 ? Number(draftQuantity) : null;
+
+    if (parsedQuantity !== null && !Number.isFinite(parsedQuantity)) {
+      showError('Quantity must be a valid number.');
+      return;
+    }
+
+    const payload = {
+      user_id: user.id,
+      name: trimmedName,
+      quantity: parsedQuantity,
+      unit: trimmedUnit.length > 0 ? trimmedUnit : null,
+      display_name: buildMasterItemDisplayName(trimmedName, parsedQuantity, trimmedUnit.length > 0 ? trimmedUnit : null),
+    };
+
     setIsSaving(true);
+
     try {
-      const { data, error } = await supabase
-        .from(tableName)
-        .insert({
-          user_id: user.id,
-          name: newName.trim(),
-          quantity: newQuantity ? parseFloat(newQuantity) : null,
-          unit: newUnit.trim() || null,
-        })
-        .select()
-        .single();
+      if (activeForm?.mode === 'edit' && activeForm.itemId) {
+        const { data, error } = await supabase
+          .from(tableName)
+          .update(payload)
+          .eq('id', activeForm.itemId)
+          .eq('user_id', user.id)
+          .select('id, display_name, name, quantity, unit')
+          .single();
 
-      if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
-      if (data) {
-        setItems(prev => [...prev, data].sort((a, b) => 
-          (a.display_name || '').localeCompare(b.display_name || '')
-        ));
-        onSelect(data.id, data.display_name);
-        handleClose();
+        if (data) {
+          const nextItem = data as ItemRecord;
+          setItems((currentItems) => sortMasterItems(currentItems.map((currentItem) => (currentItem.id === nextItem.id ? nextItem : currentItem))));
+          onMasterItemChange?.(nextItem);
+          setSearchQuery(getMasterItemDisplayName(nextItem));
+        }
+
+        resetForm();
+        showError(`${displayType} updated.`);
+      } else {
+        const { data, error } = await supabase
+          .from(tableName)
+          .insert(payload)
+          .select('id, display_name, name, quantity, unit')
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        if (data) {
+          const createdItem = data as ItemRecord;
+          setItems((currentItems) => sortMasterItems([...currentItems, createdItem]));
+          onMasterItemChange?.(createdItem);
+          onSelect(createdItem.id, getMasterItemDisplayName(createdItem));
+          closeSheet();
+        }
+
+        resetForm();
       }
-    } catch (err: any) {
-      showError(err.message || 'Error saving new item');
+    } catch (error: any) {
+      showError(error?.message ?? `Unable to save this ${displayType.toLowerCase()}.`);
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [activeForm, closeSheet, displayType, draftName, draftQuantity, draftUnit, onMasterItemChange, onSelect, resetForm, showError, tableName, user]);
 
-  const showError = (msg: string) => {
-    setSnackbarMessage(msg);
-    setSnackbarVisible(true);
-  };
+  const handleDismiss = useCallback(() => {
+    setSearchQuery('');
+    setItems([]);
+    resetForm();
+    onClose?.();
+  }, [onClose, resetForm]);
 
-  const handleClose = () => {
-    setShowNewEntryForm(false);
-    onClose();
-  };
+  const snapPoints = useMemo(() => ['74%', '92%'], []);
 
-  const handleOpenNewForm = () => {
-    setNewName(searchQuery);
-    setShowNewEntryForm(true);
-  };
-
-  const filteredItems = items.filter(item => 
-    item.display_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  const renderBackdrop = useCallback(
+    (backdropProps: React.ComponentProps<typeof BottomSheetBackdrop>) => (
+      <BottomSheetBackdrop {...backdropProps} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.55} />
+    ),
+    [],
   );
 
-  const renderItem = ({ item }: { item: Item }) => (
-    <List.Item
-      title={item.display_name}
-      titleStyle={{ color: colors.text }}
-      style={[
-        styles.listItem,
-        { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }
-      ]}
-      left={props => <List.Icon {...props} icon={iconName} color={colors.primary} />}
-      onPress={() => {
-        onSelect(item.id, item.display_name);
-        handleClose();
-      }}
-    />
-  );
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <View style={styles.headerRow}>
+        <View style={styles.headerCopy}>
+          <View style={[styles.headerIconShell, { backgroundColor: colors.surfaceContainerLow }]}> 
+            <MaterialCommunityIcons name={iconName} size={20} color={colors.primary} />
+          </View>
+          <View style={styles.headerTextBlock}>
+            <Text variant="titleLarge" style={[styles.sheetTitle, { color: colors.text }]}>
+              Select {displayType}
+            </Text>
+            <Text variant="bodySmall" style={[styles.sheetSubtitle, { color: colors.textMuted }]}>
+              Swipe right to edit or left to delete saved items.
+            </Text>
+          </View>
+        </View>
+        <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeSheet} />
+      </View>
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      onRequestClose={handleClose}
-      presentationStyle="pageSheet"
-    >
-      <ScreenWrapper>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.container}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerTitleRow}>
-              <IconButton
-                icon="close"
-                iconColor={colors.text}
-                size={24}
-                onPress={handleClose}
-                style={styles.closeButton}
-              />
-              <Text variant="titleLarge" style={{ color: colors.text, fontWeight: '700' }}>
-                Select {displayType}
-              </Text>
+      <CustomTextInput
+        placeholder={`Search ${displayType.toLowerCase()}...`}
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        left={<TextInput.Icon icon="magnify" color={colors.textMuted} />}
+        right={
+          searchQuery.length > 0 ? (
+            <TextInput.Icon
+              icon="close-circle"
+              color={colors.textMuted}
+              onPress={() => setSearchQuery('')}
+              forceTextInputFocus={false}
+            />
+          ) : undefined
+        }
+        autoCapitalize="none"
+      />
+
+      {loading && (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator color={colors.primary} />
+          <Text variant="bodySmall" style={[styles.loadingText, { color: colors.textMuted }]}>Refreshing saved items...</Text>
+        </View>
+      )}
+
+      {activeForm && (
+        <Animated.View layout={Layout.springify()} style={[styles.formCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
+          <Text variant="titleMedium" style={[styles.formTitle, { color: colors.text }]}>
+            {activeForm.mode === 'edit' ? `Edit ${displayType}` : createLabel}
+          </Text>
+
+          <View style={styles.formFields}>
+            <CustomTextInput
+              label="Name"
+              placeholder={`e.g. ${type === 'medicine' ? 'Ibuprofen' : 'Apple'}`}
+              value={draftName}
+              onChangeText={setDraftName}
+              autoCapitalize="words"
+              autoFocus
+            />
+
+            <View style={styles.formRow}>
+              <View style={styles.formColumn}>
+                <CustomTextInput
+                  label="Quantity"
+                  placeholder="e.g. 400"
+                  value={draftQuantity}
+                  onChangeText={setDraftQuantity}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+
+              <View style={styles.formColumn}>
+                <CustomTextInput
+                  label="Unit"
+                  placeholder={`e.g. ${type === 'medicine' ? 'mg' : 'piece'}`}
+                  value={draftUnit}
+                  onChangeText={setDraftUnit}
+                  autoCapitalize="words"
+                />
+              </View>
             </View>
           </View>
 
-          {!showNewEntryForm ? (
-            <View style={styles.content}>
-              <CustomTextInput
-                placeholder={`Search ${displayType.toLowerCase()}...`}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                left={<TextInput.Icon icon="magnify" color={colors.textMuted} />}
-              />
-              
-              {loading ? (
-                <View style={styles.centerContainer}>
-                  <ActivityIndicator color={colors.primary} />
-                </View>
-              ) : (
-                <FlatList
-                  data={filteredItems}
-                  keyExtractor={item => item.id}
-                  renderItem={renderItem}
-                  contentContainerStyle={styles.listContent}
-                  showsVerticalScrollIndicator={false}
-                  ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                      <Text variant="bodyMedium" style={{ color: colors.textMuted }}>
-                        No results found.
-                      </Text>
-                      <CustomButton
-                        mode="outlined"
-                        onPress={handleOpenNewForm}
-                        icon="plus"
-                        style={{ marginTop: Spacing.md }}
-                      >
-                        Add New "{searchQuery || displayType}"
-                      </CustomButton>
-                    </View>
-                  }
-                  ListFooterComponent={
-                    filteredItems.length > 0 ? (
-                      <View style={styles.footerContainer}>
-                        <CustomButton
-                          mode="outlined"
-                          onPress={handleOpenNewForm}
-                          icon="plus"
-                        >
-                          Add New "{searchQuery || displayType}"
-                        </CustomButton>
-                      </View>
-                    ) : null
-                  }
-                />
-              )}
-            </View>
-          ) : (
-            <View style={styles.content}>
-              <View style={[styles.newFormCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}>
-                <Text variant="titleMedium" style={{ color: colors.text, marginBottom: Spacing.md }}>
-                  Create New {displayType}
-                </Text>
-                
-                <View style={styles.formSpacing}>
-                  <CustomTextInput
-                    label="Name"
-                    placeholder={`e.g. ${type === 'medicine' ? 'Ibuprofen' : 'Apple'}`}
-                    value={newName}
-                    onChangeText={setNewName}
-                  />
-                  <View style={styles.row}>
-                    <View style={styles.halfWidth}>
-                      <CustomTextInput
-                        label="Quantity"
-                        placeholder="e.g. 400"
-                        value={newQuantity}
-                        onChangeText={setNewQuantity}
-                        keyboardType="numeric"
-                      />
-                    </View>
-                    <View style={styles.halfWidth}>
-                      <CustomTextInput
-                        label="Unit"
-                        placeholder={`e.g. ${type === 'medicine' ? 'mg' : 'piece'}`}
-                        value={newUnit}
-                        onChangeText={setNewUnit}
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.actionButtons}>
-                  <CustomButton
-                    mode="text"
-                    onPress={() => setShowNewEntryForm(false)}
-                    style={styles.cancelBtn}
-                  >
-                    Cancel
-                  </CustomButton>
-                  <CustomButton
-                    mode="contained"
-                    onPress={handleAddNewItem}
-                    isLoading={isSaving}
-                    style={styles.saveBtn}
-                  >
-                    Save & Select
-                  </CustomButton>
-                </View>
-              </View>
-            </View>
-          )}
-
-          <Snackbar
-            visible={snackbarVisible}
-            onDismiss={() => setSnackbarVisible(false)}
-            duration={3000}
-            style={{ backgroundColor: colors.surfaceContainerHighest }}
-            theme={{ colors: { onSurface: colors.text } }}
-          >
-            {snackbarMessage}
-          </Snackbar>
-        </KeyboardAvoidingView>
-      </ScreenWrapper>
-    </Modal>
+          <View style={styles.formActions}>
+            <CustomButton mode="text" onPress={resetForm} style={styles.formActionButton}>
+              Cancel
+            </CustomButton>
+            <CustomButton mode="contained" onPress={handleSubmitMasterItem} isLoading={isSaving} style={styles.formActionButton}>
+              {activeForm.mode === 'edit' ? 'Save Changes' : 'Create & Select'}
+            </CustomButton>
+          </View>
+        </Animated.View>
+      )}
+    </View>
   );
-}
+
+  const renderFooter = () => {
+    if (activeForm || hasExactMatch) {
+      return null;
+    }
+
+    return (
+      <View style={styles.footerContainer}>
+        <CustomButton
+          mode="contained"
+          icon="plus"
+          onPress={handleOpenCreateForm}
+          buttonColor={type === 'medicine' ? colors.primaryContainer : colors.secondaryContainer}
+          textColor={type === 'medicine' ? colors.onPrimaryContainer : colors.onSecondaryContainer}
+        >
+          {createLabel}
+        </CustomButton>
+      </View>
+    );
+  };
+
+  return (
+    <BottomSheetModal
+      ref={sheetRef}
+      index={0}
+      snapPoints={snapPoints}
+      enablePanDownToClose
+      enableDismissOnClose
+      backgroundStyle={[styles.sheetBackground, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}
+      handleIndicatorStyle={[styles.handleIndicator, { backgroundColor: colors.ghostBorder }]}
+      backdropComponent={renderBackdrop}
+      onDismiss={handleDismiss}
+      keyboardBehavior="interactive"
+      android_keyboardInputMode="adjustResize"
+    >
+      <View style={styles.sheetContent}>
+        <BottomSheetFlatList
+          data={filteredItems}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item, index }) => (
+            <ItemRow
+              item={item}
+              index={index}
+              iconName={iconName}
+              colors={colors}
+              onSelect={handleSelectItem}
+              onEdit={handleEditMasterItem}
+              onDelete={handleDeleteMasterItem}
+            />
+          )}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={
+            loading ? null : (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="magnify" size={32} color={colors.textMuted} />
+                <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.textMuted }]}>No matching saved items.</Text>
+              </View>
+            )
+          }
+          ListFooterComponent={renderFooter}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        />
+      </View>
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        style={{ backgroundColor: colors.surfaceContainerHighest }}
+        theme={{ colors: { onSurface: colors.text } }}
+      >
+        {snackbarMessage}
+      </Snackbar>
+    </BottomSheetModal>
+  );
+});
+
+ItemSelector.displayName = 'ItemSelector';
 
 const styles = StyleSheet.create({
-  container: {
+  sheetBackground: {
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    borderWidth: 1,
+  },
+  handleIndicator: {
+    width: 48,
+    height: 5,
+  },
+  sheetContent: {
     flex: 1,
   },
-  header: {
-    paddingTop: Platform.OS === 'ios' ? Spacing.xl : Spacing.md,
-    paddingHorizontal: Spacing.sm,
+  headerContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
+    gap: Spacing.md,
   },
-  headerTitleRow: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+  },
+  headerCopy: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+    flex: 1,
+  },
+  headerIconShell: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTextBlock: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  sheetTitle: {
+    fontWeight: '700',
+  },
+  sheetSubtitle: {
+    lineHeight: 20,
+  },
+  loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  closeButton: {
-    marginRight: Spacing.xs,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: Spacing.lg,
-  },
-  listContent: {
-    paddingVertical: Spacing.md,
     gap: Spacing.sm,
+    marginTop: Spacing.xs,
   },
-  listItem: {
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    marginVertical: 4,
-  },
-  centerContainer: {
+  loadingText: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  emptyContainer: {
-    paddingVertical: Spacing.xl,
-    alignItems: 'center',
-  },
-  footerContainer: {
-    marginTop: Spacing.md,
-    paddingBottom: Spacing.xxxl,
-  },
-  newFormCard: {
+  formCard: {
     borderRadius: Radius.xl,
     borderWidth: 1,
     padding: Spacing.lg,
-    marginTop: Spacing.md,
-  },
-  formSpacing: {
     gap: Spacing.md,
   },
-  row: {
+  formTitle: {
+    fontWeight: '700',
+  },
+  formFields: {
+    gap: Spacing.md,
+  },
+  formRow: {
     flexDirection: 'row',
     gap: Spacing.md,
   },
-  halfWidth: {
+  formColumn: {
     flex: 1,
   },
-  actionButtons: {
+  formActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: Spacing.xl,
     gap: Spacing.sm,
   },
-  cancelBtn: {
+  formActionButton: {
     flex: 1,
   },
-  saveBtn: {
-    flex: 2,
+  listContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xxxl + Spacing.xl,
+    gap: Spacing.sm,
+  },
+  itemCard: {
+    minHeight: 72,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    elevation: 2,
+  },
+  itemIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemTextBlock: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  itemTitle: {
+    fontWeight: '700',
+  },
+  itemSubtitle: {
+    lineHeight: 18,
+  },
+  swipeAction: {
+    width: 96,
+    marginBottom: Spacing.sm,
+    borderRadius: Radius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  deleteAction: {
+    marginRight: Spacing.sm,
+  },
+  editAction: {
+    marginLeft: Spacing.sm,
+  },
+  swipeActionLabel: {
+    fontWeight: '700',
+  },
+  emptyState: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  emptyText: {
+    textAlign: 'center',
+  },
+  footerContainer: {
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
   },
 });
