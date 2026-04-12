@@ -907,10 +907,10 @@ export default function LogsScreen() {
 
   const filterOptions: Array<{ value: LogFilter; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = [
     { value: 'all', label: 'All', icon: 'timeline-text' },
-    { value: 'pain', label: 'Pain', icon: 'thermometer-lines' },
-    { value: 'stress', label: 'Stress', icon: 'brain' },
-    { value: 'medicine', label: 'Medicine', icon: 'pill' },
     { value: 'food', label: 'Food', icon: 'food-apple' },
+    { value: 'pain', label: 'Pain', icon: 'thermometer-lines' },
+    { value: 'medicine', label: 'Medicine', icon: 'pill' },
+    { value: 'stress', label: 'Stress', icon: 'brain' },
   ];
 
   const renderEntry = ({ item }: { item: TimelineEntry }) => {
