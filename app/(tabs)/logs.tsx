@@ -1,6 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { RefreshControl, SectionList, StyleSheet, View, ScrollView } from 'react-native';
-import { ActivityIndicator, Chip, Snackbar, Text } from 'react-native-paper';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  RefreshControl,
+  ScrollView,
+  SectionList,
+  StyleSheet,
+  View,
+  KeyboardAvoidingView,
+  Modal,
+  PanResponder,
+  Platform,
+  Pressable,
+} from 'react-native';
+import { ActivityIndicator, Chip, IconButton, SegmentedButtons, Snackbar, Switch, Text } from 'react-native-paper';
+import Slider from '@react-native-community/slider';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -10,10 +23,20 @@ import { useAuth } from '../../providers/AuthProvider';
 import { supabase } from '../../lib/supabase';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 import { CustomButton } from '../../components/ui/CustomButton';
+import { CustomTextInput } from '../../components/ui/CustomTextInput';
+import { ItemSelector } from '../../components/forms/ItemSelector';
 
 type LogFilter = 'all' | 'pain' | 'stress' | 'medicine' | 'food';
 type LogType = Exclude<LogFilter, 'all'>;
+type StressLevel = 'none' | 'low' | 'moderate' | 'high';
 type StressLevelValue = number | 'none' | 'low' | 'moderate' | 'high';
+
+type EditItemType = 'medicine' | 'food';
+
+interface SelectedItem {
+  id: string;
+  name: string;
+}
 
 interface PainLogRow {
   id: string;
@@ -60,6 +83,11 @@ interface TimelineEntry {
   loggedAt: string;
   title: string;
   subtitle: string;
+  payload:
+    | { kind: 'pain'; row: PainLogRow }
+    | { kind: 'stress'; row: StressLogRow }
+    | { kind: 'medicine'; row: MedicineLogRow; item: UserItemRow | null }
+    | { kind: 'food'; row: FoodLogRow; item: UserItemRow | null };
 }
 
 interface LogSection {
@@ -158,6 +186,23 @@ function formatStressEntryTitle(value: StressLevelValue | null | undefined) {
   return 'Stress';
 }
 
+function coerceStressLevel(value: StressLevelValue | null | undefined): StressLevel {
+  if (value === 'none' || value === 'low' || value === 'moderate' || value === 'high') {
+    return value;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value <= 2) return 'low';
+    if (value <= 5) return 'moderate';
+    return 'high';
+  }
+
+  return 'none';
+}
+
+const swipeActionWidth = 112;
+const swipeThreshold = 84;
+
 function buildDisplayName(item?: UserItemRow | null) {
   if (!item) {
     return 'Unknown item';
@@ -189,6 +234,201 @@ function groupEntriesByDate(entries: TimelineEntry[]) {
   }));
 }
 
+interface SwipeableLogCardProps {
+  entry: TimelineEntry;
+  config: {
+    label: string;
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+    container: string;
+    iconColor: string;
+  };
+  colors: ReturnType<typeof useAppColors>;
+  isActive: boolean;
+  onActivate: (entryId: string) => void;
+  onEdit: (entry: TimelineEntry) => void;
+  onDelete: (entry: TimelineEntry) => void;
+}
+
+function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit, onDelete }: SwipeableLogCardProps) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateXValue = useRef(0);
+  const startX = useRef(0);
+
+  const snapTo = (value: number, callback?: () => void) => {
+    translateXValue.current = value;
+    Animated.spring(translateX, {
+      toValue: value,
+      useNativeDriver: true,
+      friction: 16,
+      tension: 190,
+    }).start(({ finished }) => {
+      if (finished && callback) {
+        callback();
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (!isActive) {
+      snapTo(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
+
+  const handleOpenEdit = () => {
+    snapTo(swipeActionWidth, () => onEdit(entry));
+  };
+
+  const handleOpenDelete = () => {
+    snapTo(-swipeActionWidth * 1.35, () => onDelete(entry));
+  };
+
+  const editOpacity = translateX.interpolate({
+    inputRange: [0, swipeActionWidth * 0.55, swipeActionWidth],
+    outputRange: [0, 0.8, 1],
+    extrapolate: 'clamp',
+  });
+
+  const deleteOpacity = translateX.interpolate({
+    inputRange: [-swipeActionWidth, -swipeActionWidth * 0.55, 0],
+    outputRange: [1, 0.8, 0],
+    extrapolate: 'clamp',
+  });
+
+  const editScale = translateX.interpolate({
+    inputRange: [0, swipeActionWidth],
+    outputRange: [0.92, 1],
+    extrapolate: 'clamp',
+  });
+
+  const deleteScale = translateX.interpolate({
+    inputRange: [-swipeActionWidth, 0],
+    outputRange: [1, 0.92],
+    extrapolate: 'clamp',
+  });
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+        onPanResponderGrant: () => {
+          startX.current = translateXValue.current;
+          onActivate(entry.id);
+        },
+        onPanResponderMove: (_, gestureState) => {
+          const nextX = Math.max(-swipeActionWidth * 1.35, Math.min(swipeActionWidth, startX.current + gestureState.dx));
+          translateX.setValue(nextX);
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          const projectedX = Math.max(-swipeActionWidth * 1.35, Math.min(swipeActionWidth, startX.current + gestureState.dx));
+
+          if (projectedX >= swipeThreshold) {
+            handleOpenEdit();
+            return;
+          }
+
+          if (projectedX <= -swipeThreshold) {
+            handleOpenDelete();
+            return;
+          }
+
+          snapTo(0);
+        },
+        onPanResponderTerminate: () => {
+          snapTo(0);
+        },
+      }),
+    [entry.id, onActivate, onDelete, onEdit, translateX],
+  );
+
+  return (
+    <View style={styles.swipeContainer}>
+      <View style={styles.swipeUnderlay} pointerEvents="box-none">
+        <Pressable
+          accessibilityRole="button"
+            onPress={handleOpenEdit}
+            style={[styles.swipeActionLeft, { backgroundColor: colors.primaryContainer }]}
+        >
+          <Animated.View style={[styles.swipeActionContent, { opacity: editOpacity, transform: [{ scale: editScale }] }]}>
+            <View style={[styles.swipeActionIconWrap, { backgroundColor: colors.primaryContainer }]}> 
+              <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.onPrimaryContainer} />
+            </View>
+            <Text variant="labelLarge" style={[styles.swipeActionLabel, { color: colors.onPrimaryContainer }]}> 
+              Edit
+            </Text>
+            <Text variant="bodySmall" style={[styles.swipeActionHint, { color: colors.onPrimaryContainer }]}> 
+              Swipe right
+            </Text>
+          </Animated.View>
+        </Pressable>
+
+        <View style={styles.swipeSpacer} />
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleOpenDelete}
+          style={[styles.swipeActionRight, { backgroundColor: colors.errorContainer }]}
+        >
+          <Animated.View style={[styles.swipeActionContent, { opacity: deleteOpacity, transform: [{ scale: deleteScale }] }]}>
+            <View style={[styles.swipeActionIconWrap, { backgroundColor: colors.errorContainer }]}> 
+              <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.onErrorContainer} />
+            </View>
+            <Text variant="labelLarge" style={[styles.swipeActionLabel, { color: colors.onErrorContainer }]}> 
+              Delete
+            </Text>
+            <Text variant="bodySmall" style={[styles.swipeActionHint, { color: colors.onErrorContainer }]}> 
+              Swipe left
+            </Text>
+          </Animated.View>
+        </Pressable>
+      </View>
+
+      <Animated.View
+        style={[
+          styles.entryCard,
+          styles.swipeCard,
+          { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder, transform: [{ translateX }] },
+        ]}
+        {...panResponder.panHandlers}
+      >
+        <View style={styles.entryTopRow}>
+          <View style={styles.entryLeading}>
+            <View style={[styles.iconWrap, { backgroundColor: config.container }]}> 
+              <MaterialCommunityIcons name={config.icon} size={20} color={config.iconColor} />
+            </View>
+            <View style={styles.entryTextBlock}>
+              <Text variant="titleMedium" style={{ color: colors.text }}>
+                {entry.title}
+              </Text>
+              <Text variant="bodySmall" style={{ color: colors.textMuted }}>
+                {entry.subtitle}
+              </Text>
+            </View>
+          </View>
+
+          <Chip
+            compact
+            style={[styles.entryChip, { backgroundColor: config.container }]}
+            textStyle={{ color: config.iconColor }}
+          >
+            {config.label}
+          </Chip>
+        </View>
+
+        <View style={styles.entryFooter}>
+          <Text variant="labelSmall" style={{ color: colors.textMuted }}>
+            {formatTime(entry.loggedAt)}
+          </Text>
+          <Text variant="labelSmall" style={{ color: colors.textMuted }}>
+            {formatSectionTitle(entry.logDate)}
+          </Text>
+        </View>
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function LogsScreen() {
   const colors = useAppColors();
   const { user } = useAuth();
@@ -199,12 +439,249 @@ export default function LogsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<LogFilter>('all');
+  const [activeSwipeKey, setActiveSwipeKey] = useState<string | null>(null);
+  const [editingEntry, setEditingEntry] = useState<TimelineEntry | null>(null);
+  const [editPainBodyPart, setEditPainBodyPart] = useState('');
+  const [editPainLevel, setEditPainLevel] = useState(1);
+  const [editPainSwelling, setEditPainSwelling] = useState(false);
+  const [editStressLevel, setEditStressLevel] = useState<StressLevel>('none');
+  const [editSelectedItem, setEditSelectedItem] = useState<SelectedItem | null>(null);
+  const [editSelectorVisible, setEditSelectorVisible] = useState(false);
+  const [editSelectorType, setEditSelectorType] = useState<EditItemType>('medicine');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [deletedEntry, setDeletedEntry] = useState<TimelineEntry | null>(null);
+  const [undoVisible, setUndoVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   const showError = (message: string) => {
     setSnackbarMessage(message);
     setSnackbarVisible(true);
+  };
+
+  const closeEditor = () => {
+    setEditingEntry(null);
+    setEditSelectorVisible(false);
+    setEditSelectedItem(null);
+    setActiveSwipeKey(null);
+  };
+
+  const openEditor = (entry: TimelineEntry) => {
+    setActiveSwipeKey(entry.id);
+    setEditingEntry(entry);
+    setEditSelectorVisible(false);
+
+    if (entry.payload.kind === 'pain') {
+      setEditPainBodyPart(entry.payload.row.body_part ?? '');
+      setEditPainLevel(entry.payload.row.pain_level ?? 1);
+      setEditPainSwelling(Boolean(entry.payload.row.swelling));
+      setEditSelectedItem(null);
+      return;
+    }
+
+    if (entry.payload.kind === 'stress') {
+      setEditStressLevel(coerceStressLevel(entry.payload.row.level));
+      setEditSelectedItem(null);
+      return;
+    }
+
+    setEditSelectedItem(
+      entry.payload.item
+        ? { id: entry.payload.item.id, name: entry.payload.item.display_name ?? entry.payload.item.name ?? entry.title }
+        : null,
+    );
+  };
+
+  const openEditItemSelector = (type: EditItemType) => {
+    setEditSelectorType(type);
+    setEditSelectorVisible(true);
+  };
+
+  const insertPayloadRow = async (entry: TimelineEntry) => {
+    if (!user) {
+      throw new Error('You must be logged in to restore entries.');
+    }
+
+    if (entry.payload.kind === 'pain') {
+      const { error } = await supabase.from('pain_logs').insert({
+        user_id: user.id,
+        logged_at: entry.loggedAt,
+        log_date: entry.logDate,
+        body_part: entry.payload.row.body_part,
+        pain_level: entry.payload.row.pain_level,
+        swelling: entry.payload.row.swelling,
+      });
+
+      if (error) {
+        throw error;
+      }
+      return;
+    }
+
+    if (entry.payload.kind === 'stress') {
+      const { error } = await supabase.from('stress_logs').insert({
+        user_id: user.id,
+        logged_at: entry.loggedAt,
+        log_date: entry.logDate,
+        level: entry.payload.row.level,
+      });
+
+      if (error) {
+        throw error;
+      }
+      return;
+    }
+
+    if (entry.payload.kind === 'medicine') {
+      const { error } = await supabase.from('medicine_logs').insert({
+        user_id: user.id,
+        medicine_id: entry.payload.row.medicine_id,
+        logged_at: entry.loggedAt,
+        log_date: entry.logDate,
+      });
+
+      if (error) {
+        throw error;
+      }
+      return;
+    }
+
+    const { error } = await supabase.from('food_logs').insert({
+      user_id: user.id,
+      food_id: entry.payload.row.food_id,
+      logged_at: entry.loggedAt,
+      log_date: entry.logDate,
+    });
+
+    if (error) {
+      throw error;
+    }
+  };
+
+  const handleDeleteEntry = async (entry: TimelineEntry) => {
+    if (!user) {
+      showError('You must be logged in to manage logs.');
+      return;
+    }
+
+    try {
+      if (entry.payload.kind === 'pain') {
+        const { error } = await supabase.from('pain_logs').delete().eq('id', entry.payload.row.id).eq('user_id', user.id);
+
+        if (error) throw error;
+      } else if (entry.payload.kind === 'stress') {
+        const { error } = await supabase.from('stress_logs').delete().eq('id', entry.payload.row.id).eq('user_id', user.id);
+
+        if (error) throw error;
+      } else if (entry.payload.kind === 'medicine') {
+        const { error } = await supabase.from('medicine_logs').delete().eq('id', entry.payload.row.id).eq('user_id', user.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('food_logs').delete().eq('id', entry.payload.row.id).eq('user_id', user.id);
+
+        if (error) throw error;
+      }
+
+      setDeletedEntry(entry);
+      setUndoVisible(true);
+      setActiveSwipeKey(null);
+      await loadLogs('refresh');
+    } catch (error: any) {
+      showError(error?.message || 'Unable to delete this log.');
+      await loadLogs('refresh');
+    }
+  };
+
+  const handleUndoDelete = async () => {
+    if (!deletedEntry || !user) {
+      setUndoVisible(false);
+      setDeletedEntry(null);
+      return;
+    }
+
+    try {
+      await insertPayloadRow(deletedEntry);
+      setUndoVisible(false);
+      setDeletedEntry(null);
+      await loadLogs('refresh');
+    } catch (error: any) {
+      setUndoVisible(false);
+      setDeletedEntry(null);
+      showError(error?.message || 'Unable to restore the deleted log.');
+      await loadLogs('refresh');
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!user || !editingEntry) {
+      showError('You must be logged in to edit logs.');
+      return;
+    }
+
+    setIsSavingEdit(true);
+
+    try {
+      if (editingEntry.payload.kind === 'pain') {
+        if (!editPainBodyPart.trim()) {
+          showError('Body part is required.');
+          return;
+        }
+
+        const { error } = await supabase
+          .from('pain_logs')
+          .update({
+            body_part: editPainBodyPart.trim(),
+            pain_level: editPainLevel,
+            swelling: editPainSwelling,
+          })
+          .eq('id', editingEntry.payload.row.id)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      } else if (editingEntry.payload.kind === 'stress') {
+        const { error } = await supabase
+          .from('stress_logs')
+          .update({ level: editStressLevel })
+          .eq('id', editingEntry.payload.row.id)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      } else if (editingEntry.payload.kind === 'medicine') {
+        if (!editSelectedItem) {
+          showError('Select a medicine before saving.');
+          return;
+        }
+
+        const { error } = await supabase
+          .from('medicine_logs')
+          .update({ medicine_id: editSelectedItem.id })
+          .eq('id', editingEntry.payload.row.id)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      } else {
+        if (!editSelectedItem) {
+          showError('Select a food item before saving.');
+          return;
+        }
+
+        const { error } = await supabase
+          .from('food_logs')
+          .update({ food_id: editSelectedItem.id })
+          .eq('id', editingEntry.payload.row.id)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      }
+
+      closeEditor();
+      await loadLogs('refresh');
+    } catch (error: any) {
+      showError(error?.message || 'Unable to save your changes.');
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   const loadLogs = async (mode: 'initial' | 'refresh' = 'refresh') => {
@@ -280,6 +757,7 @@ export default function LogsScreen() {
         loggedAt: row.logged_at,
         title: formatPainEntryTitle(row),
         subtitle: formatPainEntrySubtitle(row),
+        payload: { kind: 'pain', row },
       }));
 
       const stressEntries: TimelineEntry[] = (stressResult.data ?? []).map((row: StressLogRow) => ({
@@ -289,6 +767,7 @@ export default function LogsScreen() {
         loggedAt: row.logged_at,
         title: formatStressEntryTitle(row.level),
         subtitle: `Logged at ${formatTime(row.logged_at)}`,
+        payload: { kind: 'stress', row },
       }));
 
       const medicineEntries: TimelineEntry[] = (medicineResult.data ?? []).map((row: MedicineLogRow) => ({
@@ -298,6 +777,7 @@ export default function LogsScreen() {
         loggedAt: row.logged_at,
         title: buildDisplayName(medicineItems.get(row.medicine_id)),
         subtitle: `Logged at ${formatTime(row.logged_at)}`,
+        payload: { kind: 'medicine', row, item: medicineItems.get(row.medicine_id) ?? null },
       }));
 
       const foodEntries: TimelineEntry[] = (foodResult.data ?? []).map((row: FoodLogRow) => ({
@@ -307,6 +787,7 @@ export default function LogsScreen() {
         loggedAt: row.logged_at,
         title: buildDisplayName(foodItems.get(row.food_id)),
         subtitle: `Logged at ${formatTime(row.logged_at)}`,
+        payload: { kind: 'food', row, item: foodItems.get(row.food_id) ?? null },
       }));
 
       const allEntries = [...painEntries, ...stressEntries, ...medicineEntries, ...foodEntries].sort(
@@ -378,40 +859,15 @@ export default function LogsScreen() {
     const config = typeConfig[item.type];
 
     return (
-      <View style={[styles.entryCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
-        <View style={styles.entryTopRow}>
-          <View style={styles.entryLeading}>
-            <View style={[styles.iconWrap, { backgroundColor: config.container }]}> 
-              <MaterialCommunityIcons name={config.icon} size={20} color={config.iconColor} />
-            </View>
-            <View style={styles.entryTextBlock}>
-              <Text variant="titleMedium" style={{ color: colors.text }}>
-                {item.title}
-              </Text>
-              <Text variant="bodySmall" style={{ color: colors.textMuted }}>
-                {item.subtitle}
-              </Text>
-            </View>
-          </View>
-
-          <Chip
-            compact
-            style={[styles.entryChip, { backgroundColor: config.container }]}
-            textStyle={{ color: config.iconColor }}
-          >
-            {config.label}
-          </Chip>
-        </View>
-
-        <View style={styles.entryFooter}>
-          <Text variant="labelSmall" style={{ color: colors.textMuted }}>
-            {formatTime(item.loggedAt)}
-          </Text>
-          <Text variant="labelSmall" style={{ color: colors.textMuted }}>
-            {formatSectionTitle(item.logDate)}
-          </Text>
-        </View>
-      </View>
+      <SwipeableLogCard
+        entry={item}
+        config={config}
+        colors={colors}
+        isActive={activeSwipeKey === item.id}
+        onActivate={setActiveSwipeKey}
+        onEdit={openEditor}
+        onDelete={handleDeleteEntry}
+      />
     );
   };
 
@@ -535,6 +991,172 @@ export default function LogsScreen() {
         />
       </View>
 
+      <Modal visible={editingEntry !== null} transparent animationType="fade" onRequestClose={closeEditor}>
+        <View style={styles.modalContainer}>
+          <Pressable style={[styles.modalBackdrop, { backgroundColor: colors.text, opacity: 0.45 }]} onPress={closeEditor} />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalKeyboard}
+          >
+            <View
+              style={[
+                styles.modalCard,
+                {
+                  backgroundColor: colors.glassSurface,
+                  borderColor: colors.ghostBorder,
+                  shadowColor: colors.shadowAmbient,
+                },
+              ]}
+            >
+              <View style={styles.modalHeader}>
+                <Text variant="titleLarge" style={[styles.cardTitle, { color: colors.text }]}>
+                  Edit {editingEntry?.type === 'pain' ? 'Pain' : editingEntry?.type === 'stress' ? 'Stress' : editingEntry?.type === 'medicine' ? 'Medicine' : 'Food'} Entry
+                </Text>
+                <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeEditor} />
+              </View>
+
+              {editingEntry?.payload.kind === 'pain' && (
+                <>
+                  <CustomTextInput
+                    label="Body part"
+                    placeholder="e.g. left knee"
+                    value={editPainBodyPart}
+                    onChangeText={setEditPainBodyPart}
+                    autoCapitalize="words"
+                  />
+
+                  <View style={styles.editSliderBlock}>
+                    <View style={styles.editSliderRow}>
+                      <Text variant="bodyMedium" style={[styles.sectionBody, { color: colors.textMuted }]}>
+                        Pain level
+                      </Text>
+                      <View
+                        style={[
+                          styles.painLevelBadge,
+                          { backgroundColor: colors.surfaceContainerLow, borderColor: colors.ghostBorder },
+                        ]}
+                      >
+                        <Text variant="titleMedium" style={[styles.painLevelText, { color: colors.chartTrigger }]}>
+                          {editPainLevel}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Slider
+                      style={styles.slider}
+                      minimumValue={1}
+                      maximumValue={5}
+                      step={1}
+                      value={editPainLevel}
+                      onValueChange={(value) => setEditPainLevel(value)}
+                      minimumTrackTintColor={colors.chartTrigger}
+                      maximumTrackTintColor={colors.surfaceContainerHighest}
+                      thumbTintColor={colors.chartTrigger}
+                    />
+                  </View>
+
+                  <View style={styles.swellingRow}>
+                    <Text variant="bodyMedium" style={styles.swellingLabel}>
+                      Swelling Present?
+                    </Text>
+                    <Switch value={editPainSwelling} onValueChange={setEditPainSwelling} color={colors.primary} />
+                  </View>
+                </>
+              )}
+
+              {editingEntry?.payload.kind === 'stress' && (
+                <SegmentedButtons
+                  value={editStressLevel}
+                  onValueChange={(value) => {
+                    if (value === 'none' || value === 'low' || value === 'moderate' || value === 'high') {
+                      setEditStressLevel(value);
+                    }
+                  }}
+                  density="small"
+                  style={styles.segmentedRoot}
+                  buttons={[
+                    { value: 'none', label: 'None', showSelectedCheck: false, style: styles.segmentedButton },
+                    { value: 'low', label: 'Low', showSelectedCheck: false, style: styles.segmentedButton },
+                    { value: 'moderate', label: 'Moderate', showSelectedCheck: false, style: styles.segmentedButton },
+                    { value: 'high', label: 'High', showSelectedCheck: false, style: styles.segmentedButton },
+                  ]}
+                  theme={{
+                    colors: {
+                      secondaryContainer: colors.primaryContainer,
+                      onSecondaryContainer: colors.onPrimaryContainer,
+                      outline: colors.ghostBorder,
+                    },
+                  }}
+                />
+              )}
+
+              {(editingEntry?.payload.kind === 'medicine' || editingEntry?.payload.kind === 'food') && (
+                <View
+                  style={[
+                    styles.selectionEditCard,
+                    { backgroundColor: colors.surfaceContainerLow, borderColor: colors.ghostBorder },
+                  ]}
+                >
+                  <Text variant="bodyMedium" style={[styles.sectionBody, { color: colors.textMuted }]}>
+                    Current item
+                  </Text>
+                  <View
+                    style={[
+                      styles.selectedItemRow,
+                      { backgroundColor: colors.surfaceContainerLow, borderColor: colors.ghostBorder },
+                    ]}
+                  >
+                    <Text variant="bodyMedium" style={[styles.selectedItemText, { color: colors.text }]}>
+                      {editSelectedItem?.name ?? editingEntry.title}
+                    </Text>
+                  </View>
+
+                  <CustomButton
+                    mode="outlined"
+                    icon="swap-horizontal"
+                    onPress={() => openEditItemSelector(editingEntry.payload.kind === 'medicine' ? 'medicine' : 'food')}
+                  >
+                    Change item
+                  </CustomButton>
+                </View>
+              )}
+
+              <View style={styles.modalActions}>
+                <CustomButton mode="outlined" onPress={closeEditor} style={styles.modalActionButton}>
+                  Cancel
+                </CustomButton>
+                <CustomButton mode="contained" onPress={handleSaveEdit} isLoading={isSavingEdit} style={styles.modalActionButton}>
+                  Save
+                </CustomButton>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      <ItemSelector
+        type={editSelectorType}
+        visible={editSelectorVisible}
+        onClose={() => setEditSelectorVisible(false)}
+        onSelect={(id, displayName) => {
+          setEditSelectedItem({ id, name: displayName });
+        }}
+      />
+
+      <Snackbar
+        visible={undoVisible && deletedEntry !== null}
+        onDismiss={() => {
+          setUndoVisible(false);
+          setDeletedEntry(null);
+        }}
+        duration={5000}
+        action={{ label: 'Undo', onPress: () => void handleUndoDelete() }}
+        style={{ backgroundColor: colors.surfaceContainerHighest }}
+        theme={{ colors: { onSurface: colors.text } }}
+      >
+        Entry deleted.
+      </Snackbar>
+
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
@@ -622,6 +1244,56 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     gap: Spacing.sm,
   },
+  swipeContainer: {
+    marginBottom: Spacing.sm,
+    borderRadius: Radius.xl,
+    overflow: 'hidden',
+  },
+  swipeUnderlay: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  swipeActionLeft: {
+    width: swipeActionWidth,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  swipeActionRight: {
+    width: swipeActionWidth,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  swipeSpacer: {
+    flex: 1,
+  },
+  swipeActionContent: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  swipeActionIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swipeActionLabel: {
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  swipeActionHint: {
+    textAlign: 'center',
+    opacity: 0.88,
+  },
+  swipeCard: {
+    marginBottom: 0,
+  },
   entryTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -653,6 +1325,107 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingLeft: 56,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: Spacing.lg,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalKeyboard: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  modalCard: {
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+  },
+  cardTitle: {
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  editSliderBlock: {
+    gap: Spacing.sm,
+  },
+  editSliderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+  },
+  sectionBody: {
+    flexShrink: 1,
+  },
+  painLevelBadge: {
+    minWidth: Spacing.xxxl,
+    minHeight: Spacing.xxxl,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    paddingHorizontal: Spacing.sm,
+  },
+  painLevelText: {
+    fontWeight: '700',
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  swellingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+  },
+  swellingLabel: {
+    flexShrink: 1,
+  },
+  segmentedRoot: {
+    marginTop: Spacing.xs,
+  },
+  segmentedButton: {
+    flex: 1,
+  },
+  selectionEditCard: {
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+  },
+  selectedItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+  },
+  selectedItemText: {
+    flex: 1,
+    paddingRight: Spacing.sm,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  modalActionButton: {
+    flex: 1,
   },
   emptyCard: {
     borderRadius: Radius.xl,
