@@ -200,8 +200,8 @@ function coerceStressLevel(value: StressLevelValue | null | undefined): StressLe
   return 'none';
 }
 
-const swipeActionWidth = 112;
-const swipeThreshold = 84;
+const swipeActionWidth = 120;
+const swipeThreshold = 96;
 
 function buildDisplayName(item?: UserItemRow | null) {
   if (!item) {
@@ -280,7 +280,7 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
   };
 
   const handleOpenDelete = () => {
-    snapTo(-swipeActionWidth * 1.35, () => onDelete(entry));
+    snapTo(-swipeActionWidth, () => onDelete(entry));
   };
 
   const editOpacity = translateX.interpolate({
@@ -311,17 +311,17 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+          Math.abs(gestureState.dx) > 14 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
         onPanResponderGrant: () => {
           startX.current = translateXValue.current;
           onActivate(entry.id);
         },
         onPanResponderMove: (_, gestureState) => {
-          const nextX = Math.max(-swipeActionWidth * 1.35, Math.min(swipeActionWidth, startX.current + gestureState.dx));
+          const nextX = Math.max(-swipeActionWidth, Math.min(swipeActionWidth, startX.current + gestureState.dx));
           translateX.setValue(nextX);
         },
         onPanResponderRelease: (_, gestureState) => {
-          const projectedX = Math.max(-swipeActionWidth * 1.35, Math.min(swipeActionWidth, startX.current + gestureState.dx));
+          const projectedX = Math.max(-swipeActionWidth, Math.min(swipeActionWidth, startX.current + gestureState.dx));
 
           if (projectedX >= swipeThreshold) {
             handleOpenEdit();
@@ -348,9 +348,18 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
         <Pressable
           accessibilityRole="button"
             onPress={handleOpenEdit}
-            style={[styles.swipeActionLeft, { backgroundColor: colors.primaryContainer }]}
+            style={styles.swipeActionLeft}
         >
-          <Animated.View style={[styles.swipeActionContent, { opacity: editOpacity, transform: [{ scale: editScale }] }]}>
+          <Animated.View
+            style={[
+              styles.swipeActionContent,
+              {
+                opacity: editOpacity,
+                transform: [{ scale: editScale }],
+                backgroundColor: colors.primaryContainer,
+              },
+            ]}
+          >
             <View style={[styles.swipeActionIconWrap, { backgroundColor: colors.primaryContainer }]}> 
               <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.onPrimaryContainer} />
             </View>
@@ -368,9 +377,18 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
         <Pressable
           accessibilityRole="button"
           onPress={handleOpenDelete}
-          style={[styles.swipeActionRight, { backgroundColor: colors.errorContainer }]}
+          style={styles.swipeActionRight}
         >
-          <Animated.View style={[styles.swipeActionContent, { opacity: deleteOpacity, transform: [{ scale: deleteScale }] }]}>
+          <Animated.View
+            style={[
+              styles.swipeActionContent,
+              {
+                opacity: deleteOpacity,
+                transform: [{ scale: deleteScale }],
+                backgroundColor: colors.errorContainer,
+              },
+            ]}
+          >
             <View style={[styles.swipeActionIconWrap, { backgroundColor: colors.errorContainer }]}> 
               <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.onErrorContainer} />
             </View>
@@ -388,7 +406,12 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
         style={[
           styles.entryCard,
           styles.swipeCard,
-          { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder, transform: [{ translateX }] },
+          {
+            backgroundColor: colors.surfaceContainerLowest,
+            borderColor: colors.ghostBorder,
+            shadowColor: colors.shadowAmbient,
+            transform: [{ translateX }],
+          },
         ]}
         {...panResponder.panHandlers}
       >
@@ -449,6 +472,8 @@ export default function LogsScreen() {
   const [editSelectorVisible, setEditSelectorVisible] = useState(false);
   const [editSelectorType, setEditSelectorType] = useState<EditItemType>('medicine');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState<TimelineEntry | null>(null);
+  const [isDeletingEntry, setIsDeletingEntry] = useState(false);
   const [deletedEntry, setDeletedEntry] = useState<TimelineEntry | null>(null);
   const [undoVisible, setUndoVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -463,6 +488,8 @@ export default function LogsScreen() {
     setEditingEntry(null);
     setEditSelectorVisible(false);
     setEditSelectedItem(null);
+    setPendingDeleteEntry(null);
+    setIsDeletingEntry(false);
     setActiveSwipeKey(null);
   };
 
@@ -470,6 +497,8 @@ export default function LogsScreen() {
     setActiveSwipeKey(entry.id);
     setEditingEntry(entry);
     setEditSelectorVisible(false);
+    setPendingDeleteEntry(null);
+    setIsDeletingEntry(false);
 
     if (entry.payload.kind === 'pain') {
       setEditPainBodyPart(entry.payload.row.body_part ?? '');
@@ -495,6 +524,21 @@ export default function LogsScreen() {
   const openEditItemSelector = (type: EditItemType) => {
     setEditSelectorType(type);
     setEditSelectorVisible(true);
+  };
+
+  const openDeleteConfirm = (entry: TimelineEntry) => {
+    setEditingEntry(null);
+    setEditSelectorVisible(false);
+    setEditSelectedItem(null);
+    setPendingDeleteEntry(entry);
+    setIsDeletingEntry(false);
+    setActiveSwipeKey(entry.id);
+  };
+
+  const closeDeleteConfirm = () => {
+    setPendingDeleteEntry(null);
+    setIsDeletingEntry(false);
+    setActiveSwipeKey(null);
   };
 
   const insertPayloadRow = async (entry: TimelineEntry) => {
@@ -558,10 +602,10 @@ export default function LogsScreen() {
     }
   };
 
-  const handleDeleteEntry = async (entry: TimelineEntry) => {
+  const deleteLogEntry = async (entry: TimelineEntry) => {
     if (!user) {
       showError('You must be logged in to manage logs.');
-      return;
+      throw new Error('Missing authenticated user.');
     }
 
     try {
@@ -583,13 +627,27 @@ export default function LogsScreen() {
         if (error) throw error;
       }
 
-      setDeletedEntry(entry);
-      setUndoVisible(true);
-      setActiveSwipeKey(null);
-      await loadLogs('refresh');
     } catch (error: any) {
       showError(error?.message || 'Unable to delete this log.');
+      throw error;
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteEntry) {
+      closeDeleteConfirm();
+      return;
+    }
+
+    try {
+      setIsDeletingEntry(true);
+      await deleteLogEntry(pendingDeleteEntry);
+      setDeletedEntry(pendingDeleteEntry);
+      setUndoVisible(true);
+      closeDeleteConfirm();
       await loadLogs('refresh');
+    } catch {
+      setIsDeletingEntry(false);
     }
   };
 
@@ -866,7 +924,7 @@ export default function LogsScreen() {
         isActive={activeSwipeKey === item.id}
         onActivate={setActiveSwipeKey}
         onEdit={openEditor}
-        onDelete={handleDeleteEntry}
+        onDelete={openDeleteConfirm}
       />
     );
   };
@@ -1134,6 +1192,66 @@ export default function LogsScreen() {
         </View>
       </Modal>
 
+      <Modal visible={pendingDeleteEntry !== null} transparent animationType="fade" onRequestClose={closeDeleteConfirm}>
+        <View style={styles.modalContainer}>
+          <Pressable
+            style={[styles.modalBackdrop, { backgroundColor: colors.text, opacity: 0.45 }]}
+            onPress={isDeletingEntry ? undefined : closeDeleteConfirm}
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalKeyboard}
+          >
+            <View
+              style={[
+                styles.modalCard,
+                {
+                  backgroundColor: colors.glassSurface,
+                  borderColor: colors.ghostBorder,
+                  shadowColor: colors.shadowAmbient,
+                },
+              ]}
+            >
+              <View style={styles.modalHeader}>
+                <View style={styles.deleteModalHeaderCopy}>
+                  <View style={[styles.deleteModalIconWrap, { backgroundColor: colors.errorContainer }]}> 
+                    <MaterialCommunityIcons name="trash-can-outline" size={24} color={colors.onErrorContainer} />
+                  </View>
+                  <Text variant="titleLarge" style={[styles.cardTitle, { color: colors.text, textAlign: 'center' }]}> 
+                    Delete this entry?
+                  </Text>
+                </View>
+                <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeDeleteConfirm} disabled={isDeletingEntry} />
+              </View>
+
+              <Text variant="bodyMedium" style={[styles.sectionBody, { color: colors.textMuted, textAlign: 'center' }]}> 
+                {pendingDeleteEntry?.title}
+              </Text>
+
+              <Text variant="bodySmall" style={[styles.sectionBody, { color: colors.textMuted, textAlign: 'center' }]}> 
+                This will remove the log from your history. You can still undo briefly after deleting.
+              </Text>
+
+              <View style={styles.modalActions}>
+                <CustomButton mode="outlined" onPress={closeDeleteConfirm} style={styles.modalActionButton} disabled={isDeletingEntry}>
+                  Cancel
+                </CustomButton>
+                <CustomButton
+                  mode="contained"
+                  onPress={() => void handleConfirmDelete()}
+                  isLoading={isDeletingEntry}
+                  buttonColor={colors.errorContainer}
+                  textColor={colors.onErrorContainer}
+                  style={styles.modalActionButton}
+                >
+                  Delete
+                </CustomButton>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
       <ItemSelector
         type={editSelectorType}
         visible={editSelectorVisible}
@@ -1275,6 +1393,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
+    borderRadius: Radius.xl,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    overflow: 'hidden',
   },
   swipeActionIconWrap: {
     width: 40,
@@ -1353,6 +1475,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.md,
+  },
+  deleteModalHeaderCopy: {
+    flex: 1,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  deleteModalIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardTitle: {
     fontWeight: '700',
