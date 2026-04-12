@@ -99,6 +99,15 @@ export default function TabLayout() {
             }}
           />
           <Tabs.Screen
+            name="add-log"
+            options={{
+              title: 'Add Log',
+              href: null,
+              headerTitle: () => createHeaderTitle('plus-circle-outline', 'Add Log'),
+              headerRight: () => headerAvatar,
+            }}
+          />
+          <Tabs.Screen
             name="settings"
             options={{
               title: 'Settings',
