@@ -228,14 +228,6 @@ export default function AddLogScreen() {
   return (
     <ScreenWrapper>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text variant="headlineSmall" style={styles.headerTitle}>
-            Add Entry
-          </Text>
-          <Text variant="bodyMedium" style={styles.headerSubtitle}>
-            Log your current context and feelings.
-          </Text>
-        </View>
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
