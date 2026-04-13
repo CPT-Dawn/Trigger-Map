@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Platform,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -7,10 +8,11 @@ import {
   ViewProps,
   ViewStyle,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Radius, Spacing } from '../../constants/theme';
-import { useAppColors } from '../../providers/ThemeProvider';
+import { useAppColors, useThemePreference } from '../../providers/ThemeProvider';
 
 type CardVariant = 'glass' | 'subtle' | 'solid';
 
@@ -37,22 +39,35 @@ export function AppCard({
   ...props
 }: AppCardProps) {
   const colors = useAppColors();
+  const { appliedTheme } = useThemePreference();
 
-  const gradientColors: [string, string] =
+  const overlayColors: [string, string] =
     variant === 'glass'
-      ? [colors.glassSurface, colors.surfaceOverlayEnd]
+      ? [colors.surfaceOverlayStart, colors.surfaceOverlayEnd]
       : variant === 'subtle'
-        ? [colors.surfaceContainerLow, colors.surfaceContainerLowest]
-        : [colors.surfaceContainer, colors.surfaceContainerHigh];
+        ? [colors.surfaceOverlayStart, colors.glassSurface]
+        : [colors.surfaceContainerLow, colors.surfaceContainer];
+
+  const baseBackgroundColor =
+    variant === 'glass'
+      ? colors.glassSurface
+      : variant === 'subtle'
+        ? colors.inputSurface
+        : colors.surfaceContainer;
+
+  const blurIntensity =
+    variant === 'glass'
+      ? appliedTheme === 'dark' ? 30 : 36
+      : variant === 'subtle'
+        ? appliedTheme === 'dark' ? 20 : 24
+        : appliedTheme === 'dark' ? 14 : 16;
 
   const cardNode = (
-    <LinearGradient
-      colors={gradientColors}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <View
       style={[
         styles.card,
         {
+          backgroundColor: baseBackgroundColor,
           borderColor: colors.ghostBorder,
           shadowColor: colors.shadowAmbient,
         },
@@ -60,8 +75,21 @@ export function AppCard({
       ]}
       {...props}
     >
+      <BlurView
+        intensity={blurIntensity}
+        tint={appliedTheme === 'dark' ? 'dark' : 'light'}
+        blurMethod={Platform.OS === 'android' ? 'dimezisBlurViewSdk31Plus' : undefined}
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        pointerEvents="none"
+        colors={overlayColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <View style={contentStyle}>{children}</View>
-    </LinearGradient>
+    </View>
   );
 
   const wrappedNode = onPress ? (

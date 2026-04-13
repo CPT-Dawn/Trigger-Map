@@ -1,9 +1,10 @@
 import React from 'react';
-import { StyleSheet, View, ViewProps } from 'react-native';
+import { Platform, StyleSheet, View, ViewProps } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing } from '../../constants/theme';
-import { useAppColors } from '../../providers/ThemeProvider';
+import { useAppColors, useThemePreference } from '../../providers/ThemeProvider';
 
 export interface ScreenWrapperProps extends ViewProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ export interface ScreenWrapperProps extends ViewProps {
 
 export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps) {
   const colors = useAppColors();
+  const { appliedTheme } = useThemePreference();
 
   return (
     <LinearGradient
@@ -24,6 +26,14 @@ export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps)
         <View style={[styles.orb, styles.orbSecondary, { backgroundColor: colors.ambientSecondary }]} />
         <View style={[styles.orb, styles.orbTertiary, { backgroundColor: colors.ambientTertiary }]} />
       </View>
+
+      <BlurView
+        pointerEvents="none"
+        intensity={appliedTheme === 'dark' ? 18 : 22}
+        tint={appliedTheme === 'dark' ? 'dark' : 'light'}
+        blurMethod={Platform.OS === 'android' ? 'dimezisBlurViewSdk31Plus' : undefined}
+        style={StyleSheet.absoluteFill}
+      />
 
       <LinearGradient
         pointerEvents="none"
