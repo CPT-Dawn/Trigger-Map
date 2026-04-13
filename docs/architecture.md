@@ -1,60 +1,243 @@
-# Trigger-Map: Architecture & Guidelines
+# Trigger-Map Architecture And Runtime Guide
 
-## 1. Project Overview
+## 1. Product Scope
 
-Trigger-Map is a health tracking app designed to find correlations between food, medicine, weather, and symptom triggers (pain/stress).
+Trigger-Map is an Android-first health tracking app that logs pain, stress, medicine, and food entries to discover potential trigger patterns over time.
 
-- **Primary Target:** Android.
-- **Tech Stack:** React Native Expo SDK 55 (Expo Router), Bun, Supabase, React Native Paper.
+- Primary target: Android
+- Current home/dashboard status: placeholder (`app/(tabs)/index.tsx`)
+- Core product direction: offline-first data entry with silent background sync
 
-## 2. Directory Structure & Routing
+## 2. Tech Stack
 
-This project uses **Expo Router** for file-based routing:
+- Runtime: React Native 0.83 + Expo SDK 55
+- Router: Expo Router (`app/` file-based)
+- Language: TypeScript
+- UI framework: React Native Paper (MD3) + custom UI primitives
+- Local storage: `expo-sqlite` (`triggermap.db`)
+- Remote backend: Supabase (Auth + Postgres tables)
+- Background jobs: `expo-background-task` + `expo-task-manager`
+- Connectivity detection: `@react-native-community/netinfo`
+- Package manager: `bun`
 
-- `app/_layout.tsx`: Root layout. Orchestrates the app providers (`PaperProvider`, `BottomSheetModalProvider`, `SafeAreaProvider`, `ThemeProvider`, `AuthProvider`) and handles top-level routing redirects based on auth state using `useSegments()`.
-- `app/(auth)/*`: Unauthenticated routes (Sign In, Sign Up).
-- `app/(tabs)/*`: Main app flow. Protected by AuthProvider. Uses a custom `BottomNavBar` component for navigation.
-- `components/ui/*`: Reusable atomic UI components (`CustomButton`, `CustomTextInput`, `ScreenWrapper`, `AppCard`, `AppSnackbar`).
-- `components/forms/*`: Reusable form components like `ItemSelector`.
-- `constants/theme.ts`: Contains spacing, typography, radius mappings, and the raw light/dark color definitions.
-- `providers/*`: Context providers for app-wide state (`AuthProvider.tsx`, `ThemeProvider.tsx`).
-- `lib/supabase.ts`: Supabase client initialization.
+Expo runtime config (`app.json`):
 
-## 3. Design System & UI Rules (CRITICAL)
+- app scheme: `triggermap`
+- orientation: `portrait`
+- userInterfaceStyle: `automatic`
 
-To maintain a modern, beautiful, and consistent Android-inclined aesthetic:
+## 3. App Entrypoint And Providers
 
-- **Never use raw hex codes, RGB values, or inline fonts.**
-- **Theming Hook:** Use the `useAppColors()` and `useThemePreference()` hooks from `providers/ThemeProvider` to get the current applied light/dark theme colors instead of hardcoding values or exclusively using the Paper theme hook.
-- **Components:** All base UI elements MUST be imported from `components/ui/` or `react-native-paper`. 
-    - Use `ScreenWrapper` to wrap screens for consistent safe-area handling and backgrounds.
-    - Use `AppCard` for surface materials.
-- **Icons:** Use `@expo/vector-icons` (`MaterialCommunityIcons` primary).
-- **Typography:** Rely on Material Design 3 typography scales natively provided by React Native Paper, extended with Google Fonts (Sora and Manrope).
+Root entry is `app/_layout.tsx`.
 
-## 4. Authentication
+Startup behavior:
 
-- Email and Password ONLY.
-- Handled via Supabase Auth.
-- Session tokens are stored securely using `expo-secure-store` handling by Supabase explicitly.
-- The `RootLayoutNav` checks auth status and seamlessly redirects user unauthenticated access from `(tabs)` back to `(auth)/sign-in`.
+1. Load custom fonts (Sora and Manrope).
+2. Initialize local database (`initLocalDB()`).
+3. Register network reconnect listener (`setupNetworkListener()`).
+4. Register periodic background sync (`registerBackgroundSync()`).
+5. Render provider stack:
+     - `SafeAreaProvider`
+     - `GestureHandlerRootView`
+     - `ThemeProvider`
+     - `AuthProvider`
+     - `RootLayoutNav` (Paper theme + BottomSheet provider + Router stack)
 
-## 5. Database Schema (Supabase)
+Routing guard in `RootLayoutNav`:
 
-We use a normalized relational database.
+- unauthenticated user outside `(auth)` -> redirect to `/(auth)/sign-in`
+- authenticated user inside `(auth)` -> redirect to `/(tabs)`
 
-- `user_medicines`: id, user_id, name, quantity, unit, display_name
-- `user_foods`: id, user_id, name, quantity, unit, display_name
-- `pain_logs`: id, user_id, logged_at, log_date, body_part, pain_level (1-5), swelling
-- `stress_logs`: id, user_id, logged_at, log_date, level (none|low|moderate|high)
-- `medicine_logs`: id, user_id, medicine_id, logged_at, log_date
-- `food_logs`: id, user_id, food_id, logged_at, log_date
-- `daily_context`: id, user_id, date, weather_data, day_rating
+## 4. Routing And Navigation
 
-## 6. Coding Standards for AI
+### 4.1 Route Groups
 
-- Write functional components using TypeScript (`.tsx`).
-- Keep components small and focused.
-- Ensure all database calls to Supabase handle errors gracefully and display user-friendly Toast/Alert messages via `AppSnackbar`.
-- Use React hooks (`useState`, `useEffect`, `useCallback`) correctly avoiding stale closures.
-- Always cleanly separate UI layout/styling logic from database/submission logic.
+- `app/(auth)/_layout.tsx`: auth stack (`animation: 'fade'`)
+- `app/(auth)/sign-in.tsx`: email/password sign-in
+- `app/(auth)/sign-up.tsx`: email/password registration
+- `app/(tabs)/_layout.tsx`: main app tabs with custom header and custom bottom bar
+- `app/(tabs)/index.tsx`: home placeholder
+- `app/(tabs)/logs.tsx`: timeline log list with edit/delete
+- `app/(tabs)/add-log.tsx`: create new entries
+- `app/(tabs)/settings.tsx`: profile/theme/sign-out
+
+### 4.2 Bottom Navigation
+
+`components/ui/BottomNavBar.tsx` implements a floating dock with:
+
+- tabs: Home, Logs, Settings
+- dedicated add action: gradient FAB that opens `/(tabs)/add-log`
+- adaptive bottom offset for Android nav-bar inset
+
+`app/(tabs)/add-log.tsx` is registered as a tab route but hidden from the tab list (`href: null`).
+
+## 5. Theme And Design System
+
+### 5.1 Theme Source
+
+- `providers/ThemeProvider.tsx` persists `themePreference` (`auto | light | dark`) via `expo-secure-store`
+- `useAppColors()` resolves light/dark token set from `constants/theme.ts`
+- `app/_layout.tsx` maps MD3 font slots to Sora/Manrope and merges Paper colors with app tokens
+
+### 5.2 Token Rules
+
+- Do not hardcode hex/RGB values in feature code
+- Use `Spacing` and `Radius` from `constants/theme.ts`
+- Use `useAppColors()` + `useThemePreference()` instead of direct color constants in screens/components
+
+### 5.3 Core UI Primitives
+
+- `ScreenWrapper`: safe area + layered ambient background
+- `AppCard`: surfaced container (`glass | subtle | solid` style behavior)
+- `CustomButton`: animated press feedback over Paper Button
+- `CustomTextInput`: themed outlined input with optional error text
+- `AppSnackbar`: animated snackbar wrapper
+- `ProfileInitialAvatar`: initials-based avatar
+
+## 6. Authentication
+
+- Supabase auth only (email/password)
+- Session persistence through SecureStore adapter in `lib/supabase.ts`
+- Auth state managed in `providers/AuthProvider.tsx` via:
+    - `supabase.auth.getSession()` on boot
+    - `supabase.auth.onAuthStateChange()` subscription
+
+## 7. Offline-First Data Architecture
+
+### 7.1 Local SQLite Schema (`lib/localDb.ts`)
+
+Domain tables:
+
+- `user_medicines`
+- `user_foods`
+- `pain_logs`
+- `stress_logs`
+- `medicine_logs`
+- `food_logs`
+
+Sync/system tables:
+
+- `sync_queue`: queued mutations (`INSERT | UPDATE | DELETE` + JSON payload)
+- `sync_meta`: sync diagnostics (`last_sync_at`, `last_sync_error`)
+- `user_settings`: local profile cache (`display_name`)
+
+Migration/safety:
+
+- UUID helper `createUuid()` with crypto fallback
+- local ID repair for legacy malformed IDs
+- queue payload ID repair and stale invalid queue cleanup
+
+### 7.2 Remote Supabase Schema
+
+- `user_medicines`
+- `user_foods`
+- `pain_logs`
+- `stress_logs`
+- `medicine_logs`
+- `food_logs`
+- `daily_context` (defined remotely, not currently used in app flows)
+
+### 7.3 Queue Model
+
+All data mutations are local-first:
+
+1. Write to SQLite immediately.
+2. Append mutation to `sync_queue`.
+3. Trigger `runSync()` opportunistically (silent).
+
+Queue payload conventions:
+
+- `INSERT`: full row payload
+- `UPDATE`: payload includes `id` and changed fields under `data`
+- `DELETE`: payload includes `id`
+- special non-table channel: `auth_profile` for profile metadata update via Supabase Auth API
+
+### 7.4 Sync Engine (`lib/syncEngine.ts`)
+
+Primary functions:
+
+- `pushLocalChanges()`: flush queue to Supabase
+- `pullRemoteChanges()`: refresh local master items and recent logs (last 7 days)
+- `runSync()`: serialized orchestrator (push then pull)
+
+Background and connectivity:
+
+- `registerBackgroundSync()`: periodic background task (`minimumInterval: 15`)
+- `setupNetworkListener()`: triggers sync when transitioning offline -> online
+
+Profile sync behavior:
+
+- queued `auth_profile` operations call `supabase.auth.updateUser({ data: { display_name } })`
+- remote profile value is pulled into `user_settings` only when no pending `auth_profile` queue item exists
+
+Visibility model:
+
+- sync diagnostics are maintained in memory + `sync_meta`
+- UI intentionally keeps sync seamless and automatic (no sync banner/manual controls)
+
+## 8. Feature Behavior Map
+
+### 8.1 Sign In / Sign Up
+
+- files: `app/(auth)/sign-in.tsx`, `app/(auth)/sign-up.tsx`
+- uses `CustomTextInput`, `CustomButton`, `AppCard`, `ScreenWrapper`
+- direct Supabase auth calls
+
+### 8.2 Add Log
+
+- file: `app/(tabs)/add-log.tsx`
+- sections:
+    - Date and time picker
+    - Food selection
+    - Pain entries (body part + level + swelling)
+    - Medicine selection
+    - Stress level
+- save behavior:
+    - validate at least one entry category
+    - single local transaction for all selected entries
+    - queue each inserted row
+    - trigger background sync (`runSync()`)
+
+### 8.3 Logs
+
+- file: `app/(tabs)/logs.tsx`
+- reads timeline from SQLite only
+- groups by `log_date` into section headers
+- supports filter chips (all/pain/stress/medicine/food)
+- supports swipe-to-edit/delete and undo delete
+- every edit/delete writes locally, queues mutation, then silently syncs
+- pull-to-refresh triggers `runSync()` and reloads local data
+
+### 8.4 Settings
+
+- file: `app/(tabs)/settings.tsx`
+- profile display name:
+    - reads from local `user_settings` cache first
+    - saves locally + queues `auth_profile` update
+    - triggers silent sync
+- theme preference stored in secure store via `ThemeProvider`
+- sign-out uses `supabase.auth.signOut()`
+
+### 8.5 Item Selector
+
+- file: `components/forms/ItemSelector.tsx`
+- reused for both food and medicine master data
+- supports create/edit/delete of master items via local DB + queue
+- deleting master item also deletes dependent local logs and queues dependent deletes
+
+## 9. Implementation Rules For Contributors And Agents
+
+1. Preserve offline-first semantics: local write first, queue second, sync third.
+2. Use transactions for multi-row domain operations.
+3. Use UUIDs from `createUuid()` for all local entity IDs that sync remotely.
+4. Keep `logged_at` and `log_date` both populated on inserts.
+5. Normalize stress level values to backend-safe set (`none | low | moderate | high`).
+6. Keep sync UX seamless and silent unless a task explicitly requests visible sync diagnostics.
+7. Use existing UI primitives before creating one-off components.
+8. Validate changes with `bunx tsc --noEmit` after meaningful edits.
+
+## 10. Current Known Gaps
+
+- Home tab is still a placeholder (`TBD`).
+- `daily_context` remote schema is not yet integrated into app flows.
+- Sync status API exists internally in `syncEngine`, but no user-facing sync UI by design.
