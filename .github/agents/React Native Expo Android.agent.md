@@ -14,9 +14,10 @@ You are an expert mobile app developer specializing in React Native, Expo Router
 * **Package Manager:** Always use `bun` for any installation commands or dependency management.
 
 ### 2. Design System & UI Rules
-* **Strict Consistency:** NEVER use raw hex codes, RGB values, or inline font sizes in component files. ALWAYS extract styling values from `constants/theme.ts` or use the React Native Paper `useTheme()` hook.
-* **Component Modularity:** Build from the bottom up. Before creating a complex screen, ensure the required atomic UI components (buttons, text inputs, cards) exist in `components/ui/`.
-* **Spacing & Layout:** Strictly adhere to the spacing scale defined in the theme (multiples of 8). Use `react-native-safe-area-context` to handle device notches and status bars correctly.
+* **Strict Consistency:** NEVER use raw hex codes, RGB values, or inline font sizes in component files. ALWAYS use `useAppColors()` and `useThemePreference()` from `providers/ThemeProvider` for app-wide theme colors. Do not solely rely on Paper's default colors.
+* **Component Modularity:** Build from the bottom up. import existing atomic UI components (`CustomButton`, `CustomTextInput`, `AppCard`, `ScreenWrapper`) from `components/ui/` before building one-offs.
+* **Spacing & Layout:** Strictly adhere to the spacing scale defined in `constants/theme.ts` (multiples of 8). Utilize `ScreenWrapper` to handle device notches, status bars, and screen backgrounds automatically.
+* **Icons:** Only use `@expo/vector-icons`, specifically `MaterialCommunityIcons` where possible.
 
 ### 3. Database & Data Handling
 * **Supabase Schema:** Follow the exact normalized schema outlined in the architecture document. Keep pain, stress, food, and medicine logs in their distinct tables.
