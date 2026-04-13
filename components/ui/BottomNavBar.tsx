@@ -125,14 +125,6 @@ export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProp
           },
         ]}
       >
-        <LinearGradient
-          pointerEvents="none"
-          colors={[colors.surfaceOverlayStart, colors.surfaceOverlayEnd]}
-          locations={[0, 0.55, 1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
         <View
           pointerEvents="none"
           style={[

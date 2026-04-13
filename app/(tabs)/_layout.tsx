@@ -3,7 +3,6 @@ import { Tabs } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAppColors, useThemePreference } from '../../providers/ThemeProvider';
 import { Radius, Spacing } from '../../constants/theme';
@@ -70,13 +69,6 @@ export default function TabLayout() {
           headerBackground: () => (
             <View style={StyleSheet.absoluteFill}>
               <View style={[StyleSheet.absoluteFill, { backgroundColor: headerChromeBase }]} />
-              <LinearGradient
-                colors={[colors.surfaceOverlayStart, colors.surfaceOverlayEnd]}
-                locations={[0, 0.58, 1]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
               <View
                 style={[
                   StyleSheet.absoluteFill,
