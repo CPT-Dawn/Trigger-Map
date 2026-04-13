@@ -480,7 +480,7 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
               <Text variant="titleMedium" style={{ color: colors.text }}>
                 {entry.title}
               </Text>
-              <Text variant={entry.type === 'stress' ? 'labelSmall' : 'bodySmall'} style={{ color: colors.textMuted }}>
+              <Text variant="labelSmall" style={{ color: colors.textMuted }}>
                 {entry.subtitle}
               </Text>
             </View>

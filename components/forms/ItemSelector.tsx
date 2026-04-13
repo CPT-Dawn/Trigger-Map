@@ -17,7 +17,6 @@ import {
   BottomSheetTextInput,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
-import { Swipeable } from 'react-native-gesture-handler';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { Radius, Spacing } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
@@ -127,73 +126,59 @@ interface ItemRowProps {
 }
 
 function ItemRow({ item, index, iconName, colors, onSelect, onEdit, onDelete }: ItemRowProps) {
-  const swipeableRef = useRef<Swipeable>(null);
   const displayName = getMasterItemDisplayName(item);
-  const subtitle = item.name?.trim() || [item.quantity !== null ? String(item.quantity) : null, item.unit?.trim() || null]
-    .filter((piece): piece is string => !!piece)
-    .join(' • ');
-
-  const closeSwipeable = () => {
-    swipeableRef.current?.close();
-  };
 
   return (
     <Animated.View entering={sheetReveal(index * 35)} layout={Layout.springify()}>
-      <Swipeable
-        ref={swipeableRef}
-        overshootLeft={false}
-        overshootRight={false}
-        renderLeftActions={() => (
+      <AppCard style={styles.itemCard} variant="subtle">
+        <View style={styles.itemRow}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => {
-              closeSwipeable();
-              onDelete(item);
-            }}
-            style={[styles.swipeAction, styles.deleteAction, { backgroundColor: colors.errorContainer }]}
+            accessibilityLabel={`Select ${displayName}`}
+            onPress={() => onSelect(item)}
+            style={({ pressed }) => [styles.itemSelectArea, pressed && styles.itemSelectPressed]}
           >
-            <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.error} />
-            <Text variant="labelSmall" style={[styles.swipeActionLabel, { color: colors.error }]}>Delete</Text>
-          </Pressable>
-        )}
-        renderRightActions={() => (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              closeSwipeable();
-              onEdit(item);
-            }}
-            style={[styles.swipeAction, styles.editAction, { backgroundColor: colors.primaryContainer }]}
-          >
-            <MaterialCommunityIcons name="pencil-outline" size={22} color={colors.onPrimaryContainer} />
-            <Text variant="labelSmall" style={[styles.swipeActionLabel, { color: colors.onPrimaryContainer }]}>Edit</Text>
-          </Pressable>
-        )}
-      >
-        <AppCard
-          style={styles.itemCard}
-          variant="subtle"
-          onPress={() => {
-            closeSwipeable();
-            onSelect(item);
-          }}
-        >
-          <View style={[styles.itemIconContainer, { backgroundColor: colors.surfaceContainerLow }]}> 
-            <MaterialCommunityIcons name={iconName} size={20} color={colors.primary} />
-          </View>
-          <View style={styles.itemTextBlock}>
-            <Text variant="titleSmall" style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
-              {displayName}
-            </Text>
-            {!!subtitle && (
-              <Text variant="bodySmall" style={[styles.itemSubtitle, { color: colors.textMuted }]} numberOfLines={1}>
-                {subtitle}
+            <View style={[styles.itemIconContainer, { backgroundColor: colors.surfaceContainerLow }]}> 
+              <MaterialCommunityIcons name={iconName} size={18} color={colors.primary} />
+            </View>
+            <View style={styles.itemTextBlock}>
+              <Text variant="titleSmall" style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
+                {displayName}
               </Text>
-            )}
+            </View>
+          </Pressable>
+
+          <View style={styles.itemActionGroup}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Edit ${displayName}`}
+              hitSlop={Spacing.sm}
+              onPress={() => onEdit(item)}
+              style={({ pressed }) => [
+                styles.itemActionButton,
+                { backgroundColor: colors.primaryContainer },
+                pressed && styles.itemActionButtonPressed,
+              ]}
+            >
+              <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.onPrimaryContainer} />
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Delete ${displayName}`}
+              hitSlop={Spacing.sm}
+              onPress={() => onDelete(item)}
+              style={({ pressed }) => [
+                styles.itemActionButton,
+                { backgroundColor: colors.errorContainer },
+                pressed && styles.itemActionButtonPressed,
+              ]}
+            >
+              <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
+            </Pressable>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
-        </AppCard>
-      </Swipeable>
+        </View>
+      </AppCard>
     </Animated.View>
   );
 }
@@ -538,7 +523,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
               {activeForm ? (activeForm.mode === 'edit' ? `Edit ${displayType}` : createLabel) : `Select ${displayType}`}
             </Text>
             <Text variant="bodySmall" style={[styles.sheetSubtitle, { color: colors.textMuted }]}>
-              {activeForm ? 'Enter the details below.' : 'Swipe right to edit or left to delete saved items.'}
+              {activeForm ? 'Enter the details below.' : 'Tap a row to select, or use the actions on the right to edit or delete.'}
             </Text>
           </View>
         </View>
@@ -825,49 +810,55 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxxl + Spacing.xl,
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   itemCard: {
-    minHeight: 72,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+    padding: 0,
+  },
+  itemRow: {
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  itemSelectArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  itemSelectPressed: {
+    opacity: 0.86,
   },
   itemIconContainer: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   itemTextBlock: {
     flex: 1,
-    gap: Spacing.xs,
   },
   itemTitle: {
     fontWeight: '700',
   },
-  itemSubtitle: {
-    lineHeight: 18,
-  },
-  swipeAction: {
-    width: 96,
-    marginBottom: Spacing.sm,
-    borderRadius: Radius.xl,
+  itemActionGroup: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: Spacing.xs,
   },
-  deleteAction: {
-    marginRight: Spacing.sm,
+  itemActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  editAction: {
-    marginLeft: Spacing.sm,
-  },
-  swipeActionLabel: {
-    fontWeight: '700',
+  itemActionButtonPressed: {
+    opacity: 0.88,
   },
   emptyState: {
     paddingVertical: Spacing.xl,
