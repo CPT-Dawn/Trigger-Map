@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert, Pressable, StyleSheet, View, Platform } from 'react-native';
+import { Alert, Pressable, StyleSheet, View, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { ActivityIndicator, IconButton, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
@@ -84,11 +84,13 @@ interface SheetTextFieldProps extends React.ComponentProps<typeof BottomSheetTex
   icon?: keyof typeof MaterialCommunityIcons.glyphMap;
   trailing?: React.ReactNode;
   colors: ReturnType<typeof useAppColors>;
+  containerStyle?: StyleProp<ViewStyle>;
+  surfaceStyle?: StyleProp<ViewStyle>;
 }
 
-function SheetTextField({ label, icon, trailing, colors, style, ...props }: SheetTextFieldProps) {
+function SheetTextField({ label, icon, trailing, colors, containerStyle, surfaceStyle, style, ...props }: SheetTextFieldProps) {
   return (
-    <View style={styles.fieldBlock}>
+    <View style={[styles.fieldBlock, containerStyle]}>
       {label ? (
         <Text variant="labelMedium" style={[styles.fieldLabel, { color: colors.textMuted }]}>
           {label}
@@ -101,6 +103,7 @@ function SheetTextField({ label, icon, trailing, colors, style, ...props }: Shee
             backgroundColor: colors.surfaceContainerLowest,
             borderColor: colors.ghostBorder,
           },
+          surfaceStyle,
         ]}
       >
         {icon ? <MaterialCommunityIcons name={icon} size={18} color={colors.textMuted} /> : null}
@@ -142,7 +145,7 @@ function ItemRow({ item, index, iconName, colors, onSelect, onEdit, onDelete }: 
               <MaterialCommunityIcons name={iconName} size={18} color={colors.primary} />
             </View>
             <View style={styles.itemTextBlock}>
-              <Text variant="titleSmall" style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
+              <Text variant="titleMedium" style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
                 {displayName}
               </Text>
             </View>
@@ -156,11 +159,14 @@ function ItemRow({ item, index, iconName, colors, onSelect, onEdit, onDelete }: 
               onPress={() => onEdit(item)}
               style={({ pressed }) => [
                 styles.itemActionButton,
-                { backgroundColor: colors.primaryContainer },
+                {
+                  backgroundColor: colors.primaryContainer,
+                  borderColor: colors.ghostBorder,
+                },
                 pressed && styles.itemActionButtonPressed,
               ]}
             >
-              <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.onPrimaryContainer} />
+              <MaterialCommunityIcons name="pencil-outline" size={18} color={colors.onPrimaryContainer} />
             </Pressable>
 
             <Pressable
@@ -170,11 +176,14 @@ function ItemRow({ item, index, iconName, colors, onSelect, onEdit, onDelete }: 
               onPress={() => onDelete(item)}
               style={({ pressed }) => [
                 styles.itemActionButton,
-                { backgroundColor: colors.errorContainer },
+                {
+                  backgroundColor: colors.errorContainer,
+                  borderColor: colors.ghostBorder,
+                },
                 pressed && styles.itemActionButtonPressed,
               ]}
             >
-              <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.error} />
+              <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.error} />
             </Pressable>
           </View>
         </View>
@@ -511,7 +520,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     [],
   );
 
-    const renderHeader = () => (
+  const renderHeader = () => (
     <View style={styles.headerContainer}>
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
@@ -522,8 +531,8 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
             <Text variant="titleLarge" style={[styles.sheetTitle, { color: colors.text }]}>
               {activeForm ? (activeForm.mode === 'edit' ? `Edit ${displayType}` : createLabel) : `Select ${displayType}`}
             </Text>
-            <Text variant="bodySmall" style={[styles.sheetSubtitle, { color: colors.textMuted }]}>
-              {activeForm ? 'Enter the details below.' : 'Tap a row to select, or use the actions on the right to edit or delete.'}
+            <Text variant="bodySmall" style={[styles.sheetSubtitle, { color: colors.textMuted }]}> 
+              {activeForm ? 'Enter item details below.' : `Choose a saved ${displayType.toLowerCase()} or create a new one.`}
             </Text>
           </View>
         </View>
@@ -533,6 +542,8 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
       {!activeForm && (
         <SheetTextField
           colors={colors}
+          containerStyle={styles.searchFieldBlock}
+          surfaceStyle={styles.searchFieldSurface}
           icon="magnify"
           placeholder={`Search ${displayType.toLowerCase()}...`}
           value={searchQuery}
@@ -560,7 +571,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
   );
 
   const renderForm = () => (
-    <View style={styles.formCard}>
+    <AppCard style={styles.formCard} variant="subtle">
       <View style={styles.formFields}>
         <SheetTextField
           colors={colors}
@@ -604,10 +615,10 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
           Cancel
         </CustomButton>
         <CustomButton mode="contained" onPress={handleSubmitMasterItem} isLoading={isSaving} style={styles.formActionButton}>
-          {activeForm.mode === 'edit' ? 'Save Changes' : 'Create & Select'}
+          {activeForm?.mode === 'edit' ? 'Save Changes' : 'Create & Select'}
         </CustomButton>
       </View>
-    </View>
+    </AppCard>
   );
 
   const renderFooter = () => {
@@ -716,7 +727,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.md,
     gap: Spacing.md,
   },
@@ -753,7 +764,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    marginTop: Spacing.xs,
+    marginTop: Spacing.xxs,
   },
   loadingText: {
     flex: 1,
@@ -761,25 +772,33 @@ const styles = StyleSheet.create({
   fieldBlock: {
     gap: Spacing.xs,
   },
+  searchFieldBlock: {
+    width: '100%',
+  },
   fieldLabel: {
-    marginLeft: Spacing.xs,
+    marginLeft: Spacing.sm,
   },
   fieldSurface: {
-    minHeight: 52,
+    minHeight: 56,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  searchFieldSurface: {
+    minHeight: 56,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 0,
   },
   fieldInput: {
     flex: 1,
     minHeight: 24,
   },
   formCard: {
-    padding: Spacing.lg,
+    marginTop: Spacing.xs,
     gap: Spacing.md,
   },
   formTitle: {
@@ -798,6 +817,7 @@ const styles = StyleSheet.create({
   formActions: {
     flexDirection: 'row',
     gap: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   formActionButton: {
     flex: 1,
@@ -805,36 +825,40 @@ const styles = StyleSheet.create({
   formScrollContent: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxxl + Spacing.xl,
+    paddingTop: Spacing.xs,
     gap: Spacing.md,
   },
   listContent: {
     paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
     paddingBottom: Spacing.xxxl + Spacing.xl,
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
   itemCard: {
-    padding: 0,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
   },
   itemRow: {
-    minHeight: 56,
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   itemSelectArea: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    minHeight: 48,
+    paddingVertical: Spacing.xs,
+    paddingRight: Spacing.xs,
+    gap: Spacing.md,
   },
   itemSelectPressed: {
     opacity: 0.86,
   },
   itemIconContainer: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -848,12 +872,13 @@ const styles = StyleSheet.create({
   itemActionGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
   itemActionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.full,
+    width: 48,
+    height: 48,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -870,7 +895,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   footerContainer: {
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.lg,
   },
 });

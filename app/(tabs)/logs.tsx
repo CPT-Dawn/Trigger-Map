@@ -11,8 +11,9 @@ import {
   PanResponder,
   Platform,
   Pressable,
+  ViewToken,
 } from 'react-native';
-import Reanimated, { FadeInDown } from 'react-native-reanimated';
+import Reanimated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { ActivityIndicator, Chip, IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,6 +22,8 @@ import { useIsFocused } from '@react-navigation/native';
 import { Radius, Spacing } from '../../constants/theme';
 import { useAppColors, useThemePreference } from '../../providers/ThemeProvider';
 import { useAuth } from '../../providers/AuthProvider';
+import { db } from '../../lib/localDb';
+import { runSync } from '../../lib/syncEngine';
 import { supabase } from '../../lib/supabase';
 import { AppCard } from '../../components/ui/AppCard';
 import { AppSnackbar } from '../../components/ui/AppSnackbar';
@@ -48,6 +51,15 @@ interface PainLogRow {
   body_part: string | null;
   pain_level: number | null;
   swelling: boolean | null;
+}
+
+interface PainLogSqlRow {
+  id: string;
+  logged_at: string;
+  log_date: string;
+  body_part: string | null;
+  pain_level: number | null;
+  swelling: number | null;
 }
 
 interface StressLogRow {
@@ -97,6 +109,12 @@ interface LogSection {
   title: string;
   data: TimelineEntry[];
   dateKey: string;
+}
+
+interface ActiveSectionMeta {
+  dateKey: string;
+  title: string;
+  entryCount: number;
 }
 
 function parseLocalDate(dateString: string) {
@@ -269,6 +287,22 @@ function groupEntriesByDate(entries: TimelineEntry[]) {
     title: formatSectionTitle(dateKey),
     data,
   }));
+}
+
+function toActiveSectionMeta(section: LogSection): ActiveSectionMeta {
+  return {
+    dateKey: section.dateKey,
+    title: section.title,
+    entryCount: section.data.length,
+  };
+}
+
+function isSameActiveSectionMeta(left: ActiveSectionMeta | null, right: ActiveSectionMeta) {
+  return (
+    left?.dateKey === right.dateKey &&
+    left?.title === right.title &&
+    left?.entryCount === right.entryCount
+  );
 }
 
 interface SwipeableLogCardProps {
@@ -510,6 +544,7 @@ export default function LogsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<LogFilter>('all');
+  const [activeSectionMeta, setActiveSectionMeta] = useState<ActiveSectionMeta | null>(null);
   const [activeSwipeKey, setActiveSwipeKey] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<TimelineEntry | null>(null);
   const [editPainBodyPart, setEditPainBodyPart] = useState('');
@@ -790,7 +825,7 @@ export default function LogsScreen() {
     }
   };
 
-  const loadLogs = async (mode: 'initial' | 'refresh' = 'refresh') => {
+  const loadLogs = async (mode: 'initial' | 'refresh' = 'refresh', selectedDate: string | null = null) => {
     if (!user) {
       setEntries([]);
       setLoading(false);
@@ -805,68 +840,83 @@ export default function LogsScreen() {
     }
 
     try {
-      const [painResult, stressResult, medicineResult, foodResult, medicineItemsResult, foodItemsResult] =
-        await Promise.all([
-          supabase
-            .from('pain_logs')
-            .select('id, logged_at, log_date, body_part, pain_level, swelling')
-            .eq('user_id', user.id)
-            .order('logged_at', { ascending: false }),
-          supabase
-            .from('stress_logs')
-            .select('id, logged_at, log_date, level')
-            .eq('user_id', user.id)
-            .order('logged_at', { ascending: false }),
-          supabase
-            .from('medicine_logs')
-            .select('id, logged_at, log_date, medicine_id')
-            .eq('user_id', user.id)
-            .order('logged_at', { ascending: false }),
-          supabase
-            .from('food_logs')
-            .select('id, logged_at, log_date, food_id')
-            .eq('user_id', user.id)
-            .order('logged_at', { ascending: false }),
-          supabase
-            .from('user_medicines')
-            .select('id, display_name, name, quantity, unit')
-            .eq('user_id', user.id),
-          supabase
-            .from('user_foods')
-            .select('id, display_name, name, quantity, unit')
-            .eq('user_id', user.id),
-        ]);
+      const dateClause = selectedDate ? ' AND log_date = ?' : '';
+      const dateArgs = selectedDate ? [selectedDate] : [];
 
-      const firstError =
-        painResult.error ||
-        stressResult.error ||
-        medicineResult.error ||
-        foodResult.error ||
-        medicineItemsResult.error ||
-        foodItemsResult.error;
-
-      if (firstError) {
-        throw firstError;
-      }
-
-      const medicineItems = new Map<string, UserItemRow>(
-        (medicineItemsResult.data ?? []).map((item) => [item.id, item]),
+      const painRows = db.getAllSync<PainLogSqlRow>(
+        `
+          SELECT id, logged_at, log_date, body_part, pain_level, swelling
+          FROM pain_logs
+          WHERE user_id = ?${dateClause}
+          ORDER BY logged_at DESC;
+        `,
+        [user.id, ...dateArgs],
       );
-      const foodItems = new Map<string, UserItemRow>(
-        (foodItemsResult.data ?? []).map((item) => [item.id, item]),
+      const stressRows = db.getAllSync<StressLogRow>(
+        `
+          SELECT id, logged_at, log_date, level
+          FROM stress_logs
+          WHERE user_id = ?${dateClause}
+          ORDER BY logged_at DESC;
+        `,
+        [user.id, ...dateArgs],
+      );
+      const medicineRows = db.getAllSync<MedicineLogRow>(
+        `
+          SELECT id, logged_at, log_date, medicine_id
+          FROM medicine_logs
+          WHERE user_id = ?${dateClause}
+          ORDER BY logged_at DESC;
+        `,
+        [user.id, ...dateArgs],
+      );
+      const foodRows = db.getAllSync<FoodLogRow>(
+        `
+          SELECT id, logged_at, log_date, food_id
+          FROM food_logs
+          WHERE user_id = ?${dateClause}
+          ORDER BY logged_at DESC;
+        `,
+        [user.id, ...dateArgs],
+      );
+      const medicineItemRows = db.getAllSync<UserItemRow>(
+        `
+          SELECT id, display_name, name, quantity, unit
+          FROM user_medicines
+          WHERE user_id = ?;
+        `,
+        [user.id],
+      );
+      const foodItemRows = db.getAllSync<UserItemRow>(
+        `
+          SELECT id, display_name, name, quantity, unit
+          FROM user_foods
+          WHERE user_id = ?;
+        `,
+        [user.id],
       );
 
-      const painEntries: TimelineEntry[] = (painResult.data ?? []).map((row: PainLogRow) => ({
-        id: `pain-${row.id}`,
-        type: 'pain',
-        logDate: row.log_date,
-        loggedAt: row.logged_at,
-        title: formatPainEntryTitle(row),
-        subtitle: formatPainEntrySubtitle(row),
-        payload: { kind: 'pain', row },
-      }));
+      const medicineItems = new Map<string, UserItemRow>(medicineItemRows.map((item) => [item.id, item]));
+      const foodItems = new Map<string, UserItemRow>(foodItemRows.map((item) => [item.id, item]));
 
-      const stressEntries: TimelineEntry[] = (stressResult.data ?? []).map((row: StressLogRow) => ({
+      const painEntries: TimelineEntry[] = painRows.map((row) => {
+        const normalizedPainRow: PainLogRow = {
+          ...row,
+          swelling: row.swelling === null ? null : row.swelling === 1,
+        };
+
+        return {
+          id: `pain-${row.id}`,
+          type: 'pain',
+          logDate: row.log_date,
+          loggedAt: row.logged_at,
+          title: formatPainEntryTitle(normalizedPainRow),
+          subtitle: formatPainEntrySubtitle(normalizedPainRow),
+          payload: { kind: 'pain', row: normalizedPainRow },
+        };
+      });
+
+      const stressEntries: TimelineEntry[] = stressRows.map((row: StressLogRow) => ({
         id: `stress-${row.id}`,
         type: 'stress',
         logDate: row.log_date,
@@ -876,7 +926,7 @@ export default function LogsScreen() {
         payload: { kind: 'stress', row },
       }));
 
-      const medicineEntries: TimelineEntry[] = (medicineResult.data ?? []).map((row: MedicineLogRow) => {
+      const medicineEntries: TimelineEntry[] = medicineRows.map((row: MedicineLogRow) => {
         const medicineItem = medicineItems.get(row.medicine_id) ?? null;
         const medicineDose = formatItemQuantityAndUnit(medicineItem);
 
@@ -891,7 +941,7 @@ export default function LogsScreen() {
         };
       });
 
-      const foodEntries: TimelineEntry[] = (foodResult.data ?? []).map((row: FoodLogRow) => {
+      const foodEntries: TimelineEntry[] = foodRows.map((row: FoodLogRow) => {
         const foodItem = foodItems.get(row.food_id) ?? null;
         const serving = formatItemQuantityAndUnit(foodItem);
 
@@ -912,7 +962,7 @@ export default function LogsScreen() {
 
       setEntries(allEntries);
     } catch (error: any) {
-      showError(error?.message || 'Unable to load logs from Supabase.');
+      showError(error?.message || 'Unable to load logs from local database.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -928,8 +978,53 @@ export default function LogsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused, user?.id]);
 
-  const visibleEntries = entries.filter((entry) => filter === 'all' || entry.type === filter);
-  const visibleSections = groupEntriesByDate(visibleEntries);
+  const visibleEntries = useMemo(
+    () => entries.filter((entry) => filter === 'all' || entry.type === filter),
+    [entries, filter],
+  );
+  const visibleSections = useMemo(() => groupEntriesByDate(visibleEntries), [visibleEntries]);
+
+  useEffect(() => {
+    if (visibleSections.length === 0) {
+      setActiveSectionMeta(null);
+      return;
+    }
+
+    const firstSectionMeta = toActiveSectionMeta(visibleSections[0]);
+
+    setActiveSectionMeta((previous) => {
+      if (isSameActiveSectionMeta(previous, firstSectionMeta)) {
+        return previous;
+      }
+
+      return firstSectionMeta;
+    });
+  }, [visibleSections]);
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 35,
+  }).current;
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const firstSectionToken = viewableItems.find((token) => {
+      const sectionToken = token as ViewToken & { section?: LogSection };
+      return token.isViewable && Boolean(sectionToken.section);
+    }) as (ViewToken & { section?: LogSection }) | undefined;
+
+    if (!firstSectionToken?.section) {
+      return;
+    }
+
+    const nextMeta = toActiveSectionMeta(firstSectionToken.section);
+
+    setActiveSectionMeta((previous) => {
+      if (isSameActiveSectionMeta(previous, nextMeta)) {
+        return previous;
+      }
+
+      return nextMeta;
+    });
+  }).current;
 
   const typeConfig: Record<LogType, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; container: string; iconColor: string }> = {
     pain: {
@@ -1002,7 +1097,7 @@ export default function LogsScreen() {
             <AppCard style={styles.loadingCard}>
               <ActivityIndicator color={colors.primary} />
               <Text variant="bodyMedium" style={{ color: colors.textMuted }}>
-                Loading logs from Supabase...
+                Loading local logs...
               </Text>
             </AppCard>
           </Reanimated.View>
@@ -1053,6 +1148,48 @@ export default function LogsScreen() {
     );
   };
 
+  const renderPinnedSectionSummary = () => {
+    if (!activeSectionMeta || visibleSections.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.pinnedSummaryWrap}>
+        <Reanimated.View
+          key={activeSectionMeta.dateKey}
+          entering={FadeInDown.duration(220)}
+          exiting={FadeOut.duration(160)}
+          layout={LinearTransition.duration(220)}
+          style={[
+            styles.pinnedSummaryCard,
+            {
+              backgroundColor: colors.surfaceContainerLowest,
+              borderColor: colors.ghostBorder,
+              shadowColor: colors.shadowAmbient,
+            },
+          ]}
+        >
+          <Text variant="titleMedium" style={{ color: colors.text }}>
+            {activeSectionMeta.title}
+          </Text>
+          <View
+            style={[
+              styles.pinnedSummaryBadge,
+              {
+                backgroundColor: colors.primaryContainer,
+                borderColor: colors.ghostBorder,
+              },
+            ]}
+          >
+            <Text variant="labelLarge" style={{ color: colors.onPrimaryContainer }}>
+              {activeSectionMeta.entryCount} {activeSectionMeta.entryCount === 1 ? 'entry' : 'entries'}
+            </Text>
+          </View>
+        </Reanimated.View>
+      </View>
+    );
+  };
+
   const renderEmptyState = () => {
     if (loading && entries.length === 0) {
       return null;
@@ -1092,6 +1229,7 @@ export default function LogsScreen() {
     <ScreenWrapper>
       <View style={styles.screenContent}>
         {renderFilterBar()}
+        {renderPinnedSectionSummary()}
 
         <SectionList
           style={styles.list}
@@ -1113,10 +1251,20 @@ export default function LogsScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => void loadLogs('refresh')}
+              onRefresh={() => {
+                void (async () => {
+                  try {
+                    await runSync();
+                  } finally {
+                    await loadLogs('refresh');
+                  }
+                })();
+              }}
               tintColor={colors.primary}
               colors={[colors.primary]}
             />
@@ -1397,6 +1545,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: 10,
+  },
+  pinnedSummaryWrap: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  pinnedSummaryCard: {
+    minHeight: 48,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  pinnedSummaryBadge: {
+    minHeight: 32,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    justifyContent: 'center',
   },
   listContent: {
     paddingHorizontal: Spacing.lg,

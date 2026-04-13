@@ -21,7 +21,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import Slider from '@react-native-community/slider';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { Radius, Spacing } from '../../constants/theme';
-import { supabase } from '../../lib/supabase';
+import { addToSyncQueue, db } from '../../lib/localDb';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { ItemSelector, type ItemRecord, type ItemSelectorHandle } from '../../components/forms/ItemSelector';
@@ -56,6 +56,22 @@ const cardReveal = (delay: number) => FadeInDown.delay(delay).duration(340);
 
 function createPainEntryId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createRecordId() {
+  if (typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function normalizeStressLevel(level: StressLevel) {
+  if (level === 'Mid') {
+    return 'moderate';
+  }
+
+  return level;
 }
 
 type AddLogColors = ReturnType<typeof useAppColors>;
@@ -104,37 +120,34 @@ interface SelectionChipProps {
 
 function SelectionChip({ label, accentColor, colors, onEdit, onRemove }: SelectionChipProps) {
   return (
-    <Animated.View
-      layout={Layout.springify()}
-      style={[
-        styles.selectionRowItem,
-        {
-          backgroundColor: colors.surfaceContainerLow,
-          borderColor: colors.ghostBorder,
-        },
-      ]}
-    >
-      <Text variant="bodyMedium" style={[styles.selectionRowLabel, { color: colors.text }]} numberOfLines={1}>
-        {label}
-      </Text>
-      <View style={styles.selectionRowActions}>
-        {onEdit ? (
-          <IconButton
-            icon="pencil-outline"
-            iconColor={accentColor}
-            size={20}
-            style={styles.selectionRowButton}
-            onPress={onEdit}
-          />
-        ) : null}
-        <IconButton
-          icon="trash-can-outline"
-          iconColor={colors.error}
-          size={20}
-          style={styles.selectionRowButton}
-          onPress={onRemove}
-        />
-      </View>
+    <Animated.View layout={Layout.springify()}>
+      <AppCard style={styles.selectionChipCard} variant="subtle">
+        <View style={styles.selectionRowItem}>
+          <Text variant="bodyMedium" style={[styles.selectionRowLabel, { color: colors.text }]} numberOfLines={1}>
+            {label}
+          </Text>
+          <View style={styles.selectionRowActions}>
+            {onEdit ? (
+              <IconButton
+                icon="pencil-outline"
+                iconColor={accentColor}
+                containerColor={colors.surfaceContainerHighest}
+                size={20}
+                style={styles.selectionRowButton}
+                onPress={onEdit}
+              />
+            ) : null}
+            <IconButton
+              icon="trash-can-outline"
+              iconColor={colors.error}
+              containerColor={colors.errorContainer}
+              size={20}
+              style={styles.selectionRowButton}
+              onPress={onRemove}
+            />
+          </View>
+        </View>
+      </AppCard>
     </Animated.View>
   );
 }
@@ -410,64 +423,118 @@ export default function AddLogScreen() {
     const logDateString = logDate.toLocaleDateString('en-CA');
 
     try {
-      if (painEntries.length > 0) {
-        const painInserts = painEntries.map((entry) => ({
-          user_id: user.id,
-          logged_at: loggedAt,
-          log_date: logDateString,
-          body_part: entry.body_part,
-          pain_level: entry.pain_level,
-          swelling: entry.swelling,
-        }));
+      db.execSync('BEGIN TRANSACTION;');
 
-        const { error } = await supabase.from('pain_logs').insert(painInserts);
+      try {
+        if (painEntries.length > 0) {
+          for (const entry of painEntries) {
+            const id = createRecordId();
+            const payload = {
+              id,
+              user_id: user.id,
+              logged_at: loggedAt,
+              log_date: logDateString,
+              body_part: entry.body_part,
+              pain_level: entry.pain_level,
+              swelling: entry.swelling,
+            };
 
-        if (error) {
-          throw error;
+            db.runSync(
+              `
+                INSERT INTO pain_logs
+                (id, user_id, logged_at, log_date, body_part, pain_level, swelling)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
+              `,
+              [
+                payload.id,
+                payload.user_id,
+                payload.logged_at,
+                payload.log_date,
+                payload.body_part,
+                payload.pain_level,
+                payload.swelling ? 1 : 0,
+              ],
+            );
+
+            addToSyncQueue('pain_logs', 'INSERT', payload);
+          }
         }
-      }
 
-      if (stressLevel !== null) {
-        const { error } = await supabase.from('stress_logs').insert({
-          user_id: user.id,
-          logged_at: loggedAt,
-          log_date: logDateString,
-          level: stressLevel,
-        });
+        if (stressLevel !== null) {
+          const id = createRecordId();
+          const normalizedStressLevel = normalizeStressLevel(stressLevel);
+          const payload = {
+            id,
+            user_id: user.id,
+            logged_at: loggedAt,
+            log_date: logDateString,
+            level: normalizedStressLevel,
+          };
 
-        if (error) {
-          throw error;
+          db.runSync(
+            `
+              INSERT INTO stress_logs
+              (id, user_id, logged_at, log_date, level)
+              VALUES (?, ?, ?, ?, ?);
+            `,
+            [payload.id, payload.user_id, payload.logged_at, payload.log_date, payload.level],
+          );
+
+          addToSyncQueue('stress_logs', 'INSERT', payload);
         }
-      }
 
-      if (selectedMedicines.length > 0) {
-        const medicineInserts = selectedMedicines.map((medicine) => ({
-          user_id: user.id,
-          medicine_id: medicine.id,
-          logged_at: loggedAt,
-          log_date: logDateString,
-        }));
+        if (selectedMedicines.length > 0) {
+          for (const medicine of selectedMedicines) {
+            const id = createRecordId();
+            const payload = {
+              id,
+              user_id: user.id,
+              medicine_id: medicine.id,
+              logged_at: loggedAt,
+              log_date: logDateString,
+            };
 
-        const { error } = await supabase.from('medicine_logs').insert(medicineInserts);
+            db.runSync(
+              `
+                INSERT INTO medicine_logs
+                (id, user_id, medicine_id, logged_at, log_date)
+                VALUES (?, ?, ?, ?, ?);
+              `,
+              [payload.id, payload.user_id, payload.medicine_id, payload.logged_at, payload.log_date],
+            );
 
-        if (error) {
-          throw error;
+            addToSyncQueue('medicine_logs', 'INSERT', payload);
+          }
         }
-      }
 
-      if (selectedFoods.length > 0) {
-        const foodInserts = selectedFoods.map((food) => ({
-          user_id: user.id,
-          food_id: food.id,
-          logged_at: loggedAt,
-          log_date: logDateString,
-        }));
+        if (selectedFoods.length > 0) {
+          for (const food of selectedFoods) {
+            const id = createRecordId();
+            const payload = {
+              id,
+              user_id: user.id,
+              food_id: food.id,
+              logged_at: loggedAt,
+              log_date: logDateString,
+            };
 
-        const { error } = await supabase.from('food_logs').insert(foodInserts);
+            db.runSync(
+              `
+                INSERT INTO food_logs
+                (id, user_id, food_id, logged_at, log_date)
+                VALUES (?, ?, ?, ?, ?);
+              `,
+              [payload.id, payload.user_id, payload.food_id, payload.logged_at, payload.log_date],
+            );
 
-        if (error) {
-          throw error;
+            addToSyncQueue('food_logs', 'INSERT', payload);
+          }
         }
+
+        db.execSync('COMMIT;');
+      } catch (error) {
+        db.execSync('ROLLBACK;');
+        throw error;
       }
 
       router.back();
@@ -553,7 +620,7 @@ export default function AddLogScreen() {
         <LogSectionCard
           delay={200}
           icon="arm-flex"
-          title="Pain by Body Part"
+          title="Pain"
           accentColor={colors.chartTrigger}
           colors={colors}
           action={
@@ -896,29 +963,33 @@ const styles = StyleSheet.create({
       flexShrink: 1,
     },
     itemList: {
-      gap: Spacing.sm,
+      gap: Spacing.md,
       marginTop: Spacing.xxs,
+    },
+    selectionChipCard: {
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs,
     },
     selectionRowItem: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: Spacing.sm,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      paddingLeft: Spacing.md,
-      paddingRight: Spacing.xs,
-      minHeight: 44,
+      gap: Spacing.md,
+      minHeight: 48,
     },
     selectionRowLabel: {
       flex: 1,
+      fontWeight: '600',
     },
     selectionRowActions: {
       flexDirection: 'row',
       alignItems: 'center',
+      gap: Spacing.xs,
     },
     selectionRowButton: {
       margin: 0,
+      width: 48,
+      height: 48,
     },
     saveButton: {
       marginTop: Spacing.sm,

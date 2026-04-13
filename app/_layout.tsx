@@ -21,6 +21,8 @@ import {
   Manrope_700Bold,
 } from '@expo-google-fonts/manrope';
 import { Colors } from '../constants/theme';
+import { initLocalDB } from '../lib/localDb';
+import { registerBackgroundSync, setupNetworkListener } from '../lib/syncEngine';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { ThemeProvider, useThemePreference } from '../providers/ThemeProvider';
 
@@ -99,6 +101,26 @@ export default function RootLayout() {
     Manrope_600SemiBold,
     Manrope_700Bold,
   });
+
+  useEffect(() => {
+    let unsubscribeNetworkListener: (() => void) | null = null;
+
+    const initializeOfflineEngine = async () => {
+      try {
+        initLocalDB();
+        unsubscribeNetworkListener = setupNetworkListener();
+        await registerBackgroundSync();
+      } catch (error) {
+        console.warn('[app] Failed to initialize local sync engine', error);
+      }
+    };
+
+    void initializeOfflineEngine();
+
+    return () => {
+      unsubscribeNetworkListener?.();
+    };
+  }, []);
 
   if (!fontsLoaded) {
     return null;
