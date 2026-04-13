@@ -1128,14 +1128,29 @@ export default function LogsScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderEntry}
           renderSectionHeader={({ section }) => (
-            <View style={styles.sectionHeader}>
-              <Text variant="titleMedium" style={{ color: colors.text }}>
-                {section.title}
-              </Text>
-              <Text variant="labelMedium" style={{ color: colors.textMuted }}>
-                {section.data.length} {section.data.length === 1 ? 'entry' : 'entries'}
-              </Text>
-            </View>
+              <View
+                style={[
+                  styles.sectionHeaderCard,
+                  {
+                    backgroundColor: colors.surfaceContainerHighest,
+                    borderColor: colors.ghostBorder,
+                    shadowColor: colors.shadowAmbient,
+                  },
+                ]}
+              >
+                <View style={styles.sectionHeaderTitleRow}>
+                  <MaterialCommunityIcons name="calendar-blank-outline" size={16} color={colors.textMuted} />
+                  <Text variant="titleSmall" style={[styles.sectionHeaderTitle, { color: colors.text }]}>
+                    {section.title}
+                  </Text>
+                </View>
+
+                <View style={[styles.sectionHeaderCountPill]}>
+                  <Text variant="labelMedium" style={[styles.sectionHeaderCountText, { color: colors.onPrimaryContainer }]}>
+                    {section.data.length} {section.data.length === 1 ? 'entry' : 'entries'}
+                  </Text>
+                </View>
+              </View>
           )}
           ListHeaderComponent={renderListHeader()}
           ListEmptyComponent={renderEmptyState()}
@@ -1488,14 +1503,44 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   sectionHeader: {
+    minHeight: 48,
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  sectionHeaderCard: {
     minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Spacing.xs,
-    paddingBottom: Spacing.xxs,
-    paddingHorizontal: Spacing.xs,
-    zIndex: 1,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    gap: Spacing.sm,
+    shadowOpacity: 0.09,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  sectionHeaderTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    minWidth: 0,
+  },
+  sectionHeaderTitle: {
+    flexShrink: 1,
+    fontWeight: '700',
+  },
+  sectionHeaderCountPill: {
+    minHeight: 28,
+    borderRadius: Radius.full,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  sectionHeaderCountText: {
+    fontWeight: '700',
   },
   entryCard: {
     borderRadius: Radius.xl,
