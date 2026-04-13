@@ -58,14 +58,13 @@ interface LogSectionCardProps {
   delay: number;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   title: string;
-  subtitle?: string;
   accentColor: string;
   colors: AddLogColors;
   action?: React.ReactNode;
   children: React.ReactNode;
 }
 
-function LogSectionCard({ delay, icon, title, subtitle, accentColor, colors, action, children }: LogSectionCardProps) {
+function LogSectionCard({ delay, icon, title, accentColor, colors, action, children }: LogSectionCardProps) {
   return (
     <Animated.View entering={cardReveal(delay)} layout={Layout.springify()}>
       <AppCard style={styles.card}>
@@ -78,11 +77,6 @@ function LogSectionCard({ delay, icon, title, subtitle, accentColor, colors, act
               <Text variant="titleMedium" style={[styles.cardTitle, { color: colors.text }]}>
                 {title}
               </Text>
-              {subtitle ? (
-                <Text variant="bodySmall" style={[styles.cardSubtitle, { color: colors.textMuted }]}>
-                  {subtitle}
-                </Text>
-              ) : null}
             </View>
           </View>
           {action}
@@ -107,24 +101,34 @@ function SelectionChip({ label, accentColor, colors, onEdit, onRemove }: Selecti
     <Animated.View
       layout={Layout.springify()}
       style={[
-        styles.chip,
+        styles.selectionRowItem,
         {
           backgroundColor: colors.surfaceContainerLow,
           borderColor: colors.ghostBorder,
         },
       ]}
     >
-      <Text variant="bodySmall" style={[styles.chipLabel, { color: colors.text }]} numberOfLines={1}>
+      <Text variant="bodyMedium" style={[styles.selectionRowLabel, { color: colors.text }]} numberOfLines={1}>
         {label}
       </Text>
-      {onEdit ? (
-        <Pressable accessibilityRole="button" onPress={onEdit} hitSlop={Spacing.sm} style={styles.chipActionButton}>
-          <MaterialCommunityIcons name="pencil-outline" size={12} color={accentColor} />
-        </Pressable>
-      ) : null}
-      <Pressable accessibilityRole="button" onPress={onRemove} hitSlop={Spacing.sm} style={styles.chipCloseButton}>
-        <MaterialCommunityIcons name="close" size={12} color={accentColor} />
-      </Pressable>
+      <View style={styles.selectionRowActions}>
+        {onEdit ? (
+          <IconButton
+            icon="pencil-outline"
+            iconColor={accentColor}
+            size={20}
+            style={styles.selectionRowButton}
+            onPress={onEdit}
+          />
+        ) : null}
+        <IconButton
+          icon="trash-can-outline"
+          iconColor={colors.error}
+          size={20}
+          style={styles.selectionRowButton}
+          onPress={onRemove}
+        />
+      </View>
     </Animated.View>
   );
 }
@@ -199,9 +203,6 @@ interface SelectionSectionProps {
   buttonTextColor: string;
   colors: AddLogColors;
   selectedItems: SelectedItem[];
-  emptyText: string;
-  buttonLabel: string;
-  subtitle: string;
   onEditItem?: (id: string) => void;
   onOpen: () => void;
   onRemove: (id: string) => void;
@@ -216,9 +217,6 @@ function SelectionSection({
   buttonTextColor,
   colors,
   selectedItems,
-  emptyText,
-  buttonLabel,
-  subtitle,
   onEditItem,
   onOpen,
   onRemove,
@@ -228,22 +226,16 @@ function SelectionSection({
       delay={delay}
       icon={icon}
       title={title}
-      subtitle={subtitle}
       accentColor={accentColor}
       colors={colors}
+      action={
+        <CustomButton mode="contained-tonal" icon="plus" compact onPress={onOpen} buttonColor={buttonColor} textColor={buttonTextColor} style={styles.headerButton}>
+          Add
+        </CustomButton>
+      }
     >
-      <CustomButton
-        mode="contained"
-        icon="plus"
-        onPress={onOpen}
-        buttonColor={buttonColor}
-        textColor={buttonTextColor}
-      >
-        {buttonLabel}
-      </CustomButton>
-
-      {selectedItems.length > 0 ? (
-        <View style={styles.chipWrap}>
+      {selectedItems.length > 0 && (
+        <View style={styles.itemList}>
           {selectedItems.map((item) => (
             <SelectionChip
               key={item.id}
@@ -255,10 +247,6 @@ function SelectionSection({
             />
           ))}
         </View>
-      ) : (
-        <Text variant="bodySmall" style={[styles.helperText, { color: colors.textMuted }]}>
-          {emptyText}
-        </Text>
       )}
     </LogSectionCard>
   );
@@ -529,16 +517,15 @@ export default function AddLogScreen() {
           delay={0}
           icon="clock-outline"
           title="Date & Time"
-          subtitle="Capture exactly when the entry happened."
           accentColor={colors.primary}
           colors={colors}
         >
           <View style={styles.dateTimeRow}>
-            <CustomButton mode="outlined" icon="calendar-month" onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
+            <CustomButton mode="outlined" icon="calendar-month" compact onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
               {logDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
             </CustomButton>
-            <CustomButton mode="outlined" icon="clock-outline" onPress={() => setShowTimePicker(true)} style={styles.dateButton}>
-              {logDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+            <CustomButton mode="outlined" icon="clock-outline" compact onPress={() => setShowTimePicker(true)} style={styles.dateButton}>
+              {logDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }).replace(/\s?(AM|PM)$/i, (match) => match.toLowerCase())}
             </CustomButton>
           </View>
         </LogSectionCard>
@@ -547,14 +534,11 @@ export default function AddLogScreen() {
           delay={100}
           icon="food-apple"
           title="Food"
-          subtitle="Choose from saved items or create a new master entry."
           accentColor={colors.secondary}
           buttonColor={colors.secondaryContainer}
           buttonTextColor={colors.onSecondaryContainer}
           colors={colors}
           selectedItems={selectedFoods}
-          emptyText="No food selected yet."
-          buttonLabel="Open Food Selector"
           onEditItem={handleEditFoodItem}
           onOpen={handleOpenFoodSelector}
           onRemove={handleFoodChipRemove}
@@ -564,38 +548,29 @@ export default function AddLogScreen() {
           delay={200}
           icon="arm-flex"
           title="Pain by Body Part"
-          subtitle="Track pain separately for each affected area."
           accentColor={colors.chartTrigger}
           colors={colors}
           action={
-            <CustomButton mode="outlined" icon="plus" compact onPress={openBodyPartModal}>
-              Add Body Part
+            <CustomButton mode="contained-tonal" icon="plus" compact onPress={openBodyPartModal} buttonColor={colors.tertiaryContainer} textColor={colors.onTertiaryContainer} style={styles.headerButton}>
+              Add
             </CustomButton>
           }
         >
-          {painEntries.length === 0 ? (
-            <Text variant="bodyMedium" style={[styles.emptyState, { color: colors.textMuted }]}> 
-              No body parts added yet.
-            </Text>
-          ) : (
+          {painEntries.length > 0 &&
             painEntries.map((entry, index) => (
               <PainEntryCard key={entry.id} entry={entry} index={index} colors={colors} onChange={updatePainEntry} onRemove={removePainEntry} />
-            ))
-          )}
+            ))}
         </LogSectionCard>
 
         <SelectionSection
           delay={300}
           title="Medicine"
           icon="pill"
-          subtitle="Choose from saved items or create a new master entry."
           accentColor={colors.primary}
           buttonColor={colors.primaryContainer}
           buttonTextColor={colors.onPrimaryContainer}
           colors={colors}
           selectedItems={selectedMedicines}
-          emptyText="No medicine selected yet."
-          buttonLabel="Open Medicine Selector"
           onEditItem={handleEditMedicineItem}
           onOpen={handleOpenMedicineSelector}
           onRemove={handleMedicineChipRemove}
@@ -605,7 +580,6 @@ export default function AddLogScreen() {
           delay={400}
           icon="brain"
           title="Stress Level"
-          subtitle="Select the current categorical stress level."
           accentColor={colors.secondary}
           colors={colors}
           action={
@@ -662,7 +636,7 @@ export default function AddLogScreen() {
       <Modal visible={bodyPartModalVisible} transparent animationType="fade" onRequestClose={closeBodyPartModal}>
         <View style={styles.modalContainer}>
           <Pressable
-            style={[styles.modalBackdrop, { backgroundColor: colors.text }]}
+            style={[styles.modalBackdrop, { backgroundColor: colors.text, opacity: 0.66 }]}
             onPress={closeBodyPartModal}
           />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalKeyboard}>
@@ -742,75 +716,84 @@ export default function AddLogScreen() {
 const styles = StyleSheet.create({
     scrollContent: {
       paddingHorizontal: Spacing.lg,
-      paddingTop: Spacing.lg,
-      paddingBottom: Spacing.xxxl + Spacing.xl,
-      gap: Spacing.lg,
+      paddingTop: Spacing.md,
+      paddingBottom: Spacing.xxxl + Spacing.lg,
+      gap: Spacing.md,
     },
     card: {
-      padding: Spacing.lg,
-      gap: Spacing.md,
+      padding: Spacing.md,
+      gap: Spacing.sm,
+      borderWidth: 1,
+      borderRadius: Radius.xl,
     },
     cardHeaderRow: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       justifyContent: 'space-between',
-      gap: Spacing.md,
+      gap: Spacing.sm,
     },
     cardTitleRow: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       gap: Spacing.md,
       flex: 1,
     },
     sectionIconShell: {
-      width: 40,
-      height: 40,
+      width: 42,
+      height: 42,
       borderRadius: Radius.lg,
       alignItems: 'center',
       justifyContent: 'center',
     },
     cardTitleBlock: {
       flex: 1,
-      gap: Spacing.xs,
+      gap: Spacing.xxs,
     },
     cardTitle: {
       fontWeight: '700',
       flexShrink: 1,
     },
     cardSubtitle: {
-      lineHeight: 20,
+      lineHeight: 18,
     },
     cardBody: {
-      gap: Spacing.md,
+      gap: Spacing.sm,
+      marginTop: Spacing.xxs,
     },
     dateTimeRow: {
       flexDirection: 'row',
-      gap: Spacing.md,
+      gap: Spacing.sm,
     },
     dateButton: {
       flex: 1,
     },
+    headerButton: {
+      marginRight: -Spacing.xs,
+      marginTop: -Spacing.xxs,
+    },
     clearButton: {
-      marginTop: -Spacing.xs,
+      marginRight: -Spacing.xs,
+      marginTop: -Spacing.xxs,
     },
     segmentedRoot: {
-      marginTop: Spacing.xs,
+      marginTop: 0,
     },
     segmentedButton: {
       flex: 1,
     },
-    emptyState: {
-      textAlign: 'center',
-    },
     painCard: {
-      padding: Spacing.md,
-      gap: Spacing.md,
+      padding: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      gap: Spacing.xs,
+      borderRadius: Radius.lg,
+      borderWidth: 1,
     },
     painCardHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: Spacing.sm,
+      marginBottom: -Spacing.xs,
     },
     painBodyPart: {
       fontWeight: '700',
@@ -824,12 +807,12 @@ const styles = StyleSheet.create({
     },
     slider: {
       flex: 1,
-      height: 48,
+      height: 40,
     },
     painLevelBadge: {
       minWidth: Spacing.xxxl,
       minHeight: Spacing.xxxl,
-      borderRadius: Radius.full,
+      borderRadius: Radius.md,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
@@ -847,39 +830,30 @@ const styles = StyleSheet.create({
     swellingLabel: {
       flexShrink: 1,
     },
-    chipWrap: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+    itemList: {
       gap: Spacing.sm,
+      marginTop: Spacing.xxs,
     },
-    chip: {
+    selectionRowItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: Spacing.xs,
-      borderRadius: Radius.full,
+      justifyContent: 'space-between',
+      gap: Spacing.sm,
+      borderRadius: Radius.md,
       borderWidth: 1,
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.xs,
-      minHeight: 36,
+      paddingLeft: Spacing.md,
+      paddingRight: Spacing.xs,
+      minHeight: 44,
     },
-    chipLabel: {
-      flexShrink: 1,
-      maxWidth: 180,
+    selectionRowLabel: {
+      flex: 1,
     },
-    chipCloseButton: {
-      width: 20,
-      height: 20,
+    selectionRowActions: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
     },
-    chipActionButton: {
-      width: 20,
-      height: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    helperText: {
-      textAlign: 'center',
+    selectionRowButton: {
+      margin: 0,
     },
     saveButton: {
       marginTop: Spacing.sm,
