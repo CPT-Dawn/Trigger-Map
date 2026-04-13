@@ -53,7 +53,7 @@ export default function SignInScreen() {
                 <MaterialCommunityIcons name="account-heart-outline" size={22} color={colors.onPrimaryContainer} />
               </View>
               <Text variant="headlineMedium" style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
-              <Text variant="bodyLarge" style={[styles.subtitle, { color: colors.textMuted }]}>Sign in to continue tracking your health context.</Text>
+              <Text variant="bodyLarge" style={[styles.subtitle, { color: colors.textMuted }]}>Sign in to continue tracking your health.</Text>
             </View>
 
             <View style={styles.formContainer}>

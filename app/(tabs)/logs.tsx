@@ -11,9 +11,8 @@ import {
   PanResponder,
   Platform,
   Pressable,
-  ViewToken,
 } from 'react-native';
-import Reanimated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Reanimated, { FadeInDown } from 'react-native-reanimated';
 import { ActivityIndicator, Chip, IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -109,12 +108,6 @@ interface LogSection {
   title: string;
   data: TimelineEntry[];
   dateKey: string;
-}
-
-interface ActiveSectionMeta {
-  dateKey: string;
-  title: string;
-  entryCount: number;
 }
 
 function parseLocalDate(dateString: string) {
@@ -287,22 +280,6 @@ function groupEntriesByDate(entries: TimelineEntry[]) {
     title: formatSectionTitle(dateKey),
     data,
   }));
-}
-
-function toActiveSectionMeta(section: LogSection): ActiveSectionMeta {
-  return {
-    dateKey: section.dateKey,
-    title: section.title,
-    entryCount: section.data.length,
-  };
-}
-
-function isSameActiveSectionMeta(left: ActiveSectionMeta | null, right: ActiveSectionMeta) {
-  return (
-    left?.dateKey === right.dateKey &&
-    left?.title === right.title &&
-    left?.entryCount === right.entryCount
-  );
 }
 
 interface SwipeableLogCardProps {
@@ -544,7 +521,6 @@ export default function LogsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<LogFilter>('all');
-  const [activeSectionMeta, setActiveSectionMeta] = useState<ActiveSectionMeta | null>(null);
   const [activeSwipeKey, setActiveSwipeKey] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<TimelineEntry | null>(null);
   const [editPainBodyPart, setEditPainBodyPart] = useState('');
@@ -984,48 +960,6 @@ export default function LogsScreen() {
   );
   const visibleSections = useMemo(() => groupEntriesByDate(visibleEntries), [visibleEntries]);
 
-  useEffect(() => {
-    if (visibleSections.length === 0) {
-      setActiveSectionMeta(null);
-      return;
-    }
-
-    const firstSectionMeta = toActiveSectionMeta(visibleSections[0]);
-
-    setActiveSectionMeta((previous) => {
-      if (isSameActiveSectionMeta(previous, firstSectionMeta)) {
-        return previous;
-      }
-
-      return firstSectionMeta;
-    });
-  }, [visibleSections]);
-
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 35,
-  }).current;
-
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const firstSectionToken = viewableItems.find((token) => {
-      const sectionToken = token as ViewToken & { section?: LogSection };
-      return token.isViewable && Boolean(sectionToken.section);
-    }) as (ViewToken & { section?: LogSection }) | undefined;
-
-    if (!firstSectionToken?.section) {
-      return;
-    }
-
-    const nextMeta = toActiveSectionMeta(firstSectionToken.section);
-
-    setActiveSectionMeta((previous) => {
-      if (isSameActiveSectionMeta(previous, nextMeta)) {
-        return previous;
-      }
-
-      return nextMeta;
-    });
-  }).current;
-
   const typeConfig: Record<LogType, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; container: string; iconColor: string }> = {
     pain: {
       label: 'Pain',
@@ -1148,39 +1082,6 @@ export default function LogsScreen() {
     );
   };
 
-  const renderPinnedSectionSummary = () => {
-    if (!activeSectionMeta || visibleSections.length === 0) {
-      return null;
-    }
-
-    return (
-      <View style={styles.pinnedSummaryWrap}>
-        <Reanimated.View
-          key={activeSectionMeta.dateKey}
-          entering={FadeInDown.duration(220)}
-          exiting={FadeOut.duration(160)}
-          layout={LinearTransition.duration(220)}
-          style={[styles.pinnedSummaryCard, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.ghostBorder }
-          ]}
-        >
-          <Text variant="titleMedium" style={{ color: colors.text }}>
-            {activeSectionMeta.title}
-          </Text>
-          <View
-            style={[
-              styles.pinnedSummaryBadge,
-
-            ]}
-          >
-            <Text variant="labelLarge" style={{ color: colors.onPrimaryContainer }}>
-              {activeSectionMeta.entryCount} {activeSectionMeta.entryCount === 1 ? 'entry' : 'entries'}
-            </Text>
-          </View>
-        </Reanimated.View>
-      </View>
-    );
-  };
-
   const renderEmptyState = () => {
     if (loading && entries.length === 0) {
       return null;
@@ -1220,7 +1121,6 @@ export default function LogsScreen() {
     <ScreenWrapper>
       <View style={styles.screenContent}>
         {renderFilterBar()}
-        {renderPinnedSectionSummary()}
 
         <SectionList
           style={styles.list}
@@ -1241,9 +1141,9 @@ export default function LogsScreen() {
           ListEmptyComponent={renderEmptyState()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          stickySectionHeadersEnabled={false}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
+          stickySectionHeadersEnabled
+          removeClippedSubviews={false}
+          initialNumToRender={12}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -1416,8 +1316,13 @@ export default function LogsScreen() {
           >
             <AppCard variant="solid" style={[styles.modalCard, styles.deleteModalCard]}>
               <View style={styles.deleteModalTopRow}>
-                <View style={[styles.deleteModalIconWrap, { backgroundColor: colors.errorContainer }]}> 
-                  <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.onErrorContainer} />
+                <View style={styles.deleteModalHeadingBlock}>
+                  <View style={[styles.deleteModalIconWrap, { backgroundColor: colors.errorContainer }]}> 
+                    <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.onErrorContainer} />
+                  </View>
+                  <Text variant="titleMedium" style={[styles.deleteModalTitle, { color: colors.text }]} numberOfLines={1}>
+                    Confirm Delete
+                  </Text>
                 </View>
                 <IconButton
                   icon="close"
@@ -1537,25 +1442,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: 10,
   },
-  pinnedSummaryWrap: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.sm,
-  },
-  pinnedSummaryCard: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
-  },
-  pinnedSummaryBadge: {
-    minHeight: 32,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    justifyContent: 'center',
-  },
   listContent: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: 75,
@@ -1602,12 +1488,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   sectionHeader: {
+    minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.xxs,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xxs,
     paddingHorizontal: Spacing.xs,
+    zIndex: 1,
   },
   entryCard: {
     borderRadius: Radius.xl,
@@ -1734,7 +1622,10 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   deleteModalHeadingBlock: {
-    gap: Spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flexShrink: 1,
   },
   deleteModalEyebrow: {
     fontWeight: '700',

@@ -63,7 +63,7 @@ export default function SignUpScreen() {
                 <MaterialCommunityIcons name="account-plus-outline" size={22} color={colors.onSecondaryContainer} />
               </View>
               <Text variant="headlineMedium" style={[styles.title, { color: colors.text }]}>Create Account</Text>
-              <Text variant="bodyLarge" style={[styles.subtitle, { color: colors.textMuted }]}>Join Trigger-Map to start logging your health context.</Text>
+              <Text variant="bodyLarge" style={[styles.subtitle, { color: colors.textMuted }]}>Join Trigger-Map to start tracking your health.</Text>
             </View>
 
             <View style={styles.formContainer}>
