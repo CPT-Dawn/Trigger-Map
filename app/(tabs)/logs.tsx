@@ -1396,31 +1396,16 @@ export default function LogsScreen() {
                       <Text variant="titleMedium" style={[styles.cardTitle, { color: colors.text }]}>
                         Edit {editingConfig?.label ?? 'Entry'}
                       </Text>
-                      <Text variant="bodySmall" style={[styles.editModalSubtitle, { color: colors.textMuted }]}>
-                        Update details and save your changes.
-                      </Text>
                     </View>
                   </View>
 
-                  <View style={styles.editModalHeaderActions}>
-                    <Chip
-                      compact
-                      style={[
-                        styles.editModalTypeChip,
-                        { backgroundColor: editingConfig?.container ?? colors.surfaceContainerHigh },
-                      ]}
-                      textStyle={{ color: editingConfig?.iconColor ?? colors.text }}
-                    >
-                      {editingConfig?.label ?? 'Entry'}
-                    </Chip>
-                    <IconButton
-                      icon="close"
-                      iconColor={colors.text}
-                      size={24}
-                      onPress={closeEditor}
-                      style={styles.editModalCloseButton}
-                    />
-                  </View>
+                  <IconButton
+                    icon="close"
+                    iconColor={colors.text}
+                    size={24}
+                    onPress={closeEditor}
+                    style={styles.editModalCloseButton}
+                  />
                 </View>
 
                 <View style={styles.editModalBody}>
@@ -1896,6 +1881,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
     borderWidth: 1,
     borderLeftWidth: 4,
+    gap: Spacing.sm,
     shadowOpacity: 0.14,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
@@ -1903,9 +1889,10 @@ const styles = StyleSheet.create({
   },
   editModalTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.sm,
+    paddingBottom: Spacing.sm,
   },
   editModalHeadingBlock: {
     flexDirection: 'row',
@@ -1924,23 +1911,12 @@ const styles = StyleSheet.create({
   editModalTextBlock: {
     flex: 1,
     minWidth: 0,
-    gap: Spacing.xxs,
-  },
-  editModalSubtitle: {
-    lineHeight: 18,
-  },
-  editModalHeaderActions: {
-    alignItems: 'flex-end',
-    gap: Spacing.xxs,
-  },
-  editModalTypeChip: {
-    borderWidth: 1,
   },
   editModalCloseButton: {
     margin: 0,
   },
   editModalBody: {
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   editSectionCard: {
     gap: Spacing.sm,
