@@ -1160,6 +1160,7 @@ export default function LogsScreen() {
     },
   };
 
+  const editingConfig = editingEntry ? typeConfig[editingEntry.type] : null;
   const pendingDeleteConfig = pendingDeleteEntry ? typeConfig[pendingDeleteEntry.type] : null;
   const deleteModalScrimColor = appliedTheme === 'dark' ? colors.background : colors.text;
 
@@ -1363,135 +1364,216 @@ export default function LogsScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.modalKeyboard}
           >
-            <AppCard style={styles.modalCard}>
-              <View style={styles.modalHeader}>
-                <Text variant="titleLarge" style={[styles.cardTitle, { color: colors.text }]}>
-                  Edit {editingEntry?.type === 'pain' ? 'Pain' : editingEntry?.type === 'stress' ? 'Stress' : editingEntry?.type === 'medicine' ? 'Medicine' : 'Food'} Entry
-                </Text>
-                <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeEditor} />
-              </View>
+            <Reanimated.View entering={FadeInDown.duration(170).easing(Easing.out(Easing.cubic))}>
+              <AppCard
+                variant="solid"
+                style={[
+                  styles.modalCard,
+                  styles.editModalCard,
+                  {
+                    backgroundColor: colors.surfaceContainerLowest,
+                    borderColor: colors.ghostBorder,
+                    borderLeftColor: editingConfig?.iconColor ?? colors.primary,
+                    shadowColor: colors.shadowAmbient,
+                  },
+                ]}
+              >
+                <View style={styles.editModalTopRow}>
+                  <View style={styles.editModalHeadingBlock}>
+                    <View
+                      style={[
+                        styles.editModalIconWrap,
+                        { backgroundColor: editingConfig?.container ?? colors.surfaceContainerHigh },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={editingConfig?.icon ?? 'pencil-outline'}
+                        size={20}
+                        color={editingConfig?.iconColor ?? colors.text}
+                      />
+                    </View>
+                    <View style={styles.editModalTextBlock}>
+                      <Text variant="titleMedium" style={[styles.cardTitle, { color: colors.text }]}>
+                        Edit {editingConfig?.label ?? 'Entry'}
+                      </Text>
+                      <Text variant="bodySmall" style={[styles.editModalSubtitle, { color: colors.textMuted }]}>
+                        Update details and save your changes.
+                      </Text>
+                    </View>
+                  </View>
 
-              {editingEntry?.payload.kind === 'pain' && (
-                <>
-                  <CustomTextInput
-                    label="Body part"
-                    placeholder="e.g. left knee"
-                    value={editPainBodyPart}
-                    onChangeText={setEditPainBodyPart}
-                    autoCapitalize="words"
-                  />
+                  <View style={styles.editModalHeaderActions}>
+                    <Chip
+                      compact
+                      style={[
+                        styles.editModalTypeChip,
+                        { backgroundColor: editingConfig?.container ?? colors.surfaceContainerHigh },
+                      ]}
+                      textStyle={{ color: editingConfig?.iconColor ?? colors.text }}
+                    >
+                      {editingConfig?.label ?? 'Entry'}
+                    </Chip>
+                    <IconButton
+                      icon="close"
+                      iconColor={colors.text}
+                      size={24}
+                      onPress={closeEditor}
+                      style={styles.editModalCloseButton}
+                    />
+                  </View>
+                </View>
 
-                  <View style={styles.editSliderBlock}>
-                    <View style={styles.editSliderRow}>
-                      <Text variant="bodyMedium" style={[styles.sectionBody, { color: colors.textMuted }]}>
-                        Pain level
+                <View style={styles.editModalBody}>
+                  {editingEntry?.payload.kind === 'pain' && (
+                    <>
+                      <CustomTextInput
+                        label="Body part"
+                        placeholder="e.g. left knee"
+                        value={editPainBodyPart}
+                        onChangeText={setEditPainBodyPart}
+                        autoCapitalize="words"
+                      />
+
+                      <View
+                        style={[
+                          styles.editSectionCard,
+                          {
+                            backgroundColor: colors.surfaceContainerLow,
+                            borderColor: colors.ghostBorder,
+                            borderLeftColor: colors.onErrorContainer,
+                          },
+                        ]}
+                      >
+                        <View style={styles.editSliderRow}>
+                          <Text variant="bodyMedium" style={[styles.editSectionLabel, { color: colors.textMuted }]}>
+                            Pain level
+                          </Text>
+                          <View
+                            style={[
+                              styles.painLevelBadge,
+                              { backgroundColor: colors.surfaceContainerHighest, borderColor: colors.ghostBorder },
+                            ]}
+                          >
+                            <Text variant="titleMedium" style={[styles.painLevelText, { color: colors.onErrorContainer }]}> 
+                              {editPainLevel}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Slider
+                          style={styles.slider}
+                          minimumValue={1}
+                          maximumValue={5}
+                          step={1}
+                          value={editPainLevel}
+                          onValueChange={(value) => setEditPainLevel(value)}
+                          minimumTrackTintColor={colors.onErrorContainer}
+                          maximumTrackTintColor={colors.surfaceContainerHighest}
+                          thumbTintColor={colors.onErrorContainer}
+                        />
+
+                        <View style={[styles.editControlRow, { borderTopColor: colors.ghostBorder }]}>
+                          <Text variant="bodyMedium" style={[styles.swellingLabel, { color: colors.text }]}>
+                            Swelling Present?
+                          </Text>
+                          <Switch value={editPainSwelling} onValueChange={setEditPainSwelling} color={colors.onErrorContainer} />
+                        </View>
+                      </View>
+                    </>
+                  )}
+
+                  {editingEntry?.payload.kind === 'stress' && (
+                    <View
+                      style={[
+                        styles.editSectionCard,
+                        {
+                          backgroundColor: colors.surfaceContainerLow,
+                          borderColor: colors.ghostBorder,
+                          borderLeftColor: editingConfig?.iconColor ?? colors.primary,
+                        },
+                      ]}
+                    >
+                      <Text variant="bodyMedium" style={[styles.editSectionLabel, { color: colors.textMuted }]}>
+                        Stress level
+                      </Text>
+                      <SegmentedButtons
+                        value={editStressLevel}
+                        onValueChange={(value) => {
+                          if (value === 'low' || value === 'moderate' || value === 'high') {
+                            setEditStressLevel(value);
+                          }
+                        }}
+                        density="small"
+                        style={styles.segmentedRoot}
+                        buttons={[
+                          { value: 'low', label: 'Low', showSelectedCheck: false, style: styles.segmentedButton },
+                          { value: 'moderate', label: 'Moderate', showSelectedCheck: false, style: styles.segmentedButton },
+                          { value: 'high', label: 'High', showSelectedCheck: false, style: styles.segmentedButton },
+                        ]}
+                        theme={{
+                          colors: {
+                            secondaryContainer: colors.primaryContainer,
+                            onSecondaryContainer: colors.onPrimaryContainer,
+                            outline: colors.ghostBorder,
+                          },
+                        }}
+                      />
+                    </View>
+                  )}
+
+                  {(editingEntry?.payload.kind === 'medicine' || editingEntry?.payload.kind === 'food') && (
+                    <View
+                      style={[
+                        styles.selectionEditCard,
+                        {
+                          backgroundColor: colors.surfaceContainerLow,
+                          borderColor: colors.ghostBorder,
+                          borderLeftColor: editingConfig?.iconColor ?? colors.primary,
+                        },
+                      ]}
+                    >
+                      <Text variant="bodyMedium" style={[styles.editSectionLabel, { color: colors.textMuted }]}>
+                        Current item
                       </Text>
                       <View
                         style={[
-                          styles.painLevelBadge,
-                          { backgroundColor: colors.surfaceContainerLow, borderColor: colors.ghostBorder },
+                          styles.selectedItemRow,
+                          { backgroundColor: colors.surfaceContainerHighest, borderColor: colors.ghostBorder },
                         ]}
                       >
-                        <Text variant="titleMedium" style={[styles.painLevelText, { color: colors.chartTrigger }]}>
-                          {editPainLevel}
+                        <Text variant="bodyMedium" style={[styles.selectedItemText, { color: colors.text }]}>
+                          {editSelectedItem?.name ?? editingEntry.title}
                         </Text>
                       </View>
+
+                      <CustomButton
+                        mode="outlined"
+                        icon="swap-horizontal"
+                        onPress={() => openEditItemSelector(editingEntry.payload.kind === 'medicine' ? 'medicine' : 'food')}
+                      >
+                        Change item
+                      </CustomButton>
                     </View>
+                  )}
+                </View>
 
-                    <Slider
-                      style={styles.slider}
-                      minimumValue={1}
-                      maximumValue={5}
-                      step={1}
-                      value={editPainLevel}
-                      onValueChange={(value) => setEditPainLevel(value)}
-                      minimumTrackTintColor={colors.chartTrigger}
-                      maximumTrackTintColor={colors.surfaceContainerHighest}
-                      thumbTintColor={colors.chartTrigger}
-                    />
-                  </View>
-
-                  <View style={styles.swellingRow}>
-                    <Text variant="bodyMedium" style={styles.swellingLabel}>
-                      Swelling Present?
-                    </Text>
-                    <Switch value={editPainSwelling} onValueChange={setEditPainSwelling} color={colors.primary} />
-                  </View>
-                </>
-              )}
-
-              {editingEntry?.payload.kind === 'stress' && (
-                <SegmentedButtons
-                  value={editStressLevel}
-                  onValueChange={(value) => {
-                    if (value === 'low' || value === 'moderate' || value === 'high') {
-                      setEditStressLevel(value);
-                    }
-                  }}
-                  density="small"
-                  style={styles.segmentedRoot}
-                  buttons={[
-                    { value: 'low', label: 'Low', showSelectedCheck: false, style: styles.segmentedButton },
-                    { value: 'moderate', label: 'Moderate', showSelectedCheck: false, style: styles.segmentedButton },
-                    { value: 'high', label: 'High', showSelectedCheck: false, style: styles.segmentedButton },
-                  ]}
-                  theme={{
-                    colors: {
-                      secondaryContainer: colors.primaryContainer,
-                      onSecondaryContainer: colors.onPrimaryContainer,
-                      outline: colors.ghostBorder,
-                    },
-                  }}
-                />
-              )}
-
-              {(editingEntry?.payload.kind === 'medicine' || editingEntry?.payload.kind === 'food') && (
-                <View
-                  style={[
-                    styles.selectionEditCard,
-                    { backgroundColor: colors.surfaceContainerLow, borderColor: colors.ghostBorder },
-                  ]}
-                >
-                  <Text variant="bodyMedium" style={[styles.sectionBody, { color: colors.textMuted }]}>
-                    Current item
-                  </Text>
-                  <View
-                    style={[
-                      styles.selectedItemRow,
-                      { backgroundColor: colors.surfaceContainerLow, borderColor: colors.ghostBorder },
-                    ]}
-                  >
-                    <Text variant="bodyMedium" style={[styles.selectedItemText, { color: colors.text }]}>
-                      {editSelectedItem?.name ?? editingEntry.title}
-                    </Text>
-                  </View>
-
+                <View style={[styles.modalActions, styles.editModalActions]}>
+                  <CustomButton mode="outlined" onPress={closeEditor} style={styles.modalActionButton}>
+                    Cancel
+                  </CustomButton>
                   <CustomButton
-                    mode="outlined"
-                    icon="swap-horizontal"
-                    onPress={() => openEditItemSelector(editingEntry.payload.kind === 'medicine' ? 'medicine' : 'food')}
+                    mode="contained"
+                    onPress={handleSaveEdit}
+                    isLoading={isSavingEdit}
+                    buttonColor={colors.primary}
+                    textColor={colors.onPrimary}
+                    style={styles.modalActionButton}
                   >
-                    Change item
+                    Save
                   </CustomButton>
                 </View>
-              )}
-
-              <View style={styles.modalActions}>
-                <CustomButton mode="outlined" onPress={closeEditor} style={styles.modalActionButton}>
-                  Cancel
-                </CustomButton>
-                <CustomButton
-                  mode="contained"
-                  onPress={handleSaveEdit}
-                  isLoading={isSavingEdit}
-                  buttonColor={colors.primary}
-                  textColor={colors.onPrimary}
-                  style={styles.modalActionButton}
-                >
-                  Save
-                </CustomButton>
-              </View>
-            </AppCard>
+              </AppCard>
+            </Reanimated.View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -1810,11 +1892,73 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     gap: Spacing.md,
   },
-  modalHeader: {
+  editModalCard: {
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  editModalTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  editModalHeadingBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flex: 1,
+    minWidth: 0,
+  },
+  editModalIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editModalTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    gap: Spacing.xxs,
+  },
+  editModalSubtitle: {
+    lineHeight: 18,
+  },
+  editModalHeaderActions: {
+    alignItems: 'flex-end',
+    gap: Spacing.xxs,
+  },
+  editModalTypeChip: {
+    borderWidth: 1,
+  },
+  editModalCloseButton: {
+    margin: 0,
+  },
+  editModalBody: {
+    gap: Spacing.sm,
+  },
+  editSectionCard: {
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+  },
+  editSectionLabel: {
+    fontWeight: '600',
+  },
+  editControlRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: Spacing.md,
+    gap: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
   },
   deleteModalCard: {
     padding: Spacing.xl,
@@ -1900,17 +2044,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flexShrink: 1,
   },
-  editSliderBlock: {
-    gap: Spacing.sm,
-  },
   editSliderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.md,
-  },
-  sectionBody: {
-    flexShrink: 1,
   },
   painLevelBadge: {
     minWidth: Spacing.xxxl,
@@ -1938,7 +2076,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   segmentedRoot: {
-    marginTop: Spacing.xs,
+    marginTop: 0,
   },
   segmentedButton: {
     flex: 1,
@@ -1948,6 +2086,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: Radius.lg,
     borderWidth: 1,
+    borderLeftWidth: 4,
   },
   selectedItemRow: {
     flexDirection: 'row',
@@ -1965,6 +2104,9 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     gap: Spacing.sm,
+  },
+  editModalActions: {
+    marginTop: Spacing.xs,
   },
   modalActionButton: {
     flex: 1,

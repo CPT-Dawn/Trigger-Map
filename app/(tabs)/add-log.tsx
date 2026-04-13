@@ -97,6 +97,7 @@ interface LogSectionCardProps {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   title: string;
   accentColor: string;
+  iconContainerColor: string;
   colors: AddLogColors;
   action?: React.ReactNode;
   children: React.ReactNode;
@@ -107,6 +108,7 @@ function LogSectionCard({
   icon,
   title,
   accentColor,
+  iconContainerColor,
   colors,
   action,
   children,
@@ -130,7 +132,7 @@ function LogSectionCard({
       >
         <View style={styles.sectionHeader}>
           <View style={styles.sectionHeaderLeading}>
-            <View style={[styles.sectionIconShell, { backgroundColor: colors.surfaceContainerLow }]}>
+            <View style={[styles.sectionIconShell, { backgroundColor: iconContainerColor }]}>
               <MaterialCommunityIcons name={icon} size={20} color={accentColor} />
             </View>
             <View style={styles.sectionTitleBlock}>
@@ -201,6 +203,7 @@ interface PainEntryCardProps {
 
 function PainEntryCard({ entry, index, colors, onChange, onRemove }: PainEntryCardProps) {
   const [livePainLevel, setLivePainLevel] = useState(entry.pain_level);
+  const painAccentColor = colors.onErrorContainer;
 
   useEffect(() => {
     setLivePainLevel(entry.pain_level);
@@ -211,7 +214,7 @@ function PainEntryCard({ entry, index, colors, onChange, onRemove }: PainEntryCa
       <View style={[styles.painEntryRow, { borderBottomColor: colors.ghostBorder }]}>
         <View style={styles.painEntryHeader}>
           <View style={styles.painEntryTitleRow}>
-            <Text variant="titleSmall" style={[styles.painEntryMarker, { color: colors.chartTrigger }]}>{'>'}</Text>
+            <Text variant="titleSmall" style={[styles.painEntryMarker, { color: painAccentColor }]}>{'>'}</Text>
             <Text variant="titleSmall" style={[styles.painBodyPart, { color: colors.text }]} numberOfLines={1}>
               {entry.body_part}
             </Text>
@@ -243,12 +246,12 @@ function PainEntryCard({ entry, index, colors, onChange, onRemove }: PainEntryCa
               setLivePainLevel(nextPainLevel);
               onChange(entry.id, { pain_level: nextPainLevel });
             }}
-            minimumTrackTintColor={colors.chartTrigger}
+            minimumTrackTintColor={painAccentColor}
             maximumTrackTintColor={colors.surfaceContainerHighest}
-            thumbTintColor={colors.chartTrigger}
+            thumbTintColor={painAccentColor}
           />
 
-          <Text variant="titleSmall" style={[styles.painLevelInline, { color: colors.chartTrigger }]}>
+          <Text variant="titleSmall" style={[styles.painLevelInline, { color: painAccentColor }]}>
             {livePainLevel}/5
           </Text>
         </View>
@@ -260,7 +263,7 @@ function PainEntryCard({ entry, index, colors, onChange, onRemove }: PainEntryCa
           <Switch
             value={entry.swelling}
             onValueChange={(value) => onChange(entry.id, { swelling: value })}
-            color={colors.chartTrigger}
+            color={painAccentColor}
           />
         </View>
       </View>
@@ -301,6 +304,7 @@ function SelectionSection({
       icon={icon}
       title={title}
       accentColor={accentColor}
+      iconContainerColor={buttonColor}
       colors={colors}
       action={
         <CustomButton
@@ -743,7 +747,8 @@ export default function AddLogScreen() {
           delay={60}
           icon="clock-outline"
           title="Date & Time"
-          accentColor={colors.primary}
+          accentColor={colors.onPrimaryContainer}
+          iconContainerColor={colors.primaryContainer}
           colors={colors}
         >
           <View style={styles.dateTimeRow}>
@@ -776,7 +781,7 @@ export default function AddLogScreen() {
           delay={130}
           icon="food-apple"
           title="Food"
-          accentColor={colors.secondary}
+          accentColor={colors.onSecondaryContainer}
           buttonColor={colors.secondaryContainer}
           buttonTextColor={colors.onSecondaryContainer}
           colors={colors}
@@ -790,7 +795,8 @@ export default function AddLogScreen() {
           delay={220}
           icon="arm-flex"
           title="Pain"
-          accentColor={colors.chartTrigger}
+          accentColor={colors.onErrorContainer}
+          iconContainerColor={colors.errorContainer}
           colors={colors}
           action={
             <CustomButton
@@ -798,8 +804,8 @@ export default function AddLogScreen() {
               icon="plus"
               compact
               onPress={openBodyPartModal}
-              buttonColor={colors.tertiaryContainer}
-              textColor={colors.onTertiaryContainer}
+              buttonColor={colors.errorContainer}
+              textColor={colors.onErrorContainer}
               style={styles.sectionActionButton}
               contentStyle={styles.compactHeaderButtonContent}
               labelStyle={styles.compactHeaderButtonLabel}
@@ -818,7 +824,7 @@ export default function AddLogScreen() {
           delay={310}
           title="Medicine"
           icon="pill"
-          accentColor={colors.primary}
+          accentColor={colors.onPrimaryContainer}
           buttonColor={colors.primaryContainer}
           buttonTextColor={colors.onPrimaryContainer}
           colors={colors}
@@ -832,7 +838,8 @@ export default function AddLogScreen() {
           delay={400}
           icon="brain"
           title="Stress"
-          accentColor={colors.secondary}
+          accentColor={colors.onTertiaryContainer}
+          iconContainerColor={colors.tertiaryContainer}
           colors={colors}
           action={
             <View style={styles.clearActionSlot}>
@@ -868,8 +875,8 @@ export default function AddLogScreen() {
             }))}
             theme={{
               colors: {
-                secondaryContainer: colors.primaryContainer,
-                onSecondaryContainer: colors.onPrimaryContainer,
+                secondaryContainer: colors.tertiaryContainer,
+                onSecondaryContainer: colors.onTertiaryContainer,
                 outline: colors.ghostBorder,
               },
             }}
