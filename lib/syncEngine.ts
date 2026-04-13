@@ -1,7 +1,16 @@
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
-import { db, getPendingSyncCount, getSyncMeta, getSyncQueue, removeFromSyncQueue, setSyncMeta } from './localDb';
+import {
+  db,
+  getPendingSyncCount,
+  getPendingSyncCountForTable,
+  getSyncMeta,
+  getSyncQueue,
+  removeFromSyncQueue,
+  setSyncMeta,
+  upsertLocalDisplayName,
+} from './localDb';
 import { supabase } from './supabase';
 
 type QueueOperation = 'INSERT' | 'UPDATE' | 'DELETE';
@@ -236,11 +245,51 @@ function normalizeStressLevel(level: StressLogRow['level']) {
   return null;
 }
 
+function resolveRemoteDisplayName(user: { email?: string | null; user_metadata?: Record<string, unknown> | null }) {
+  const metadata = user.user_metadata ?? {};
+  const displayName = typeof metadata.display_name === 'string' ? metadata.display_name.trim() : '';
+
+  if (displayName.length > 0) {
+    return displayName;
+  }
+
+  const fullName = typeof metadata.full_name === 'string' ? metadata.full_name.trim() : '';
+
+  if (fullName.length > 0) {
+    return fullName;
+  }
+
+  const emailPrefix = user.email?.split('@')[0]?.trim() ?? '';
+
+  return emailPrefix.length > 0 ? emailPrefix : null;
+}
+
 async function runQueueOperation(row: QueueRow) {
   const payload = parseQueuePayload(row.payload);
 
   if (payload === null) {
     throw new Error(`Invalid queue payload for ${row.id}.`);
+  }
+
+  if (row.table_name === 'auth_profile') {
+    const payloadRecord = getPayloadRecord(getWritePayload(payload));
+    const displayName = typeof payloadRecord?.display_name === 'string' ? payloadRecord.display_name.trim() : '';
+
+    if (displayName.length === 0) {
+      throw new Error(`Missing display_name for auth_profile update in ${row.id}.`);
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        display_name: displayName,
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return;
   }
 
   if (row.operation === 'INSERT') {
@@ -478,6 +527,10 @@ export async function pullRemoteChanges() {
 
     if (!user) {
       return false;
+    }
+
+    if (getPendingSyncCountForTable('auth_profile') === 0) {
+      upsertLocalDisplayName(user.id, resolveRemoteDisplayName(user));
     }
 
     const [medicinesResult, foodsResult, recentLogs] = await Promise.all([

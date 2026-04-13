@@ -8,6 +8,8 @@ import { CustomButton } from '../../components/ui/CustomButton';
 import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { ProfileInitialAvatar } from '../../components/ui/ProfileInitialAvatar';
+import { addToSyncQueue, db, getLocalDisplayName, upsertLocalDisplayName } from '../../lib/localDb';
+import { runSync } from '../../lib/syncEngine';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
 import { ThemePreference, useAppColors, useThemePreference } from '../../providers/ThemeProvider';
@@ -28,14 +30,36 @@ export default function SettingsScreen() {
   );
 
   const [displayName, setDisplayName] = useState(initialDisplayName);
+  const [savedDisplayName, setSavedDisplayName] = useState(initialDisplayName);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
   useEffect(() => {
-    setDisplayName(initialDisplayName);
-  }, [initialDisplayName]);
+    const fallbackDisplayName = initialDisplayName.trim();
+
+    if (!user?.id) {
+      setDisplayName(fallbackDisplayName);
+      setSavedDisplayName(fallbackDisplayName);
+      return;
+    }
+
+    try {
+      const localDisplayName = getLocalDisplayName(user.id)?.trim() ?? '';
+      const resolvedDisplayName = localDisplayName.length > 0 ? localDisplayName : fallbackDisplayName;
+
+      setDisplayName(resolvedDisplayName);
+      setSavedDisplayName(resolvedDisplayName);
+
+      if (localDisplayName.length === 0 && fallbackDisplayName.length > 0) {
+        upsertLocalDisplayName(user.id, fallbackDisplayName);
+      }
+    } catch {
+      setDisplayName(fallbackDisplayName);
+      setSavedDisplayName(fallbackDisplayName);
+    }
+  }, [initialDisplayName, user?.id]);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -80,7 +104,7 @@ export default function SettingsScreen() {
   const userEmail = user?.email ?? 'No email found';
   const trimmedDisplayName = displayName.trim();
   const canSaveProfile =
-    trimmedDisplayName.length > 0 && trimmedDisplayName !== initialDisplayName && !isSavingProfile;
+    trimmedDisplayName.length > 0 && trimmedDisplayName !== savedDisplayName && !isSavingProfile;
 
   const openSnackbar = (message: string) => {
     setSnackbarMessage(message);
@@ -88,25 +112,31 @@ export default function SettingsScreen() {
   };
 
   const handleSaveProfile = async () => {
-    if (!canSaveProfile) return;
+    if (!canSaveProfile || !user) return;
 
     try {
       setIsSavingProfile(true);
 
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          display_name: trimmedDisplayName,
-        },
-      });
+      db.execSync('BEGIN TRANSACTION;');
 
-      if (error) {
-        openSnackbar(error.message || 'Unable to save profile right now.');
-        return;
+      try {
+        upsertLocalDisplayName(user.id, trimmedDisplayName);
+        db.runSync('DELETE FROM sync_queue WHERE table_name = ? AND operation = ?;', ['auth_profile', 'UPDATE']);
+        addToSyncQueue('auth_profile', 'UPDATE', {
+          user_id: user.id,
+          display_name: trimmedDisplayName,
+        });
+        db.execSync('COMMIT;');
+      } catch (error) {
+        db.execSync('ROLLBACK;');
+        throw error;
       }
 
+      setSavedDisplayName(trimmedDisplayName);
       openSnackbar('Profile updated successfully.');
-    } catch {
-      openSnackbar('Something went wrong while updating your profile.');
+      void runSync();
+    } catch (error: any) {
+      openSnackbar(error?.message || 'Something went wrong while saving your profile.');
     } finally {
       setIsSavingProfile(false);
     }

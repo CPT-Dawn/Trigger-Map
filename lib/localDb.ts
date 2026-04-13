@@ -274,6 +274,12 @@ export function initLocalDB() {
       value TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS user_settings (
+      user_id TEXT PRIMARY KEY,
+      display_name TEXT,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_sync_queue_created_at ON sync_queue(created_at);
   `);
 
@@ -318,6 +324,15 @@ export function getPendingSyncCount() {
   return Number(row?.count ?? 0);
 }
 
+export function getPendingSyncCountForTable(tableName: string) {
+  const row = db.getFirstSync<{ count: number }>(
+    'SELECT COUNT(1) AS count FROM sync_queue WHERE table_name = ?;',
+    [tableName],
+  );
+
+  return Number(row?.count ?? 0);
+}
+
 export function setSyncMeta(key: string, value: string | null) {
   if (value === null) {
     db.runSync('DELETE FROM sync_meta WHERE key = ?;', [key]);
@@ -337,4 +352,23 @@ export function getSyncMeta(key: string) {
   const row = db.getFirstSync<{ value: string }>('SELECT value FROM sync_meta WHERE key = ?;', [key]);
 
   return row?.value ?? null;
+}
+
+export function getLocalDisplayName(userId: string) {
+  const row = db.getFirstSync<{ display_name: string | null }>(
+    'SELECT display_name FROM user_settings WHERE user_id = ?;',
+    [userId],
+  );
+
+  return row?.display_name ?? null;
+}
+
+export function upsertLocalDisplayName(userId: string, displayName: string | null) {
+  db.runSync(
+    `
+      INSERT OR REPLACE INTO user_settings (user_id, display_name, updated_at)
+      VALUES (?, ?, ?);
+    `,
+    [userId, displayName, new Date().toISOString()],
+  );
 }

@@ -1,9 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -22,13 +19,13 @@ import Slider from '@react-native-community/slider';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { Radius, Spacing } from '../../constants/theme';
 import { addToSyncQueue, createUuid, db } from '../../lib/localDb';
+import { runSync } from '../../lib/syncEngine';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { ItemSelector, type ItemRecord, type ItemSelectorHandle } from '../../components/forms/ItemSelector';
 import { AppCard } from '../../components/ui/AppCard';
 import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { CustomButton } from '../../components/ui/CustomButton';
-import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 
 type StressLevel = 'none' | 'low' | 'Mid' | 'high';
@@ -529,6 +526,7 @@ export default function AddLogScreen() {
         throw error;
       }
 
+      void runSync();
       router.back();
     } catch (error: any) {
       openSnackbar(error?.message || 'Something went wrong saving your log.');
