@@ -25,7 +25,7 @@ import { CustomButton } from '../../components/ui/CustomButton';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 
-type StressLevel = 'none' | 'low' | 'moderate' | 'high';
+type StressLevel = 'none' | 'low' | 'Mid' | 'high';
 
 interface SelectedItem {
   id: string;
@@ -42,7 +42,7 @@ interface PainEntry {
 const stressOptions: Array<{ value: StressLevel; label: string }> = [
   { value: 'none', label: 'None' },
   { value: 'low', label: 'Low' },
-  { value: 'moderate', label: 'Moderate' },
+  { value: 'Mid', label: 'Mid' },
   { value: 'high', label: 'High' },
 ];
 
@@ -619,7 +619,7 @@ export default function AddLogScreen() {
           <SegmentedButtons
             value={stressLevel ?? ''}
             onValueChange={(value) => {
-              if (value === 'none' || value === 'low' || value === 'moderate' || value === 'high') {
+              if (value === 'none' || value === 'low' || value === 'Mid' || value === 'high') {
                 setStressLevel(value);
               }
             }}

@@ -1559,6 +1559,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.sm,
+    paddingBottom: Spacing.sm,
   },
   deleteModalCloseButton: {
     margin: 0,
