@@ -223,26 +223,42 @@ function normalizeStressLevel(level: StressLogRow['level']) {
   if (typeof level === 'string') {
     const lowered = level.trim().toLowerCase();
 
-    if (lowered === 'none' || lowered === 'low' || lowered === 'moderate' || lowered === 'high') {
+    if (lowered === 'low' || lowered === 'moderate' || lowered === 'high') {
       return lowered;
+    }
+
+    if (lowered === 'none') {
+      return 'low';
     }
 
     if (lowered === 'mid') {
       return 'moderate';
     }
 
-    return 'none';
+    return 'low';
   }
 
   if (typeof level === 'number' && Number.isFinite(level)) {
-    if (level <= 0) return 'none';
+    if (level <= 0) return 'low';
     if (level <= 3) return 'low';
     if (level <= 6) return 'moderate';
 
     return 'high';
   }
 
-  return null;
+  return 'low';
+}
+
+function normalizeStressWritePayload(payload: unknown) {
+  const payloadRecord = getPayloadRecord(payload);
+
+  if (!payloadRecord) {
+    return payload;
+  }
+
+  payloadRecord.level = normalizeStressLevel(payloadRecord.level as StressLogRow['level']);
+
+  return payloadRecord;
 }
 
 function resolveRemoteDisplayName(user: { email?: string | null; user_metadata?: Record<string, unknown> | null }) {
@@ -292,8 +308,12 @@ async function runQueueOperation(row: QueueRow) {
     return;
   }
 
+  const writePayload = getWritePayload(payload);
+  const normalizedWritePayload =
+    row.table_name === 'stress_logs' ? normalizeStressWritePayload(writePayload) : writePayload;
+
   if (row.operation === 'INSERT') {
-    const { error } = await supabase.from(row.table_name).insert(getWritePayload(payload) as never);
+    const { error } = await supabase.from(row.table_name).insert(normalizedWritePayload as never);
 
     if (error) {
       throw error;
@@ -311,7 +331,7 @@ async function runQueueOperation(row: QueueRow) {
 
     const { error } = await supabase
       .from(row.table_name)
-      .update(getWritePayload(payload) as never)
+      .update(normalizedWritePayload as never)
       .eq('id', rowId);
 
     if (error) {

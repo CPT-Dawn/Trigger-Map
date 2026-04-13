@@ -231,7 +231,7 @@ Visibility model:
 2. Use transactions for multi-row domain operations.
 3. Use UUIDs from `createUuid()` for all local entity IDs that sync remotely.
 4. Keep `logged_at` and `log_date` both populated on inserts.
-5. Normalize stress level values to backend-safe set (`none | low | moderate | high`).
+5. Normalize stress level values to backend-safe set (`low | moderate | high`).
 6. Keep sync UX seamless and silent unless a task explicitly requests visible sync diagnostics.
 7. Use existing UI primitives before creating one-off components.
 8. Validate changes with `bunx tsc --noEmit` after meaningful edits.

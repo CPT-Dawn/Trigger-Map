@@ -28,7 +28,7 @@ import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { CustomButton } from '../../components/ui/CustomButton';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 
-type StressLevel = 'none' | 'low' | 'Mid' | 'high';
+type StressLevel = 'low' | 'Mid' | 'high';
 
 interface SelectedItem {
   id: string;
@@ -50,7 +50,6 @@ interface PainEntry {
 }
 
 const stressOptions: Array<{ value: StressLevel; label: string }> = [
-  { value: 'none', label: 'None' },
   { value: 'low', label: 'Low' },
   { value: 'Mid', label: 'Mid' },
   { value: 'high', label: 'High' },
@@ -855,7 +854,7 @@ export default function AddLogScreen() {
           <SegmentedButtons
             value={stressLevel ?? ''}
             onValueChange={(value) => {
-              if (value === 'none' || value === 'low' || value === 'Mid' || value === 'high') {
+              if (value === 'low' || value === 'Mid' || value === 'high') {
                 setStressLevel(value);
               }
             }}

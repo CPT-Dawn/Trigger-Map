@@ -40,7 +40,7 @@ import { ItemSelector } from '../../components/forms/ItemSelector';
 
 type LogFilter = 'all' | 'pain' | 'stress' | 'medicine' | 'food';
 type LogType = Exclude<LogFilter, 'all'>;
-type StressLevel = 'none' | 'low' | 'moderate' | 'high';
+type StressLevel = 'low' | 'moderate' | 'high';
 type StressLevelValue = number | 'none' | 'low' | 'moderate' | 'high';
 
 type EditItemType = 'medicine' | 'food';
@@ -211,11 +211,7 @@ function formatStressLabel(value: StressLevelValue | null | undefined) {
     return String(value);
   }
 
-  if (typeof value === 'string') {
-    return titleCase(value);
-  }
-
-  return 'Unknown';
+  return titleCase(normalizeStressLevel(value));
 }
 
 function formatStressEntryTitle(value: StressLevelValue | null | undefined) {
@@ -232,6 +228,10 @@ function formatStressEntryTitle(value: StressLevelValue | null | undefined) {
 
 function coerceStressLevel(value: StressLevelValue | null | undefined): StressLevel {
   if (value === 'none' || value === 'low' || value === 'moderate' || value === 'high') {
+    if (value === 'none') {
+      return 'low';
+    }
+
     return value;
   }
 
@@ -241,11 +241,15 @@ function coerceStressLevel(value: StressLevelValue | null | undefined): StressLe
     return 'high';
   }
 
-  return 'none';
+  return 'low';
 }
 
 function normalizeStressLevel(value: StressLevelValue | string | null | undefined): StressLevel {
   if (value === 'none' || value === 'low' || value === 'moderate' || value === 'high') {
+    if (value === 'none') {
+      return 'low';
+    }
+
     return value;
   }
 
@@ -256,14 +260,18 @@ function normalizeStressLevel(value: StressLevelValue | string | null | undefine
       return 'moderate';
     }
 
-    return 'none';
+    if (lowered === 'none') {
+      return 'low';
+    }
+
+    return 'low';
   }
 
   if (typeof value === 'number' && Number.isFinite(value)) {
     return coerceStressLevel(value);
   }
 
-  return 'none';
+  return 'low';
 }
 
 const listReveal = (delay: number) => FadeInDown.delay(delay).duration(300);
@@ -526,7 +534,7 @@ export default function LogsScreen() {
   const [editPainBodyPart, setEditPainBodyPart] = useState('');
   const [editPainLevel, setEditPainLevel] = useState(1);
   const [editPainSwelling, setEditPainSwelling] = useState(false);
-  const [editStressLevel, setEditStressLevel] = useState<StressLevel>('none');
+  const [editStressLevel, setEditStressLevel] = useState<StressLevel>('low');
   const [editSelectedItem, setEditSelectedItem] = useState<SelectedItem | null>(null);
   const [editSelectorVisible, setEditSelectorVisible] = useState(false);
   const [editSelectorType, setEditSelectorType] = useState<EditItemType>('medicine');
@@ -1416,14 +1424,13 @@ export default function LogsScreen() {
                 <SegmentedButtons
                   value={editStressLevel}
                   onValueChange={(value) => {
-                    if (value === 'none' || value === 'low' || value === 'moderate' || value === 'high') {
+                    if (value === 'low' || value === 'moderate' || value === 'high') {
                       setEditStressLevel(value);
                     }
                   }}
                   density="small"
                   style={styles.segmentedRoot}
                   buttons={[
-                    { value: 'none', label: 'None', showSelectedCheck: false, style: styles.segmentedButton },
                     { value: 'low', label: 'Low', showSelectedCheck: false, style: styles.segmentedButton },
                     { value: 'moderate', label: 'Moderate', showSelectedCheck: false, style: styles.segmentedButton },
                     { value: 'high', label: 'High', showSelectedCheck: false, style: styles.segmentedButton },

@@ -314,6 +314,91 @@ function backfillLogItemDisplayNames() {
   `);
 }
 
+function normalizeStressLevelWithoutNone(value: unknown): 'low' | 'moderate' | 'high' | null {
+  if (typeof value === 'string') {
+    const lowered = value.trim().toLowerCase();
+
+    if (lowered === 'low' || lowered === 'moderate' || lowered === 'high') {
+      return lowered;
+    }
+
+    if (lowered === 'mid') {
+      return 'moderate';
+    }
+
+    if (lowered === 'none') {
+      return 'low';
+    }
+
+    return 'low';
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value <= 3) return 'low';
+    if (value <= 6) return 'moderate';
+
+    return 'high';
+  }
+
+  return null;
+}
+
+function migrateStressQueuePayloadLevels() {
+  const queueRows = db.getAllSync<QueueRowForMigration>(
+    `
+      SELECT id, table_name, operation, payload
+      FROM sync_queue
+      WHERE table_name = 'stress_logs' AND operation IN ('INSERT', 'UPDATE');
+    `,
+  );
+
+  for (const queueRow of queueRows) {
+    let parsedPayload: unknown;
+
+    try {
+      parsedPayload = JSON.parse(queueRow.payload);
+    } catch {
+      continue;
+    }
+
+    const payloadRecord = getPayloadRecord(parsedPayload);
+
+    if (!payloadRecord) {
+      continue;
+    }
+
+    const writePayload =
+      getPayloadRecord(payloadRecord.data) ??
+      getPayloadRecord(payloadRecord.row) ??
+      payloadRecord;
+
+    const normalizedLevel = normalizeStressLevelWithoutNone(writePayload.level);
+
+    if (!normalizedLevel || writePayload.level === normalizedLevel) {
+      continue;
+    }
+
+    writePayload.level = normalizedLevel;
+    db.runSync('UPDATE sync_queue SET payload = ? WHERE id = ?;', [JSON.stringify(parsedPayload), queueRow.id]);
+  }
+}
+
+function migrateStressLevelsWithoutNone() {
+  db.runSync(`
+    UPDATE stress_logs
+    SET level = CASE
+      WHEN level IS NULL THEN NULL
+      WHEN LOWER(TRIM(level)) = 'none' THEN 'low'
+      WHEN LOWER(TRIM(level)) = 'mid' THEN 'moderate'
+      WHEN LOWER(TRIM(level)) IN ('low', 'moderate', 'high') THEN LOWER(TRIM(level))
+      ELSE 'low'
+    END
+    WHERE level IS NOT NULL;
+  `);
+
+  migrateStressQueuePayloadLevels();
+}
+
 function applySchemaMigrations() {
   ensureColumn('medicine_logs', 'item_display_name', 'TEXT');
   ensureColumn('medicine_logs', 'item_name', 'TEXT');
@@ -334,6 +419,7 @@ function applySchemaMigrations() {
     CREATE INDEX IF NOT EXISTS idx_food_logs_user_logged_at ON food_logs(user_id, logged_at);
   `);
 
+  migrateStressLevelsWithoutNone();
   backfillLogItemDisplayNames();
 }
 
@@ -375,7 +461,7 @@ export function initLocalDB() {
       user_id TEXT NOT NULL,
       logged_at TEXT NOT NULL,
       log_date TEXT NOT NULL,
-      level TEXT CHECK (level IN ('none', 'low', 'moderate', 'high') OR level IS NULL)
+      level TEXT CHECK (level IN ('low', 'moderate', 'high') OR level IS NULL)
     );
 
     CREATE TABLE IF NOT EXISTS medicine_logs (
