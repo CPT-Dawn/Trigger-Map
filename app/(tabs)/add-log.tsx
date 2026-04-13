@@ -1,11 +1,11 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Platform,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import { Chip, IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
+import { IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
@@ -201,83 +201,70 @@ interface PainEntryCardProps {
 }
 
 function PainEntryCard({ entry, index, colors, onChange, onRemove }: PainEntryCardProps) {
+  const [livePainLevel, setLivePainLevel] = useState(entry.pain_level);
+
+  useEffect(() => {
+    setLivePainLevel(entry.pain_level);
+  }, [entry.pain_level]);
+
   return (
     <Animated.View entering={cardReveal(index * 42)} layout={Layout.springify().damping(22).stiffness(210)}>
-      <AppCard
-        style={[
-          styles.painEntryCard,
-          {
-            backgroundColor: colors.surfaceContainerLow,
-            borderColor: colors.ghostBorder,
-            borderLeftColor: colors.chartTrigger,
-            shadowColor: colors.shadowAmbient,
-          },
-        ]}
-        variant="subtle"
-      >
+      <View style={[styles.painEntryRow, { borderBottomColor: colors.ghostBorder }]}>
         <View style={styles.painEntryHeader}>
           <View style={styles.painEntryTitleRow}>
-            <View style={[styles.painEntryIconWrap, { backgroundColor: colors.surfaceContainerHighest }]}>
-              <MaterialCommunityIcons name="arm-flex" size={18} color={colors.chartTrigger} />
-            </View>
+            <Text variant="titleSmall" style={[styles.painEntryMarker, { color: colors.chartTrigger }]}>{'>'}</Text>
             <Text variant="titleSmall" style={[styles.painBodyPart, { color: colors.text }]} numberOfLines={1}>
               {entry.body_part}
             </Text>
           </View>
 
-          <View style={styles.painEntryHeaderActions}>
-            <Chip compact style={[styles.painEntryLevelChip, { backgroundColor: colors.tertiaryContainer }]} textStyle={{ color: colors.onTertiaryContainer }}>
-              Level {entry.pain_level}/5
-            </Chip>
-            <IconButton
-              icon="trash-can-outline"
-              iconColor={colors.error}
-              containerColor={colors.errorContainer}
-              size={20}
-              style={styles.painEntryDeleteButton}
-              onPress={() => onRemove(entry.id)}
-            />
-          </View>
+          <IconButton
+            icon="trash-can-outline"
+            iconColor={colors.error}
+            size={20}
+            style={styles.painEntryDeleteButton}
+            onPress={() => onRemove(entry.id)}
+          />
         </View>
 
-        <View style={styles.painSliderRow}>
+        <View style={styles.painRatingRow}>
+          <Text variant="bodySmall" style={[styles.painMetaLabel, { color: colors.textMuted }]}>Pain rating</Text>
+
           <Slider
             style={styles.slider}
             minimumValue={1}
             maximumValue={5}
             step={1}
-            value={entry.pain_level}
-            onValueChange={(value) => onChange(entry.id, { pain_level: value })}
+            value={livePainLevel}
+            onValueChange={(value) => {
+              setLivePainLevel(value);
+            }}
+            onSlidingComplete={(value) => {
+              const nextPainLevel = Math.round(value);
+              setLivePainLevel(nextPainLevel);
+              onChange(entry.id, { pain_level: nextPainLevel });
+            }}
             minimumTrackTintColor={colors.chartTrigger}
             maximumTrackTintColor={colors.surfaceContainerHighest}
             thumbTintColor={colors.chartTrigger}
           />
-          <View
-            style={[
-              styles.painLevelMeter,
-              {
-                backgroundColor: colors.surfaceContainerLow,
-                borderColor: colors.ghostBorder,
-              },
-            ]}
-          >
-            <Text variant="titleMedium" style={[styles.painLevelText, { color: colors.chartTrigger }]}>
-              {entry.pain_level}
-            </Text>
-          </View>
+
+          <Text variant="titleSmall" style={[styles.painLevelInline, { color: colors.chartTrigger }]}>
+            {livePainLevel}/5
+          </Text>
         </View>
 
         <View style={styles.swellingRow}>
-          <Text variant="bodyMedium" style={[styles.swellingLabel, { color: colors.text }]}>
+          <Text variant="bodySmall" style={[styles.swellingLabel, { color: colors.textMuted }]}>
             Swelling Present?
           </Text>
           <Switch
             value={entry.swelling}
             onValueChange={(value) => onChange(entry.id, { swelling: value })}
-            color={colors.primary}
+            color={colors.chartTrigger}
           />
         </View>
-      </AppCard>
+      </View>
     </Animated.View>
   );
 }
@@ -1212,13 +1199,14 @@ const styles = StyleSheet.create({
   segmentedButton: {
     flex: 1,
   },
-  painEntryCard: {
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.md,
+  painEntryRow: {
     gap: Spacing.xs,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderLeftWidth: 4,
+    minHeight: 48,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.xs,
+    borderBottomWidth: 1,
+    elevation: 0,
+    shadowOpacity: 0,
   },
   painEntryHeader: {
     flexDirection: 'row',
@@ -1229,63 +1217,53 @@ const styles = StyleSheet.create({
   painEntryTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: Spacing.xs,
     flex: 1,
     minWidth: 0,
   },
-  painEntryIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+  painEntryMarker: {
+    width: 14,
+    textAlign: 'center',
+    fontWeight: '800',
+    fontSize: 14,
   },
   painBodyPart: {
     fontWeight: '700',
     flex: 1,
-  },
-  painEntryHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xxs,
-  },
-  painEntryLevelChip: {
-    borderRadius: Radius.full,
   },
   painEntryDeleteButton: {
     margin: 0,
     width: 48,
     height: 48,
   },
-  painSliderRow: {
+  painRatingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  painMetaLabel: {
+    width: 84,
+    fontWeight: '600',
   },
   slider: {
     flex: 1,
     height: 40,
   },
-  painLevelMeter: {
-    minWidth: Spacing.xxxl,
-    minHeight: Spacing.xxxl,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    paddingHorizontal: Spacing.sm,
-  },
-  painLevelText: {
+  painLevelInline: {
     fontWeight: '700',
+    minWidth: 36,
+    textAlign: 'right',
   },
   swellingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.sm,
+    paddingTop: Spacing.xxs,
   },
   swellingLabel: {
     flexShrink: 1,
+    fontWeight: '600',
   },
   selectionEntryList: {
     gap: 0,
