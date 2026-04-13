@@ -1479,7 +1479,7 @@ export default function LogsScreen() {
                       ]}
                     >
                       <Text variant="bodyMedium" style={[styles.editSectionLabel, { color: colors.textMuted }]}>
-                        Stress level
+                        Stress
                       </Text>
                       <SegmentedButtons
                         value={editStressLevel}
@@ -1492,7 +1492,7 @@ export default function LogsScreen() {
                         style={styles.segmentedRoot}
                         buttons={[
                           { value: 'low', label: 'Low', showSelectedCheck: false, style: styles.segmentedButton },
-                          { value: 'moderate', label: 'Moderate', showSelectedCheck: false, style: styles.segmentedButton },
+                          { value: 'moderate', label: 'Mid', showSelectedCheck: false, style: styles.segmentedButton },
                           { value: 'high', label: 'High', showSelectedCheck: false, style: styles.segmentedButton },
                         ]}
                         theme={{
