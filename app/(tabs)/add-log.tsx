@@ -9,6 +9,12 @@ import {
   View,
 } from 'react-native';
 import { IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetTextInput,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -266,7 +272,7 @@ export default function AddLogScreen() {
   const [stressLevel, setStressLevel] = useState<StressLevel | null>(null);
   const [painEntries, setPainEntries] = useState<PainEntry[]>([]);
   const [bodyPartDraft, setBodyPartDraft] = useState('');
-  const [bodyPartModalVisible, setBodyPartModalVisible] = useState(false);
+  const bodyPartSheetRef = useRef<BottomSheetModal>(null);
   const [selectedMedicines, setSelectedMedicines] = useState<SelectedItem[]>([]);
   const [selectedFoods, setSelectedFoods] = useState<SelectedItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -306,11 +312,11 @@ export default function AddLogScreen() {
 
   const openBodyPartModal = useCallback(() => {
     setBodyPartDraft('');
-    setBodyPartModalVisible(true);
+    bodyPartSheetRef.current?.present();
   }, []);
 
   const closeBodyPartModal = useCallback(() => {
-    setBodyPartModalVisible(false);
+    bodyPartSheetRef.current?.dismiss();
     setBodyPartDraft('');
   }, []);
 
@@ -633,48 +639,78 @@ export default function AddLogScreen() {
 
       {showTimePicker && <DateTimePicker value={logDate} mode="time" display="default" onChange={handleTimeChange} />}
 
-      <Modal visible={bodyPartModalVisible} transparent animationType="fade" onRequestClose={closeBodyPartModal}>
-        <View style={styles.modalContainer}>
-          <Pressable
-            style={[styles.modalBackdrop, { backgroundColor: colors.text, opacity: 0.66 }]}
-            onPress={closeBodyPartModal}
-          />
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalKeyboard}>
-            <AppCard style={styles.modalCard}>
-              <View style={styles.modalHeader}>
-                <Text variant="titleLarge" style={[styles.modalTitle, { color: colors.text }]}>
-                  Add Body Part
-                </Text>
-                <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeBodyPartModal} />
-              </View>
+      <BottomSheetModal
+        ref={bodyPartSheetRef}
+        index={0}
+        snapPoints={['50%', '85%']}
+        enablePanDownToClose
+        enableDismissOnClose
+        backgroundStyle={[styles.sheetBackground, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}
+        handleIndicatorStyle={[styles.handleIndicator, { backgroundColor: colors.ghostBorder }]}
+        backdropComponent={(props) => (
+          <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.55} />
+        )}
+        keyboardBehavior="fillParent"
+        keyboardBlurBehavior="restore"
+        enableBlurKeyboardOnGesture
+        android_keyboardInputMode="adjustResize"
+        onDismiss={() => setBodyPartDraft('')}
+      >
+        <BottomSheetScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          contentContainerStyle={styles.bodyPartScrollContent}
+        >
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text variant="titleLarge" style={[styles.modalTitle, { color: colors.text }]}>
+                Add Body Part
+              </Text>
+              <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeBodyPartModal} />
+            </View>
 
-              <CustomTextInput
-                label="Body part"
-                placeholder="e.g. left knee"
-                value={bodyPartDraft}
-                onChangeText={setBodyPartDraft}
-                autoCapitalize="words"
-                autoFocus
-              />
-
-              <View style={styles.modalActions}>
-                <CustomButton mode="outlined" onPress={closeBodyPartModal} style={styles.modalActionButton}>
-                  Cancel
-                </CustomButton>
-                <CustomButton
-                  mode="contained"
-                  onPress={handleAddBodyPart}
-                  buttonColor={colors.primary}
-                  textColor={colors.onPrimary}
-                  style={styles.modalActionButton}
-                >
-                  Add
-                </CustomButton>
+            <View style={styles.fieldBlock}>
+              <Text variant="labelMedium" style={[styles.fieldLabel, { color: colors.textMuted }]}>
+                Body part
+              </Text>
+              <View
+                style={[
+                  styles.fieldSurface,
+                  {
+                    backgroundColor: colors.surfaceContainerLowest,
+                    borderColor: colors.ghostBorder,
+                  },
+                ]}
+              >
+                <BottomSheetTextInput
+                  style={[styles.fieldInput, { color: colors.text }]}
+                  placeholder="e.g. left knee"
+                  placeholderTextColor={colors.textMuted}
+                  value={bodyPartDraft}
+                  onChangeText={setBodyPartDraft}
+                  autoCapitalize="words"
+                  autoFocus={Platform.OS === 'ios'}
+                />
               </View>
-            </AppCard>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+            </View>
+
+            <View style={styles.modalActions}>
+              <CustomButton mode="text" onPress={closeBodyPartModal} style={styles.modalActionButton}>
+                Cancel
+              </CustomButton>
+              <CustomButton
+                mode="contained"
+                onPress={handleAddBodyPart}
+                buttonColor={colors.primary}
+                textColor={colors.onPrimary}
+                style={styles.modalActionButton}
+              >
+                Add
+              </CustomButton>
+            </View>
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheetModal>
 
       <AppSnackbar
         visible={snackbarVisible}
@@ -714,6 +750,35 @@ export default function AddLogScreen() {
 }
 
 const styles = StyleSheet.create({
+    sheetBackground: {
+      borderTopLeftRadius: Radius.xl,
+      borderTopRightRadius: Radius.xl,
+      borderWidth: 1,
+    },
+    handleIndicator: {
+      width: 48,
+      height: 5,
+    },
+    fieldBlock: {
+      gap: Spacing.xs,
+    },
+    fieldLabel: {
+      marginLeft: Spacing.xs,
+    },
+    fieldSurface: {
+      minHeight: 52,
+      borderRadius: Radius.xl,
+      borderWidth: 1,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+    },
+    fieldInput: {
+      flex: 1,
+      minHeight: 24,
+    },
     scrollContent: {
       paddingHorizontal: Spacing.lg,
       paddingTop: Spacing.md,
@@ -873,6 +938,11 @@ const styles = StyleSheet.create({
     },
     modalCard: {
       padding: Spacing.lg,
+      gap: Spacing.md,
+    },
+    bodyPartScrollContent: {
+      paddingHorizontal: Spacing.lg,
+      paddingBottom: Spacing.xxxl + Spacing.xl,
       gap: Spacing.md,
     },
     modalHeader: {

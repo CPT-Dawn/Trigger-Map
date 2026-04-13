@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View, Platform } from 'react-native';
 import { ActivityIndicator, IconButton, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
@@ -15,6 +15,7 @@ import {
   BottomSheetFlatList,
   BottomSheetModal,
   BottomSheetTextInput,
+  BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import { Swipeable } from 'react-native-gesture-handler';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
@@ -435,8 +436,12 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
       name: trimmedName,
       quantity: parsedQuantity,
       unit: trimmedUnit.length > 0 ? trimmedUnit : null,
-      display_name: buildMasterItemDisplayName(trimmedName, parsedQuantity, trimmedUnit.length > 0 ? trimmedUnit : null),
     };
+    const resolvedDisplayName = buildMasterItemDisplayName(
+      trimmedName,
+      parsedQuantity,
+      trimmedUnit.length > 0 ? trimmedUnit : null,
+    );
 
     setIsSaving(true);
 
@@ -456,9 +461,16 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
         if (data) {
           const nextItem = data as ItemRecord;
-          setItems((currentItems) => sortMasterItems(currentItems.map((currentItem) => (currentItem.id === nextItem.id ? nextItem : currentItem))));
-          onMasterItemChange?.(nextItem);
-          setSearchQuery(getMasterItemDisplayName(nextItem));
+          const resolvedItem = {
+            ...nextItem,
+            display_name: nextItem.display_name ?? resolvedDisplayName,
+          };
+
+          setItems((currentItems) =>
+            sortMasterItems(currentItems.map((currentItem) => (currentItem.id === resolvedItem.id ? resolvedItem : currentItem))),
+          );
+          onMasterItemChange?.(resolvedItem);
+          setSearchQuery(getMasterItemDisplayName(resolvedItem));
         }
 
         resetForm();
@@ -476,9 +488,14 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
         if (data) {
           const createdItem = data as ItemRecord;
-          setItems((currentItems) => sortMasterItems([...currentItems, createdItem]));
-          onMasterItemChange?.(createdItem);
-          onSelect(createdItem.id, getMasterItemDisplayName(createdItem));
+          const resolvedItem = {
+            ...createdItem,
+            display_name: createdItem.display_name ?? resolvedDisplayName,
+          };
+
+          setItems((currentItems) => sortMasterItems([...currentItems, resolvedItem]));
+          onMasterItemChange?.(resolvedItem);
+          onSelect(resolvedItem.id, getMasterItemDisplayName(resolvedItem));
           closeSheet();
         }
 
@@ -499,7 +516,8 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     onClose?.();
   }, [onClose, resetForm]);
 
-  const snapPoints = useMemo(() => ['74%', '92%'], []);
+  const snapPoints = useMemo(() => (activeForm ? ['100%'] : ['74%', '92%']), [activeForm]);
+  const keyboardBehavior = activeForm ? 'fillParent' : 'extend';
 
   const renderBackdrop = useCallback(
     (backdropProps: React.ComponentProps<typeof BottomSheetBackdrop>) => (
@@ -508,7 +526,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     [],
   );
 
-  const renderHeader = () => (
+    const renderHeader = () => (
     <View style={styles.headerContainer}>
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
@@ -517,95 +535,93 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
           </View>
           <View style={styles.headerTextBlock}>
             <Text variant="titleLarge" style={[styles.sheetTitle, { color: colors.text }]}>
-              Select {displayType}
+              {activeForm ? (activeForm.mode === 'edit' ? `Edit ${displayType}` : createLabel) : `Select ${displayType}`}
             </Text>
             <Text variant="bodySmall" style={[styles.sheetSubtitle, { color: colors.textMuted }]}>
-              Swipe right to edit or left to delete saved items.
+              {activeForm ? 'Enter the details below.' : 'Swipe right to edit or left to delete saved items.'}
             </Text>
           </View>
         </View>
         <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeSheet} />
       </View>
 
-      <SheetTextField
-        colors={colors}
-        icon="magnify"
-        placeholder={`Search ${displayType.toLowerCase()}...`}
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        autoCapitalize="none"
-        autoCorrect={false}
-        returnKeyType="search"
-        trailing={
-          searchQuery.length > 0 ? (
-            <Pressable accessibilityRole="button" onPress={() => setSearchQuery('')} hitSlop={Spacing.sm}>
-              <MaterialCommunityIcons name="close-circle" size={18} color={colors.textMuted} />
-            </Pressable>
-          ) : null
-        }
-      />
+      {!activeForm && (
+        <SheetTextField
+          colors={colors}
+          icon="magnify"
+          placeholder={`Search ${displayType.toLowerCase()}...`}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          trailing={
+            searchQuery.length > 0 ? (
+              <Pressable accessibilityRole="button" onPress={() => setSearchQuery('')} hitSlop={Spacing.sm}>
+                <MaterialCommunityIcons name="close-circle" size={18} color={colors.textMuted} />
+              </Pressable>
+            ) : null
+          }
+        />
+      )}
 
-      {loading && (
+      {loading && !activeForm && (
         <View style={styles.loadingRow}>
           <ActivityIndicator color={colors.primary} />
           <Text variant="bodySmall" style={[styles.loadingText, { color: colors.textMuted }]}>Refreshing saved items...</Text>
         </View>
       )}
+    </View>
+  );
 
-      {activeForm && (
-        <AppCard style={styles.formCard} animated delay={45}>
-          <Text variant="titleMedium" style={[styles.formTitle, { color: colors.text }]}>
-            {activeForm.mode === 'edit' ? `Edit ${displayType}` : createLabel}
-          </Text>
+  const renderForm = () => (
+    <View style={styles.formCard}>
+      <View style={styles.formFields}>
+        <SheetTextField
+          colors={colors}
+          label="Name"
+          placeholder={`e.g. ${type === 'medicine' ? 'Ibuprofen' : 'Apple'}`}
+          value={draftName}
+          onChangeText={setDraftName}
+          autoCapitalize="words"
+          autoFocus={Platform.OS === 'ios'}
+        />
 
-          <View style={styles.formFields}>
+        <View style={styles.formRow}>
+          <View style={styles.formColumn}>
             <SheetTextField
               colors={colors}
-              label="Name"
-              placeholder={`e.g. ${type === 'medicine' ? 'Ibuprofen' : 'Apple'}`}
-              value={draftName}
-              onChangeText={setDraftName}
-              autoCapitalize="words"
-              autoFocus
+              label="Quantity"
+              placeholder="e.g. 400"
+              value={draftQuantity}
+              onChangeText={setDraftQuantity}
+              keyboardType="decimal-pad"
+              returnKeyType="next"
             />
-
-            <View style={styles.formRow}>
-              <View style={styles.formColumn}>
-                <SheetTextField
-                  colors={colors}
-                  label="Quantity"
-                  placeholder="e.g. 400"
-                  value={draftQuantity}
-                  onChangeText={setDraftQuantity}
-                  keyboardType="decimal-pad"
-                  returnKeyType="next"
-                />
-              </View>
-
-              <View style={styles.formColumn}>
-                <SheetTextField
-                  colors={colors}
-                  label="Unit"
-                  placeholder={`e.g. ${type === 'medicine' ? 'mg' : 'piece'}`}
-                  value={draftUnit}
-                  onChangeText={setDraftUnit}
-                  autoCapitalize="words"
-                  returnKeyType="done"
-                />
-              </View>
-            </View>
           </View>
 
-          <View style={styles.formActions}>
-            <CustomButton mode="text" onPress={resetForm} style={styles.formActionButton}>
-              Cancel
-            </CustomButton>
-            <CustomButton mode="contained" onPress={handleSubmitMasterItem} isLoading={isSaving} style={styles.formActionButton}>
-              {activeForm.mode === 'edit' ? 'Save Changes' : 'Create & Select'}
-            </CustomButton>
+          <View style={styles.formColumn}>
+            <SheetTextField
+              colors={colors}
+              label="Unit"
+              placeholder={`e.g. ${type === 'medicine' ? 'mg' : 'piece'}`}
+              value={draftUnit}
+              onChangeText={setDraftUnit}
+              autoCapitalize="words"
+              returnKeyType="done"
+            />
           </View>
-        </AppCard>
-      )}
+        </View>
+      </View>
+
+      <View style={styles.formActions}>
+        <CustomButton mode="text" onPress={resetForm} style={styles.formActionButton}>
+          Cancel
+        </CustomButton>
+        <CustomButton mode="contained" onPress={handleSubmitMasterItem} isLoading={isSaving} style={styles.formActionButton}>
+          {activeForm.mode === 'edit' ? 'Save Changes' : 'Create & Select'}
+        </CustomButton>
+      </View>
     </View>
   );
 
@@ -640,38 +656,51 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
       handleIndicatorStyle={[styles.handleIndicator, { backgroundColor: colors.ghostBorder }]}
       backdropComponent={renderBackdrop}
       onDismiss={handleDismiss}
-      keyboardBehavior="interactive"
+      keyboardBehavior={keyboardBehavior}
+      keyboardBlurBehavior="restore"
+      enableBlurKeyboardOnGesture
       android_keyboardInputMode="adjustResize"
     >
       <View style={styles.sheetContent}>
-        <BottomSheetFlatList
-          data={filteredItems}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <ItemRow
-              item={item}
-              index={index}
-              iconName={iconName}
-              colors={colors}
-              onSelect={handleSelectItem}
-              onEdit={handleEditMasterItem}
-              onDelete={handleDeleteMasterItem}
-            />
-          )}
-          ListHeaderComponent={renderHeader}
-          ListEmptyComponent={
-            loading ? null : (
-              <View style={styles.emptyState}>
-                <MaterialCommunityIcons name="magnify" size={32} color={colors.textMuted} />
-                <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.textMuted }]}>No matching saved items.</Text>
-              </View>
-            )
-          }
-          ListFooterComponent={renderFooter}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        />
+        {activeForm ? (
+          <BottomSheetScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            contentContainerStyle={styles.formScrollContent}
+          >
+            {renderHeader()}
+            {renderForm()}
+          </BottomSheetScrollView>
+        ) : (
+          <BottomSheetFlatList
+            data={filteredItems}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item, index }) => (
+              <ItemRow
+                item={item}
+                index={index}
+                iconName={iconName}
+                colors={colors}
+                onSelect={handleSelectItem}
+                onEdit={handleEditMasterItem}
+                onDelete={handleDeleteMasterItem}
+              />
+            )}
+            ListHeaderComponent={renderHeader}
+            ListEmptyComponent={
+              loading ? null : (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons name="magnify" size={32} color={colors.textMuted} />
+                  <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.textMuted }]}>No matching saved items.</Text>
+                </View>
+              )
+            }
+            ListFooterComponent={renderFooter}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          />
+        )}
       </View>
 
       <AppSnackbar
@@ -787,6 +816,11 @@ const styles = StyleSheet.create({
   },
   formActionButton: {
     flex: 1,
+  },
+  formScrollContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xxxl + Spacing.xl,
+    gap: Spacing.md,
   },
   listContent: {
     paddingHorizontal: Spacing.lg,
