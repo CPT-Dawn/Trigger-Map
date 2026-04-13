@@ -464,6 +464,7 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
           {
             backgroundColor: colors.surfaceContainerLowest,
             borderColor: colors.ghostBorder,
+            borderLeftColor: config.iconColor,
             shadowColor: colors.shadowAmbient,
             transform: [{ translateX }],
           },
@@ -934,14 +935,14 @@ export default function LogsScreen() {
     pain: {
       label: 'Pain',
       icon: 'thermometer-lines',
-      container: colors.tertiaryContainer,
-      iconColor: colors.onTertiaryContainer,
+      container: colors.errorContainer,
+      iconColor: colors.onErrorContainer,
     },
     stress: {
       label: 'Stress',
       icon: 'brain',
-      container: colors.secondaryContainer,
-      iconColor: colors.onSecondaryContainer,
+      container: colors.tertiaryContainer,
+      iconColor: colors.onTertiaryContainer,
     },
     medicine: {
       label: 'Medicine',
@@ -952,8 +953,8 @@ export default function LogsScreen() {
     food: {
       label: 'Food',
       icon: 'food-apple',
-      container: colors.surfaceContainerHighest,
-      iconColor: colors.text,
+      container: colors.secondaryContainer,
+      iconColor: colors.onSecondaryContainer,
     },
   };
 
@@ -1018,21 +1019,30 @@ export default function LogsScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           {filterOptions.map((option) => {
             const selected = filter === option.value;
+            const categoryConfig = option.value === 'all' ? null : typeConfig[option.value];
+            const selectedBackground = categoryConfig?.container ?? colors.surfaceContainerHighest;
+            const selectedTextColor = categoryConfig?.iconColor ?? colors.text;
 
             return (
               <Chip
                 key={option.value}
-                icon={option.icon}
+                icon={({ size, color }) => (
+                  <MaterialCommunityIcons
+                    name={option.icon}
+                    size={size}
+                    color={selected ? selectedTextColor : color}
+                  />
+                )}
                 selected={selected}
                 onPress={() => setFilter(option.value)}
                 style={[
                   styles.filterChip,
                   {
-                    backgroundColor: selected ? colors.primaryContainer : colors.surfaceContainerLow,
-                    borderColor: selected ? colors.primaryContainer : colors.ghostBorder,
+                    backgroundColor: selected ? selectedBackground : colors.surfaceContainerLow,
+                    borderColor: selected ? selectedBackground : colors.ghostBorder,
                   },
                 ]}
-                textStyle={{ color: selected ? colors.onPrimaryContainer : colors.textMuted }}
+                textStyle={{ color: selected ? selectedTextColor : colors.textMuted }}
               >
                 {option.label}
               </Chip>
@@ -1444,6 +1454,7 @@ const styles = StyleSheet.create({
   entryCard: {
     borderRadius: Radius.xl,
     borderWidth: 1,
+    borderLeftWidth: 4,
     padding: Spacing.md,
     marginBottom: Spacing.xxs,
     gap: Spacing.sm,
