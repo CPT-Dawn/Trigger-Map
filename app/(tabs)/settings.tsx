@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SegmentedButtons, Text } from 'react-native-paper';
-import { resolveColors, Spacing } from '../../constants/theme';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Radius, resolveColors, Spacing } from '../../constants/theme';
 import { AppCard } from '../../components/ui/AppCard';
 import { CustomButton } from '../../components/ui/CustomButton';
 import { AppSnackbar } from '../../components/ui/AppSnackbar';
@@ -37,6 +38,44 @@ export default function SettingsScreen() {
   }, [initialDisplayName]);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const SettingsSectionCard = ({
+    delay,
+    icon,
+    title,
+    subtitle,
+    accentColor,
+    children,
+  }: {
+    delay: number;
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+    title: string;
+    subtitle?: string;
+    accentColor: string;
+    children: React.ReactNode;
+  }) => (
+    <AppCard style={styles.card} contentStyle={styles.cardContent} animated delay={delay}>
+      <View style={styles.cardHeaderRow}>
+        <View style={styles.cardTitleRow}>
+          <View style={[styles.sectionIconShell, { backgroundColor: colors.surfaceContainerLow }]}> 
+            <MaterialCommunityIcons name={icon} size={20} color={accentColor} />
+          </View>
+          <View style={styles.cardTitleBlock}>
+            <Text variant="titleMedium" style={[styles.cardTitle, { color: colors.text }]}>
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text variant="bodySmall" style={[styles.cardSubtitle, { color: colors.textMuted }]}> 
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.cardBody}>{children}</View>
+    </AppCard>
+  );
 
   const userEmail = user?.email ?? 'No email found';
   const trimmedDisplayName = displayName.trim();
@@ -100,106 +139,105 @@ export default function SettingsScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <AppCard style={styles.card} animated delay={60}>
-            <View style={styles.sectionHeaderRow}>
-              <Text variant="titleLarge" style={styles.sectionTitle}>
-                Profile
+        <SettingsSectionCard
+          delay={60}
+          icon="account-circle-outline"
+          title="Profile"
+          accentColor={colors.primary}
+        >
+          <View style={styles.profileRow}>
+            <ProfileInitialAvatar name={displayName} size={56} />
+            <View style={styles.profileMeta}>
+              <Text variant="titleMedium" style={styles.profileName} numberOfLines={1}>
+                {trimmedDisplayName || 'Set your name'}
+              </Text>
+              <Text variant="bodyMedium" style={styles.profileEmail} numberOfLines={1}>
+                {userEmail}
               </Text>
             </View>
+          </View>
 
-            <View style={styles.profileRow}>
-              <ProfileInitialAvatar name={displayName} size={64} />
-              <View style={styles.profileMeta}>
-                <Text variant="titleMedium" style={styles.profileName} numberOfLines={1}>
-                  {trimmedDisplayName || 'Set your name'}
-                </Text>
-                <Text variant="bodyMedium" style={styles.profileEmail} numberOfLines={1}>
-                  {userEmail}
-                </Text>
-              </View>
-            </View>
+          <Text variant="labelLarge" style={styles.inputLabel}>
+            Display name
+          </Text>
 
-            <Text variant="labelLarge" style={styles.inputLabel}>
-              Display name
-            </Text>
+          <CustomTextInput
+            mode="outlined"
+            value={displayName}
+            onChangeText={setDisplayName}
+            placeholder="Your display name"
+            autoCapitalize="words"
+            style={styles.input}
+          />
 
-            <CustomTextInput
-              mode="outlined"
-              value={displayName}
-              onChangeText={setDisplayName}
-              placeholder="Your display name"
-              autoCapitalize="words"
-              style={styles.input}
-            />
+          <CustomButton
+            mode="contained"
+            icon="content-save-outline"
+            onPress={handleSaveProfile}
+            isLoading={isSavingProfile}
+            disabled={!canSaveProfile}
+            buttonColor={colors.primary}
+            textColor={colors.onPrimary}
+            style={styles.primaryButton}
+          >
+            Save Profile
+          </CustomButton>
+        </SettingsSectionCard>
 
-            <CustomButton
-              mode="contained"
-              icon="content-save-outline"
-              onPress={handleSaveProfile}
-              isLoading={isSavingProfile}
-              disabled={!canSaveProfile}
-              buttonColor={colors.surfaceContainerHigh}
-              textColor={colors.text}
-              style={styles.saveButton}
-            >
-              Save Profile
-            </CustomButton>
-        </AppCard>
+        <SettingsSectionCard
+          delay={120}
+          icon="palette-outline"
+          title="Appearance"
+          subtitle="Choose how Trigger Map looks."
+          accentColor={colors.secondary}
+        >
+          <SegmentedButtons
+            value={themePreference}
+            onValueChange={(value) => {
+              if (value === 'auto' || value === 'light' || value === 'dark') {
+                void setThemePreference(value);
+              }
+            }}
+            density="small"
+            style={styles.segmentedRoot}
+            buttons={themeOptions.map((option) => ({
+              value: option.value,
+              label: option.label,
+              showSelectedCheck: false,
+              style: styles.segmentedButton,
+              labelStyle: styles.segmentedButtonLabel,
+            }))}
+            theme={{
+              colors: {
+                secondaryContainer: colors.primaryContainer,
+                onSecondaryContainer: colors.onPrimaryContainer,
+                outline: colors.ghostBorder,
+              },
+            }}
+          />
+        </SettingsSectionCard>
 
-        <AppCard style={styles.card} animated delay={120}>
-            <Text variant="titleLarge" style={styles.sectionTitle}>
-              Theme
-            </Text>
-            <Text variant="bodyMedium" style={styles.sectionBody}>
-              Choose how Trigger Map appears across your devices.
-            </Text>
-
-            <SegmentedButtons
-              value={themePreference}
-              onValueChange={(value) => {
-                if (value === 'auto' || value === 'light' || value === 'dark') {
-                  void setThemePreference(value);
-                }
-              }}
-              density="small"
-              style={styles.segmentedRoot}
-              buttons={themeOptions.map((option) => ({
-                value: option.value,
-                label: option.label,
-                showSelectedCheck: false,
-                style: styles.segmentedButton,
-              }))}
-              theme={{
-                colors: {
-                  secondaryContainer: colors.primaryContainer,
-                  onSecondaryContainer: colors.onPrimaryContainer,
-                  outline: colors.ghostBorder,
-                },
-              }}
-            />
-        </AppCard>
-
-        <AppCard style={styles.card} animated delay={180}>
-            <Text variant="titleLarge" style={styles.sectionTitle}>
-              Account
-            </Text>
-            <Text variant="bodyMedium" style={styles.sectionBody}>
-              Log out to switch your account.
-            </Text>
-
-            <CustomButton
-              mode="contained"
-              icon="logout"
-              onPress={handleSignOut}
-              isLoading={isSigningOut}
-              buttonColor={colors.dangerSoft}
-              textColor={colors.error}
-              style={styles.logoutButton}
-            >
-              Log Out
-            </CustomButton>
-        </AppCard>
+        <SettingsSectionCard
+          delay={180}
+          icon="logout"
+          title="Account"
+          subtitle="Sign out from this device when you’re done."
+          accentColor={colors.error}
+        >
+          <CustomButton
+            mode="contained"
+            icon="logout"
+            onPress={handleSignOut}
+            isLoading={isSigningOut}
+            buttonColor={colors.errorContainer}
+            textColor={colors.error}
+            style={styles.dangerButton}
+          >
+            Log Out
+          </CustomButton>
+        </SettingsSectionCard>
       </ScrollView>
 
       <AppSnackbar
@@ -220,34 +258,59 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     },
     contentContainer: {
       paddingHorizontal: Spacing.lg,
-      paddingTop: Spacing.xs,
-      paddingBottom: 100,
+      paddingTop: Spacing.lg,
+      paddingBottom: Spacing.xxxl + Spacing.xxxl,
       gap: Spacing.lg,
     },
     card: {
-      gap: Spacing.sm,
+      paddingHorizontal: Spacing.lg,
+      paddingTop: Spacing.lg,
+      paddingBottom: Spacing.lg,
     },
-    sectionHeaderRow: {
+    cardContent: {
+      gap: Spacing.md,
+      alignItems: 'stretch',
+      paddingBottom: Spacing.sm,
+    },
+    cardHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: Spacing.sm,
+      gap: Spacing.md,
     },
-    sectionTitle: {
-      color: colors.text,
-      fontWeight: '600',
-      letterSpacing: 0.2,
+    cardTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
+      flex: 1,
     },
-    sectionBody: {
-      color: colors.textMuted,
-      marginBottom: Spacing.sm,
-      lineHeight: 20,
+    sectionIconShell: {
+      width: 40,
+      height: 40,
+      borderRadius: Radius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cardTitleBlock: {
+      flex: 1,
+      gap: Spacing.xxs,
+    },
+    cardTitle: {
+      fontWeight: '700',
+    },
+    cardSubtitle: {
+      lineHeight: 18,
+    },
+    cardBody: {
+      gap: Spacing.md,
+      alignItems: 'stretch',
     },
     profileRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: Spacing.md,
-      marginBottom: Spacing.sm,
+      marginBottom: 0,
     },
     profileMeta: {
       flex: 1,
@@ -263,26 +326,29 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     },
     inputLabel: {
       color: colors.text,
-      marginBottom: 0,
       fontWeight: '600',
     },
     input: {
-      marginBottom: Spacing.xs,
+      marginBottom: 0,
     },
-    saveButton: {
+    primaryButton: {
       marginTop: 0,
     },
     segmentedRoot: {
-      marginBottom: Spacing.xs,
+      marginTop: 0,
     },
     segmentedButton: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
       borderColor: colors.ghostBorder,
-      minHeight: 46,
+      minHeight: 44,
     },
-    themeHint: {
-      color: colors.textMuted,
+    segmentedButtonLabel: {
+      textAlign: 'center',
+      width: '100%',
     },
-    logoutButton: {
+    dangerButton: {
       marginTop: Spacing.xs,
     },
   });
