@@ -288,6 +288,23 @@ export default function AddLogScreen() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
 
+  const resetAddLogForm = useCallback(() => {
+    setLogDate(new Date());
+    setShowDatePicker(false);
+    setShowTimePicker(false);
+    setStressLevel(null);
+    setPainEntries([]);
+    setBodyPartDraft('');
+    setSelectedMedicines([]);
+    setSelectedFoods([]);
+    setSnackbarMessage('');
+    setSnackbarVisible(false);
+
+    bodyPartSheetRef.current?.dismiss();
+    medicineSelectorRef.current?.dismiss();
+    foodSelectorRef.current?.dismiss();
+  }, []);
+
   const openSnackbar = useCallback((message: string) => {
     setSnackbarMessage(message);
     setSnackbarVisible(true);
@@ -598,7 +615,8 @@ export default function AddLogScreen() {
       }
 
       void runSync();
-      router.back();
+      resetAddLogForm();
+      router.replace('/(tabs)/logs');
     } catch (error: any) {
       openSnackbar(error?.message || 'Something went wrong saving your log.');
     } finally {
@@ -608,6 +626,7 @@ export default function AddLogScreen() {
     logDate,
     openSnackbar,
     painEntries,
+    resetAddLogForm,
     router,
     selectedFoods,
     selectedMedicines,
