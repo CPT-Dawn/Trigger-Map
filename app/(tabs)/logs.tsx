@@ -1160,13 +1160,7 @@ export default function LogsScreen() {
           entering={FadeInDown.duration(220)}
           exiting={FadeOut.duration(160)}
           layout={LinearTransition.duration(220)}
-          style={[
-            styles.pinnedSummaryCard,
-            {
-              backgroundColor: colors.surfaceContainerLowest,
-              borderColor: colors.ghostBorder,
-              shadowColor: colors.shadowAmbient,
-            },
+          style={[styles.pinnedSummaryCard, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.ghostBorder }
           ]}
         >
           <Text variant="titleMedium" style={{ color: colors.text }}>
@@ -1175,10 +1169,7 @@ export default function LogsScreen() {
           <View
             style={[
               styles.pinnedSummaryBadge,
-              {
-                backgroundColor: colors.primaryContainer,
-                borderColor: colors.ghostBorder,
-              },
+
             ]}
           >
             <Text variant="labelLarge" style={{ color: colors.onPrimaryContainer }}>
@@ -1552,21 +1543,10 @@ const styles = StyleSheet.create({
   },
   pinnedSummaryCard: {
     minHeight: 48,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.md,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    elevation: 2,
   },
   pinnedSummaryBadge: {
     minHeight: 32,
