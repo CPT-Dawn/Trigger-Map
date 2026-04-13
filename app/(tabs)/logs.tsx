@@ -379,16 +379,12 @@ function ExpandableLogCard({
   }, [expandProgress, isExpanded]);
 
   const cardMotionStyle = useAnimatedStyle(() => {
-    const lift = expandProgress.value * 2.5 + pressProgress.value * 1.5;
+    const lift = expandProgress.value * 0.9 + pressProgress.value * 1.25;
 
     return {
-      transform: [{ translateY: -lift }, { scale: 1 - pressProgress.value * 0.015 }] as const,
+      transform: [{ translateY: -lift }, { scale: 1 - pressProgress.value * 0.008 }] as const,
     };
   });
-
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${expandProgress.value * 180}deg` }],
-  }));
 
   const handlePressIn = () => {
     pressProgress.value = withTiming(1, {
@@ -407,26 +403,28 @@ function ExpandableLogCard({
   return (
     <Reanimated.View
       entering={listReveal(Math.min(itemIndex * 24, 220))}
-      layout={Layout.springify().damping(19).stiffness(170)}
+      layout={Layout.springify().damping(22).stiffness(215).mass(0.85)}
       style={styles.motionCardWrap}
     >
-      <Reanimated.View style={cardMotionStyle}>
+      <Reanimated.View
+        style={[
+          styles.entryCard,
+          cardMotionStyle,
+          {
+            backgroundColor: colors.surfaceContainerLowest,
+            borderColor: isExpanded ? config.iconColor : colors.ghostBorder,
+            borderLeftColor: config.iconColor,
+            shadowColor: colors.shadowAmbient,
+          },
+        ]}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${entry.type} entry ${entry.title}`}
           onPress={() => onToggle(entry)}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
-          style={[
-            styles.entryCard,
-            styles.entryPressable,
-            {
-              backgroundColor: colors.surfaceContainerLowest,
-              borderColor: isExpanded ? config.iconColor : colors.ghostBorder,
-              borderLeftColor: config.iconColor,
-              shadowColor: colors.shadowAmbient,
-            },
-          ]}
+          style={styles.entryPressable}
         >
           <View style={styles.entryTopRow}>
             <View style={styles.entryLeading}>
@@ -443,82 +441,66 @@ function ExpandableLogCard({
               </View>
             </View>
 
-            <View style={styles.entryHeaderRight}>
-              <Chip
-                compact
-                style={[styles.entryChip, { backgroundColor: config.container }]}
-                textStyle={{ color: config.iconColor }}
-              >
-                {config.label}
-              </Chip>
-
-              <Reanimated.View
-                style={[
-                  styles.expandIndicator,
-                  chevronStyle,
-                  {
-                    backgroundColor: colors.surfaceContainerHigh,
-                    borderColor: colors.ghostBorder,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons name="chevron-down" size={18} color={colors.textMuted} />
-              </Reanimated.View>
-            </View>
+            <Chip
+              compact
+              style={[styles.entryChip, { backgroundColor: config.container }]}
+              textStyle={{ color: config.iconColor }}
+            >
+              {config.label}
+            </Chip>
           </View>
         </Pressable>
+
+        {isExpanded ? (
+          <Reanimated.View
+            entering={FadeInDown.duration(190)}
+            exiting={FadeOut.duration(130)}
+            layout={Layout.springify().damping(24).stiffness(240).mass(0.82)}
+            style={[
+              styles.entryActionPanel,
+              {
+                borderTopColor: colors.ghostBorder,
+              },
+            ]}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Edit ${entry.title}`}
+              onPress={() => onEdit(entry)}
+              style={({ pressed }) => [
+                styles.entryActionButton,
+                {
+                  backgroundColor: colors.primaryContainer,
+                  borderColor: colors.ghostBorder,
+                },
+                pressed && styles.entryActionButtonPressed,
+              ]}
+            >
+              <Text variant="labelLarge" style={[styles.entryActionLabel, { color: colors.onPrimaryContainer }]}> 
+                Edit
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Delete ${entry.title}`}
+              onPress={() => onDelete(entry)}
+              style={({ pressed }) => [
+                styles.entryActionButton,
+                {
+                  backgroundColor: colors.errorContainer,
+                  borderColor: colors.ghostBorder,
+                },
+                pressed && styles.entryActionButtonPressed,
+              ]}
+            >
+              <Text variant="labelLarge" style={[styles.entryActionLabel, { color: colors.onErrorContainer }]}> 
+                Delete
+              </Text>
+            </Pressable>
+          </Reanimated.View>
+        ) : null}
       </Reanimated.View>
-
-      {isExpanded ? (
-        <Reanimated.View
-          entering={FadeInDown.duration(240)}
-          exiting={FadeOut.duration(160)}
-          layout={Layout.springify().damping(20).stiffness(180)}
-          style={[
-            styles.actionDrawer,
-            {
-              backgroundColor: colors.surfaceContainerLow,
-              borderColor: colors.ghostBorder,
-            },
-          ]}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Edit ${entry.title}`}
-            onPress={() => onEdit(entry)}
-            style={[
-              styles.drawerActionButton,
-              {
-                backgroundColor: colors.primaryContainer,
-                borderColor: colors.ghostBorder,
-              },
-            ]}
-          >
-            <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.onPrimaryContainer} />
-            <Text variant="labelLarge" style={[styles.drawerActionLabel, { color: colors.onPrimaryContainer }]}>
-              Edit
-            </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Delete ${entry.title}`}
-            onPress={() => onDelete(entry)}
-            style={[
-              styles.drawerActionButton,
-              {
-                backgroundColor: colors.errorContainer,
-                borderColor: colors.ghostBorder,
-              },
-            ]}
-          >
-            <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.onErrorContainer} />
-            <Text variant="labelLarge" style={[styles.drawerActionLabel, { color: colors.onErrorContainer }]}>
-              Delete
-            </Text>
-          </Pressable>
-        </Reanimated.View>
-      ) : null}
     </Reanimated.View>
   );
 }
@@ -1730,7 +1712,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderLeftWidth: 4,
     padding: Spacing.md,
-    gap: Spacing.sm,
+    gap: Spacing.xs,
     shadowOpacity: 0.11,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 },
@@ -1741,7 +1723,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   entryPressable: {
-    minHeight: 74,
+    width: '100%',
   },
   entryTopRow: {
     flexDirection: 'row',
@@ -1769,26 +1751,14 @@ const styles = StyleSheet.create({
   entryChip: {
     alignSelf: 'flex-start',
   },
-  entryHeaderRight: {
-    alignItems: 'flex-end',
-    gap: Spacing.xs,
-  },
-  expandIndicator: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  actionDrawer: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    padding: Spacing.sm,
+  entryActionPanel: {
+    borderTopWidth: 1,
+    marginTop: Spacing.xs,
+    paddingTop: Spacing.sm,
     flexDirection: 'row',
     gap: Spacing.sm,
   },
-  drawerActionButton: {
+  entryActionButton: {
     flex: 1,
     minHeight: 52,
     borderRadius: Radius.lg,
@@ -1796,9 +1766,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
   },
-  drawerActionLabel: {
+  entryActionButtonPressed: {
+    transform: [{ scale: 0.985 }],
+    opacity: 0.92,
+  },
+  entryActionLabel: {
     fontWeight: '700',
   },
   modalContainer: {
