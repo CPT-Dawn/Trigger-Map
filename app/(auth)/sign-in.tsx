@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Link } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
+import { AppCard } from '../../components/ui/AppCard';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { CustomButton } from '../../components/ui/CustomButton';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
@@ -47,12 +47,7 @@ export default function SignInScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <LinearGradient
-            colors={[colors.glassSurface, colors.surfaceOverlayEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.formCard, { borderColor: colors.ghostBorder, borderWidth: 1 }]}
-          >
+          <AppCard style={styles.formCard} animated delay={70}>
             <View style={styles.header}>
               <View style={[styles.headerIconWrap, { backgroundColor: colors.primaryContainer }]}> 
                 <MaterialCommunityIcons name="account-heart-outline" size={22} color={colors.onPrimaryContainer} />
@@ -109,7 +104,7 @@ export default function SignInScreen() {
                 </Link>
               </View>
             </View>
-          </LinearGradient>
+          </AppCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenWrapper>
@@ -126,15 +121,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   formCard: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
     padding: Spacing.xl,
     gap: Spacing.lg,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 3,
   },
   header: {
     gap: Spacing.sm,

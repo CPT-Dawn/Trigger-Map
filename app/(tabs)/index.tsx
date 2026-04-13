@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Chip, ProgressBar, Snackbar, Text } from 'react-native-paper';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { ActivityIndicator, Chip, ProgressBar, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused, useRouter } from 'expo-router';
 import { Radius, Spacing } from '../../constants/theme';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { useAuth } from '../../providers/AuthProvider';
 import { supabase } from '../../lib/supabase';
+import { AppCard } from '../../components/ui/AppCard';
+import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 import { CustomButton } from '../../components/ui/CustomButton';
 
@@ -74,6 +77,7 @@ interface TriggerSuggestion {
 }
 
 const NO_WEATHER_CONTEXT = 'No weather context saved yet.';
+const cardReveal = (delay: number) => FadeInDown.delay(delay).duration(360);
 
 function formatDateKey(date: Date) {
   const year = date.getFullYear();
@@ -548,7 +552,7 @@ export default function HomeScreen() {
       entry.type === 'pain' ? 'Pain' : entry.type === 'stress' ? 'Stress' : entry.type === 'medicine' ? 'Medicine' : 'Food';
 
     return (
-      <View key={entry.id} style={[styles.recentRow, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
+      <AppCard key={entry.id} style={styles.recentRow} variant="subtle">
         <View style={styles.recentLeading}>
           <View style={[styles.recentIconWrap, { backgroundColor: iconBackground }]}> 
             <MaterialCommunityIcons name={iconName} size={20} color={iconColor} />
@@ -566,7 +570,7 @@ export default function HomeScreen() {
         <Chip compact style={[styles.recentChip, { backgroundColor: iconBackground }]} textStyle={{ color: iconColor }}>
           {typeLabel}
         </Chip>
-      </View>
+      </AppCard>
     );
   };
 
@@ -575,23 +579,23 @@ export default function HomeScreen() {
       <ScreenWrapper>
         <View style={styles.loadingScreen}>
 
-          <View style={[styles.loadingCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
-            <ActivityIndicator color={colors.primary} />
-            <Text variant="bodyMedium" style={{ color: colors.textMuted, textAlign: 'center' }}>
-              Loading your dashboard from Supabase...
-            </Text>
-          </View>
+          <Animated.View entering={cardReveal(40)}>
+            <AppCard style={styles.loadingCard}>
+              <ActivityIndicator color={colors.primary} />
+              <Text variant="bodyMedium" style={{ color: colors.textMuted, textAlign: 'center' }}>
+                Loading your dashboard from Supabase...
+              </Text>
+            </AppCard>
+          </Animated.View>
         </View>
 
-        <Snackbar
+        <AppSnackbar
           visible={snackbarVisible}
           onDismiss={() => setSnackbarVisible(false)}
           duration={3000}
-          style={{ backgroundColor: colors.surfaceContainerHighest }}
-          theme={{ colors: { onSurface: colors.text } }}
         >
           {snackbarMessage}
-        </Snackbar>
+        </AppSnackbar>
       </ScreenWrapper>
     );
   }
@@ -613,165 +617,173 @@ export default function HomeScreen() {
         }
       > 
 
-        <View style={[styles.heroCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroTitleBlock}>
-              <Text variant="labelLarge" style={{ color: colors.textMuted }}>
-                Consistency score
-              </Text>
-              <Text variant="displaySmall" style={{ color: colors.text, fontWeight: '700' }}>
-                {consistencyScore}%
-              </Text>
-            </View>
-
-            <View style={[styles.heroIconWrap, { backgroundColor: colors.primaryContainer }]}> 
-              <MaterialCommunityIcons name="chart-line" size={24} color={colors.onPrimaryContainer} />
-            </View>
-          </View>
-
-          <ProgressBar progress={consistencyScore / 100} color={colors.primary} style={styles.progress} />
-
-          <Text variant="bodySmall" style={{ color: colors.textMuted }}>
-            {hasEntries
-              ? `You logged data on ${weeklyDatesWithLogs.size} of the last 7 days. Latest update ${latestEntry ? formatTime(latestEntry.loggedAt) : 'not available yet'}.`
-              : 'Start logging pain, stress, food, or medicine to build your snapshot.'}
-          </Text>
-
-          <View style={styles.heroActions}>
-            <CustomButton
-              mode="contained"
-              onPress={() => router.push('/add-log')}
-              buttonColor={colors.primary}
-              textColor={colors.onPrimary}
-              style={styles.heroActionButton}
-            >
-              Add Entry
-            </CustomButton>
-            <CustomButton mode="outlined" onPress={() => router.push('/logs')} style={styles.heroActionButton}>
-              View Logs
-            </CustomButton>
-          </View>
-        </View>
-
-        <View style={styles.metricsGrid}>
-          {dashboardStats.map((stat) => (
-            <View key={stat.label} style={[styles.metricCard, { backgroundColor: stat.background, borderColor: colors.ghostBorder }]}> 
-              <View style={styles.metricTopRow}>
-                <Text variant="labelMedium" style={{ color: stat.textColor }}>
-                  {stat.label}
+        <Animated.View entering={cardReveal(40)}>
+          <AppCard style={styles.heroCard}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroTitleBlock}>
+                <Text variant="labelLarge" style={{ color: colors.textMuted }}>
+                  Consistency score
                 </Text>
-                <MaterialCommunityIcons name={stat.icon} size={18} color={stat.iconColor} />
+                <Text variant="displaySmall" style={{ color: colors.text, fontWeight: '700' }}>
+                  {consistencyScore}%
+                </Text>
               </View>
-              <Text variant="headlineMedium" style={{ color: stat.textColor, fontWeight: '700' }}>
-                {stat.value}
-              </Text>
-              <Text variant="bodySmall" style={{ color: stat.textColor, opacity: 0.8 }}>
-                {stat.detail}
-              </Text>
-            </View>
-          ))}
-        </View>
 
-        <View style={[styles.card, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.cardHeaderLeft}>
-              <MaterialCommunityIcons name="weather-partly-cloudy" size={20} color={colors.text} />
-              <Text variant="titleMedium" style={{ color: colors.text }}>
-                Daily context
-              </Text>
+              <View style={[styles.heroIconWrap, { backgroundColor: colors.primaryContainer }]}> 
+                <MaterialCommunityIcons name="chart-line" size={24} color={colors.onPrimaryContainer} />
+              </View>
             </View>
 
-            <Chip compact style={[styles.contextChip, { backgroundColor: colors.surfaceContainerLow }]} textStyle={{ color: colors.textMuted }}>
-              {contextDayLabel}
-            </Chip>
-          </View>
+            <ProgressBar progress={consistencyScore / 100} color={colors.primary} style={styles.progress} />
 
-          <View style={styles.contextBody}>
-            <View style={styles.contextTextBlock}>
-              <Text variant="bodyMedium" style={{ color: colors.text }} numberOfLines={2}>
-                {weatherSummary}
-              </Text>
-              <Text variant="bodySmall" style={{ color: colors.textMuted }}>
-                {currentContext ? 'Weather and rating loaded from daily_context.' : 'Add a daily context entry to track weather and rating.'}
-              </Text>
-            </View>
+            <Text variant="bodySmall" style={{ color: colors.textMuted }}>
+              {hasEntries
+                ? `You logged data on ${weeklyDatesWithLogs.size} of the last 7 days. Latest update ${latestEntry ? formatTime(latestEntry.loggedAt) : 'not available yet'}.`
+                : 'Start logging pain, stress, food, or medicine to build your snapshot.'}
+            </Text>
 
-            <View style={[styles.ratingPill, { backgroundColor: colors.primaryContainer }]}> 
-              <Text variant="labelMedium" style={{ color: colors.onPrimaryContainer }}>
-                Day rating
-              </Text>
-              <Text variant="headlineMedium" style={{ color: colors.onPrimaryContainer, fontWeight: '700' }}>
-                {formatDayRating(currentDayRating)}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={[styles.card, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.cardHeaderLeft}>
-              <MaterialCommunityIcons name="radiology-box" size={20} color={colors.text} />
-              <Text variant="titleMedium" style={{ color: colors.text }}>
-                Likely triggers today
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.chipRow}>
-            {triggerSuggestions.map((trigger) => (
-              <Chip key={trigger.label} compact icon={trigger.icon} style={[styles.triggerChip, { backgroundColor: colors.surfaceContainer }]}>
-                {trigger.label}
-              </Chip>
-            ))}
-          </View>
-        </View>
-
-        <View style={[styles.card, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.cardHeaderLeft}>
-              <MaterialCommunityIcons name="history" size={20} color={colors.text} />
-              <Text variant="titleMedium" style={{ color: colors.text }}>
-                Recent activity
-              </Text>
-            </View>
-
-            <CustomButton mode="text" onPress={() => router.push('/logs')} compact>
-              View all
-            </CustomButton>
-          </View>
-
-          {recentEntries.length > 0 ? (
-            <View style={styles.recentList}>
-              {recentEntries.map((entry) => renderRecentEntry(entry))}
-            </View>
-          ) : (
-            <View style={styles.emptyState}>
-              <Text variant="bodyMedium" style={{ color: colors.textMuted, textAlign: 'center' }}>
-                No logs yet. Add your first entry to start building correlations.
-              </Text>
+            <View style={styles.heroActions}>
               <CustomButton
                 mode="contained"
                 onPress={() => router.push('/add-log')}
                 buttonColor={colors.primary}
                 textColor={colors.onPrimary}
-                style={styles.emptyButton}
+                style={styles.heroActionButton}
               >
                 Add Entry
               </CustomButton>
+              <CustomButton mode="outlined" onPress={() => router.push('/logs')} style={styles.heroActionButton}>
+                View Logs
+              </CustomButton>
             </View>
-          )}
-        </View>
+          </AppCard>
+        </Animated.View>
+
+        <Animated.View entering={cardReveal(110)}>
+          <View style={styles.metricsGrid}>
+            {dashboardStats.map((stat) => (
+              <View key={stat.label} style={[styles.metricCard, { backgroundColor: stat.background, borderColor: colors.ghostBorder }]}> 
+                <View style={styles.metricTopRow}>
+                  <Text variant="labelMedium" style={{ color: stat.textColor }}>
+                    {stat.label}
+                  </Text>
+                  <MaterialCommunityIcons name={stat.icon} size={18} color={stat.iconColor} />
+                </View>
+                <Text variant="headlineMedium" style={{ color: stat.textColor, fontWeight: '700' }}>
+                  {stat.value}
+                </Text>
+                <Text variant="bodySmall" style={{ color: stat.textColor, opacity: 0.8 }}>
+                  {stat.detail}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={cardReveal(180)}>
+          <AppCard style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <View style={styles.cardHeaderLeft}>
+                <MaterialCommunityIcons name="weather-partly-cloudy" size={20} color={colors.text} />
+                <Text variant="titleMedium" style={{ color: colors.text }}>
+                  Daily context
+                </Text>
+              </View>
+
+              <Chip compact style={[styles.contextChip, { backgroundColor: colors.surfaceContainerLow }]} textStyle={{ color: colors.textMuted }}>
+                {contextDayLabel}
+              </Chip>
+            </View>
+
+            <View style={styles.contextBody}>
+              <View style={styles.contextTextBlock}>
+                <Text variant="bodyMedium" style={{ color: colors.text }} numberOfLines={2}>
+                  {weatherSummary}
+                </Text>
+                <Text variant="bodySmall" style={{ color: colors.textMuted }}>
+                  {currentContext ? 'Weather and rating loaded from daily_context.' : 'Add a daily context entry to track weather and rating.'}
+                </Text>
+              </View>
+
+              <View style={[styles.ratingPill, { backgroundColor: colors.primaryContainer }]}> 
+                <Text variant="labelMedium" style={{ color: colors.onPrimaryContainer }}>
+                  Day rating
+                </Text>
+                <Text variant="headlineMedium" style={{ color: colors.onPrimaryContainer, fontWeight: '700' }}>
+                  {formatDayRating(currentDayRating)}
+                </Text>
+              </View>
+            </View>
+          </AppCard>
+        </Animated.View>
+
+        <Animated.View entering={cardReveal(250)}>
+          <AppCard style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <View style={styles.cardHeaderLeft}>
+                <MaterialCommunityIcons name="radiology-box" size={20} color={colors.text} />
+                <Text variant="titleMedium" style={{ color: colors.text }}>
+                  Likely triggers today
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.chipRow}>
+              {triggerSuggestions.map((trigger) => (
+                <Chip key={trigger.label} compact icon={trigger.icon} style={[styles.triggerChip, { backgroundColor: colors.surfaceContainer }]}>
+                  {trigger.label}
+                </Chip>
+              ))}
+            </View>
+          </AppCard>
+        </Animated.View>
+
+        <Animated.View entering={cardReveal(320)}>
+          <AppCard style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <View style={styles.cardHeaderLeft}>
+                <MaterialCommunityIcons name="history" size={20} color={colors.text} />
+                <Text variant="titleMedium" style={{ color: colors.text }}>
+                  Recent activity
+                </Text>
+              </View>
+
+              <CustomButton mode="text" onPress={() => router.push('/logs')} compact>
+                View all
+              </CustomButton>
+            </View>
+
+            {recentEntries.length > 0 ? (
+              <View style={styles.recentList}>
+                {recentEntries.map((entry) => renderRecentEntry(entry))}
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text variant="bodyMedium" style={{ color: colors.textMuted, textAlign: 'center' }}>
+                  No logs yet. Add your first entry to start building correlations.
+                </Text>
+                <CustomButton
+                  mode="contained"
+                  onPress={() => router.push('/add-log')}
+                  buttonColor={colors.primary}
+                  textColor={colors.onPrimary}
+                  style={styles.emptyButton}
+                >
+                  Add Entry
+                </CustomButton>
+              </View>
+            )}
+          </AppCard>
+        </Animated.View>
       </ScrollView>
 
-      <Snackbar
+      <AppSnackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
         duration={3000}
-        style={{ backgroundColor: colors.surfaceContainerHighest }}
-        theme={{ colors: { onSurface: colors.text } }}
       >
         {snackbarMessage}
-      </Snackbar>
+      </AppSnackbar>
     </ScreenWrapper>
   );
 }
@@ -785,8 +797,6 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   loadingCard: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
     padding: Spacing.xl,
     gap: Spacing.md,
     alignItems: 'center',
@@ -804,8 +814,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   heroCard: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
     padding: Spacing.lg,
     gap: Spacing.md,
   },
@@ -857,8 +865,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   card: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
     padding: Spacing.lg,
     gap: Spacing.md,
   },
@@ -908,8 +914,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   recentRow: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
     padding: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',

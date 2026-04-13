@@ -12,7 +12,8 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
-import { ActivityIndicator, Chip, IconButton, SegmentedButtons, Snackbar, Switch, Text } from 'react-native-paper';
+import Reanimated, { FadeInDown } from 'react-native-reanimated';
+import { ActivityIndicator, Chip, IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -21,6 +22,8 @@ import { Radius, Spacing } from '../../constants/theme';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { useAuth } from '../../providers/AuthProvider';
 import { supabase } from '../../lib/supabase';
+import { AppCard } from '../../components/ui/AppCard';
+import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 import { CustomButton } from '../../components/ui/CustomButton';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
@@ -202,6 +205,7 @@ function coerceStressLevel(value: StressLevelValue | null | undefined): StressLe
 
 const swipeActionWidth = 120;
 const swipeThreshold = 96;
+const listReveal = (delay: number) => FadeInDown.delay(delay).duration(300);
 
 function buildDisplayName(item?: UserItemRow | null) {
   if (!item) {
@@ -942,12 +946,14 @@ export default function LogsScreen() {
             </Text>
           </View>
 
-          <View style={[styles.loadingCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
-            <ActivityIndicator color={colors.primary} />
-            <Text variant="bodyMedium" style={{ color: colors.textMuted }}>
-              Loading logs from Supabase...
-            </Text>
-          </View>
+          <Reanimated.View entering={listReveal(40)}>
+            <AppCard style={styles.loadingCard}>
+              <ActivityIndicator color={colors.primary} />
+              <Text variant="bodyMedium" style={{ color: colors.textMuted }}>
+                Loading logs from Supabase...
+              </Text>
+            </AppCard>
+          </Reanimated.View>
         </View>
       );
     }
@@ -994,28 +1000,30 @@ export default function LogsScreen() {
     const isFiltered = filter !== 'all';
 
     return (
-      <View style={[styles.emptyCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
-        <View style={[styles.emptyIconWrap, { backgroundColor: colors.surfaceContainerHigh }]}> 
-          <MaterialCommunityIcons name={isFiltered ? 'filter-off' : 'clipboard-text-outline'} size={24} color={colors.textMuted} />
-        </View>
-        <Text variant="titleMedium" style={{ color: colors.text, textAlign: 'center' }}>
-          {isFiltered ? 'No logs match this filter.' : 'Nothing logged yet.'}
-        </Text>
-        <Text variant="bodyMedium" style={{ color: colors.textMuted, textAlign: 'center' }}>
-          {isFiltered
-            ? 'Try another filter or add a fresh log to continue building your history.'
-            : 'Use the plus button to add pain, stress, medicine, or food entries.'}
-        </Text>
-        <CustomButton
-          mode="contained"
-          onPress={() => router.push('/add-log')}
-          buttonColor={colors.primary}
-          textColor={colors.onPrimary}
-          style={styles.emptyButton}
-        >
-          Add Entry
-        </CustomButton>
-      </View>
+      <Reanimated.View entering={listReveal(60)}>
+        <AppCard style={styles.emptyCard}>
+          <View style={[styles.emptyIconWrap, { backgroundColor: colors.surfaceContainerHigh }]}> 
+            <MaterialCommunityIcons name={isFiltered ? 'filter-off' : 'clipboard-text-outline'} size={24} color={colors.textMuted} />
+          </View>
+          <Text variant="titleMedium" style={{ color: colors.text, textAlign: 'center' }}>
+            {isFiltered ? 'No logs match this filter.' : 'Nothing logged yet.'}
+          </Text>
+          <Text variant="bodyMedium" style={{ color: colors.textMuted, textAlign: 'center' }}>
+            {isFiltered
+              ? 'Try another filter or add a fresh log to continue building your history.'
+              : 'Use the plus button to add pain, stress, medicine, or food entries.'}
+          </Text>
+          <CustomButton
+            mode="contained"
+            onPress={() => router.push('/add-log')}
+            buttonColor={colors.primary}
+            textColor={colors.onPrimary}
+            style={styles.emptyButton}
+          >
+            Add Entry
+          </CustomButton>
+        </AppCard>
+      </Reanimated.View>
     );
   };
 
@@ -1062,16 +1070,7 @@ export default function LogsScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.modalKeyboard}
           >
-            <View
-              style={[
-                styles.modalCard,
-                {
-                  backgroundColor: colors.glassSurface,
-                  borderColor: colors.ghostBorder,
-                  shadowColor: colors.shadowAmbient,
-                },
-              ]}
-            >
+            <AppCard style={styles.modalCard}>
               <View style={styles.modalHeader}>
                 <Text variant="titleLarge" style={[styles.cardTitle, { color: colors.text }]}>
                   Edit {editingEntry?.type === 'pain' ? 'Pain' : editingEntry?.type === 'stress' ? 'Stress' : editingEntry?.type === 'medicine' ? 'Medicine' : 'Food'} Entry
@@ -1200,7 +1199,7 @@ export default function LogsScreen() {
                   Save
                 </CustomButton>
               </View>
-            </View>
+            </AppCard>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -1215,16 +1214,7 @@ export default function LogsScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.modalKeyboard}
           >
-            <View
-              style={[
-                styles.modalCard,
-                {
-                  backgroundColor: colors.glassSurface,
-                  borderColor: colors.ghostBorder,
-                  shadowColor: colors.shadowAmbient,
-                },
-              ]}
-            >
+            <AppCard style={styles.modalCard}>
               <View style={styles.modalHeader}>
                 <View style={styles.deleteModalHeaderCopy}>
                   <View style={[styles.deleteModalIconWrap, { backgroundColor: colors.errorContainer }]}> 
@@ -1260,7 +1250,7 @@ export default function LogsScreen() {
                   Delete
                 </CustomButton>
               </View>
-            </View>
+            </AppCard>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -1274,7 +1264,7 @@ export default function LogsScreen() {
         }}
       />
 
-      <Snackbar
+      <AppSnackbar
         visible={undoVisible && deletedEntry !== null}
         onDismiss={() => {
           setUndoVisible(false);
@@ -1282,21 +1272,17 @@ export default function LogsScreen() {
         }}
         duration={5000}
         action={{ label: 'Undo', onPress: () => void handleUndoDelete() }}
-        style={{ backgroundColor: colors.surfaceContainerHighest }}
-        theme={{ colors: { onSurface: colors.text } }}
       >
         Entry deleted.
-      </Snackbar>
+      </AppSnackbar>
 
-      <Snackbar
+      <AppSnackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
         duration={3000}
-        style={{ backgroundColor: colors.surfaceContainerHighest }}
-        theme={{ colors: { onSurface: colors.text } }}
       >
         {snackbarMessage}
-      </Snackbar>
+      </AppSnackbar>
     </ScreenWrapper>
   );
 }
@@ -1326,8 +1312,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   loadingCard: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
     padding: Spacing.xl,
     gap: Spacing.md,
     alignItems: 'center',
@@ -1474,14 +1458,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalCard: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
     padding: Spacing.lg,
     gap: Spacing.md,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 4,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1575,8 +1553,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   emptyCard: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
     padding: Spacing.xl,
     marginTop: Spacing.sm,
     alignItems: 'center',

@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, IconButton, Snackbar, Text } from 'react-native-paper';
+import { ActivityIndicator, IconButton, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   BottomSheetBackdrop,
@@ -22,6 +22,8 @@ import { Radius, Spacing } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAppColors } from '../../providers/ThemeProvider';
+import { AppCard } from '../ui/AppCard';
+import { AppSnackbar } from '../ui/AppSnackbar';
 import { CustomButton } from '../ui/CustomButton';
 
 export interface ItemRecord {
@@ -74,6 +76,8 @@ function getMasterItemSearchText(item: Pick<ItemRecord, 'display_name' | 'name' 
 function sortMasterItems(items: ItemRecord[]) {
   return [...items].sort((left, right) => getMasterItemDisplayName(left).localeCompare(getMasterItemDisplayName(right)));
 }
+
+const sheetReveal = (delay: number) => FadeInDown.delay(delay).duration(300);
 
 interface SheetTextFieldProps extends React.ComponentProps<typeof BottomSheetTextInput> {
   label?: string;
@@ -133,7 +137,7 @@ function ItemRow({ item, index, iconName, colors, onSelect, onEdit, onDelete }: 
   };
 
   return (
-    <Animated.View entering={FadeInDown.delay(index * 35).springify()} layout={Layout.springify()}>
+    <Animated.View entering={sheetReveal(index * 35)} layout={Layout.springify()}>
       <Swipeable
         ref={swipeableRef}
         overshootLeft={false}
@@ -165,13 +169,13 @@ function ItemRow({ item, index, iconName, colors, onSelect, onEdit, onDelete }: 
           </Pressable>
         )}
       >
-        <Pressable
-          accessibilityRole="button"
+        <AppCard
+          style={styles.itemCard}
+          variant="subtle"
           onPress={() => {
             closeSwipeable();
             onSelect(item);
           }}
-          style={[styles.itemCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}
         >
           <View style={[styles.itemIconContainer, { backgroundColor: colors.surfaceContainerLow }]}> 
             <MaterialCommunityIcons name={iconName} size={20} color={colors.primary} />
@@ -187,7 +191,7 @@ function ItemRow({ item, index, iconName, colors, onSelect, onEdit, onDelete }: 
             )}
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
-        </Pressable>
+        </AppCard>
       </Swipeable>
     </Animated.View>
   );
@@ -549,7 +553,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
       )}
 
       {activeForm && (
-        <Animated.View layout={Layout.springify()} style={[styles.formCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}> 
+        <AppCard style={styles.formCard} animated delay={45}>
           <Text variant="titleMedium" style={[styles.formTitle, { color: colors.text }]}>
             {activeForm.mode === 'edit' ? `Edit ${displayType}` : createLabel}
           </Text>
@@ -600,7 +604,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
               {activeForm.mode === 'edit' ? 'Save Changes' : 'Create & Select'}
             </CustomButton>
           </View>
-        </Animated.View>
+        </AppCard>
       )}
     </View>
   );
@@ -670,15 +674,13 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
         />
       </View>
 
-      <Snackbar
+      <AppSnackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
         duration={3000}
-        style={{ backgroundColor: colors.surfaceContainerHighest }}
-        theme={{ colors: { onSurface: colors.text } }}
       >
         {snackbarMessage}
-      </Snackbar>
+      </AppSnackbar>
     </BottomSheetModal>
   );
 });
@@ -763,8 +765,6 @@ const styles = StyleSheet.create({
     minHeight: 24,
   },
   formCard: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
     padding: Spacing.lg,
     gap: Spacing.md,
   },
@@ -795,14 +795,11 @@ const styles = StyleSheet.create({
   },
   itemCard: {
     minHeight: 72,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    elevation: 2,
   },
   itemIconContainer: {
     width: 40,

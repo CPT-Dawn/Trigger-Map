@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { StyleSheet, Pressable, Animated } from 'react-native';
+import { StyleSheet, Pressable, Animated, Easing } from 'react-native';
 import { Button } from 'react-native-paper';
 import type { ButtonProps } from 'react-native-paper';
 import { Spacing, Radius } from '../../constants/theme';
@@ -32,28 +32,51 @@ export function CustomButton({
       ? currentColors.text
       : currentColors.primary;
 
-  const scaleValue = useRef(new Animated.Value(1)).current;
+  const pressProgress = useRef(new Animated.Value(0)).current;
+
+  const scaleValue = pressProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.975],
+  });
+
+  const translateY = pressProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  const opacityValue = pressProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.96],
+  });
+
+  const runPressAnimation = (toValue: number, duration: number) => {
+    Animated.timing(pressProgress, {
+      toValue,
+      duration,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  };
 
   const handlePressIn = () => {
-    Animated.spring(scaleValue, {
-      toValue: 0.96,
-      useNativeDriver: true,
-      damping: 15,
-      stiffness: 200,
-    }).start();
+    runPressAnimation(1, 90);
   };
 
   const handlePressOut = () => {
-    Animated.spring(scaleValue, {
-      toValue: 1,
-      useNativeDriver: true,
-      damping: 15,
-      stiffness: 200,
-    }).start();
+    runPressAnimation(0, 150);
   };
 
   return (
-    <Animated.View style={[styles.button, { transform: [{ scale: scaleValue }] }, style as any]}>
+    <Animated.View
+      style={[
+        styles.button,
+        {
+          opacity: opacityValue,
+          transform: [{ scale: scaleValue }, { translateY }],
+        },
+        style as any,
+      ]}
+    >
       <Pressable
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}

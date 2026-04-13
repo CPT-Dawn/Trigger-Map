@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { SegmentedButtons, Snackbar, Text } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Radius, resolveColors, Spacing } from '../../constants/theme';
+import { SegmentedButtons, Text } from 'react-native-paper';
+import { resolveColors, Spacing } from '../../constants/theme';
+import { AppCard } from '../../components/ui/AppCard';
 import { CustomButton } from '../../components/ui/CustomButton';
+import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { ProfileInitialAvatar } from '../../components/ui/ProfileInitialAvatar';
 import { supabase } from '../../lib/supabase';
@@ -101,13 +101,7 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.delay(60).springify()}>
-          <LinearGradient
-            colors={[colors.glassSurface, colors.surfaceOverlayEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.card}
-          >
+        <AppCard style={styles.card} animated delay={60}>
             <View style={styles.sectionHeaderRow}>
               <Text variant="headlineSmall" style={styles.sectionTitle}>
                 Profile
@@ -151,16 +145,9 @@ export default function SettingsScreen() {
             >
               Save Profile
             </CustomButton>
-          </LinearGradient>
-        </Animated.View>
+        </AppCard>
 
-        <Animated.View entering={FadeInDown.delay(120).springify()}>
-          <LinearGradient
-            colors={[colors.glassSurface, colors.surfaceOverlayEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.card}
-          >
+        <AppCard style={styles.card} animated delay={120}>
             <Text variant="headlineSmall" style={styles.sectionTitle}>
               Theme
             </Text>
@@ -191,20 +178,9 @@ export default function SettingsScreen() {
                 },
               }}
             />
+        </AppCard>
 
-            <Text variant="bodyMedium" style={styles.themeHint}>
-              Match your device appearance settings.
-            </Text>
-          </LinearGradient>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(180).springify()}>
-          <LinearGradient
-            colors={[colors.glassSurface, colors.surfaceOverlayEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.card}
-          >
+        <AppCard style={styles.card} animated delay={180}>
             <Text variant="headlineSmall" style={styles.sectionTitle}>
               Account
             </Text>
@@ -223,19 +199,16 @@ export default function SettingsScreen() {
             >
               Log Out
             </CustomButton>
-          </LinearGradient>
-        </Animated.View>
+        </AppCard>
       </ScrollView>
 
-      <Snackbar
+      <AppSnackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
         duration={3000}
-        style={{ backgroundColor: colors.surfaceContainerHighest }}
-        theme={{ colors: { onSurface: colors.text } }}
       >
         {snackbarMessage}
-      </Snackbar>
+      </AppSnackbar>
     </ScreenWrapper>
   );
 }
@@ -252,17 +225,7 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
       gap: Spacing.lg,
     },
     card: {
-      borderColor: colors.ghostBorder,
-      borderWidth: 1,
-      borderRadius: Radius.xl,
-      padding: Spacing.lg,
       gap: Spacing.md,
-      overflow: 'hidden',
-      shadowColor: colors.shadowAmbient,
-      shadowOpacity: 0.22,
-      shadowOffset: { width: 0, height: 12 },
-      shadowRadius: 18,
-      elevation: 4,
     },
     sectionHeaderRow: {
       flexDirection: 'row',

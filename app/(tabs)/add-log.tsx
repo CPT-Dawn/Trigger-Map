@@ -8,7 +8,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { IconButton, SegmentedButtons, Snackbar, Switch, Text } from 'react-native-paper';
+import { IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -19,6 +19,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { ItemSelector, type ItemRecord, type ItemSelectorHandle } from '../../components/forms/ItemSelector';
+import { AppCard } from '../../components/ui/AppCard';
+import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { CustomButton } from '../../components/ui/CustomButton';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
@@ -44,6 +46,8 @@ const stressOptions: Array<{ value: StressLevel; label: string }> = [
   { value: 'high', label: 'High' },
 ];
 
+const cardReveal = (delay: number) => FadeInDown.delay(delay).duration(340);
+
 function createPainEntryId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -63,17 +67,8 @@ interface LogSectionCardProps {
 
 function LogSectionCard({ delay, icon, title, subtitle, accentColor, colors, action, children }: LogSectionCardProps) {
   return (
-    <Animated.View entering={FadeInDown.delay(delay).springify()} layout={Layout.springify()}>
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: colors.glassSurface,
-            borderColor: colors.ghostBorder,
-            shadowColor: colors.shadowAmbient,
-          },
-        ]}
-      >
+    <Animated.View entering={cardReveal(delay)} layout={Layout.springify()}>
+      <AppCard style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <View style={styles.cardTitleRow}>
             <View style={[styles.sectionIconShell, { backgroundColor: colors.surfaceContainerLow }]}>
@@ -94,7 +89,7 @@ function LogSectionCard({ delay, icon, title, subtitle, accentColor, colors, act
         </View>
 
         <View style={styles.cardBody}>{children}</View>
-      </View>
+      </AppCard>
     </Animated.View>
   );
 }
@@ -144,17 +139,8 @@ interface PainEntryCardProps {
 
 function PainEntryCard({ entry, index, colors, onChange, onRemove }: PainEntryCardProps) {
   return (
-    <Animated.View entering={FadeInDown.delay(index * 40).springify()} layout={Layout.springify()}>
-      <View
-        style={[
-          styles.painCard,
-          {
-            backgroundColor: colors.glassSurface,
-            borderColor: colors.ghostBorder,
-            shadowColor: colors.shadowAmbient,
-          },
-        ]}
-      >
+    <Animated.View entering={cardReveal(index * 42)} layout={Layout.springify()}>
+      <AppCard style={styles.painCard} variant="subtle">
         <View style={styles.painCardHeader}>
           <Text variant="titleSmall" style={[styles.painBodyPart, { color: colors.text }]} numberOfLines={1}>
             {entry.body_part}
@@ -199,7 +185,7 @@ function PainEntryCard({ entry, index, colors, onChange, onRemove }: PainEntryCa
             color={colors.primary}
           />
         </View>
-      </View>
+      </AppCard>
     </Animated.View>
   );
 }
@@ -655,7 +641,7 @@ export default function AddLogScreen() {
           />
         </LogSectionCard>
 
-        <Animated.View entering={FadeInDown.delay(500).springify()} layout={Layout.springify()}>
+        <Animated.View entering={cardReveal(500)} layout={Layout.springify()}>
           <CustomButton
             mode="contained"
             onPress={handleSaveLog}
@@ -680,16 +666,7 @@ export default function AddLogScreen() {
             onPress={closeBodyPartModal}
           />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalKeyboard}>
-            <View
-              style={[
-                styles.modalCard,
-                {
-                  backgroundColor: colors.glassSurface,
-                  borderColor: colors.ghostBorder,
-                  shadowColor: colors.shadowAmbient,
-                },
-              ]}
-            >
+            <AppCard style={styles.modalCard}>
               <View style={styles.modalHeader}>
                 <Text variant="titleLarge" style={[styles.modalTitle, { color: colors.text }]}>
                   Add Body Part
@@ -720,20 +697,18 @@ export default function AddLogScreen() {
                   Add
                 </CustomButton>
               </View>
-            </View>
+            </AppCard>
           </KeyboardAvoidingView>
         </View>
       </Modal>
 
-      <Snackbar
+      <AppSnackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
         duration={3000}
-        style={{ backgroundColor: colors.surfaceContainerHighest }}
-        theme={{ colors: { onSurface: colors.text } }}
       >
         {snackbarMessage}
-      </Snackbar>
+      </AppSnackbar>
 
       <ItemSelector
         ref={medicineSelectorRef}
@@ -772,8 +747,6 @@ const styles = StyleSheet.create({
       gap: Spacing.lg,
     },
     card: {
-      borderWidth: 1,
-      borderRadius: Radius.xl,
       padding: Spacing.lg,
       gap: Spacing.md,
     },
@@ -830,11 +803,8 @@ const styles = StyleSheet.create({
       textAlign: 'center',
     },
     painCard: {
-      borderWidth: 1,
-      borderRadius: Radius.xl,
       padding: Spacing.md,
       gap: Spacing.md,
-      elevation: 2,
     },
     painCardHeader: {
       flexDirection: 'row',
@@ -928,11 +898,8 @@ const styles = StyleSheet.create({
       justifyContent: 'center',
     },
     modalCard: {
-      borderWidth: 1,
-      borderRadius: Radius.xl,
       padding: Spacing.lg,
       gap: Spacing.md,
-      elevation: 4,
     },
     modalHeader: {
       flexDirection: 'row',
