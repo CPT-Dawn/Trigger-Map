@@ -1386,12 +1386,12 @@ const styles = StyleSheet.create({
   filterBar: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
+    paddingBottom: 10,
   },
   listContent: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: 10,
     paddingBottom: 75,
-    gap: 10,
+    gap: 8,
   },
   headerStack: {
     gap: Spacing.lg,
@@ -1437,19 +1437,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xxs,
     paddingHorizontal: Spacing.xs,
   },
   entryCard: {
     borderRadius: Radius.xl,
     borderWidth: 1,
     padding: Spacing.md,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xxs,
     gap: Spacing.sm,
   },
   swipeContainer: {
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xxs,
     borderRadius: Radius.xl,
     overflow: 'hidden',
   },
