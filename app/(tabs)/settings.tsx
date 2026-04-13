@@ -103,7 +103,7 @@ export default function SettingsScreen() {
       >
         <AppCard style={styles.card} animated delay={60}>
             <View style={styles.sectionHeaderRow}>
-              <Text variant="headlineSmall" style={styles.sectionTitle}>
+              <Text variant="titleLarge" style={styles.sectionTitle}>
                 Profile
               </Text>
             </View>
@@ -111,16 +111,16 @@ export default function SettingsScreen() {
             <View style={styles.profileRow}>
               <ProfileInitialAvatar name={displayName} size={64} />
               <View style={styles.profileMeta}>
-                <Text variant="headlineSmall" style={styles.profileName} numberOfLines={1}>
+                <Text variant="titleMedium" style={styles.profileName} numberOfLines={1}>
                   {trimmedDisplayName || 'Set your name'}
                 </Text>
-                <Text variant="bodyLarge" style={styles.profileEmail} numberOfLines={1}>
+                <Text variant="bodyMedium" style={styles.profileEmail} numberOfLines={1}>
                   {userEmail}
                 </Text>
               </View>
             </View>
 
-            <Text variant="titleMedium" style={styles.inputLabel}>
+            <Text variant="labelLarge" style={styles.inputLabel}>
               Display name
             </Text>
 
@@ -148,10 +148,10 @@ export default function SettingsScreen() {
         </AppCard>
 
         <AppCard style={styles.card} animated delay={120}>
-            <Text variant="headlineSmall" style={styles.sectionTitle}>
+            <Text variant="titleLarge" style={styles.sectionTitle}>
               Theme
             </Text>
-            <Text variant="bodyLarge" style={styles.sectionBody}>
+            <Text variant="bodyMedium" style={styles.sectionBody}>
               Choose how Trigger Map appears across your devices.
             </Text>
 
@@ -181,10 +181,10 @@ export default function SettingsScreen() {
         </AppCard>
 
         <AppCard style={styles.card} animated delay={180}>
-            <Text variant="headlineSmall" style={styles.sectionTitle}>
+            <Text variant="titleLarge" style={styles.sectionTitle}>
               Account
             </Text>
-            <Text variant="bodyLarge" style={styles.sectionBody}>
+            <Text variant="bodyMedium" style={styles.sectionBody}>
               Log out to switch your account.
             </Text>
 
@@ -225,7 +225,7 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
       gap: Spacing.lg,
     },
     card: {
-      gap: Spacing.md,
+      gap: Spacing.sm,
     },
     sectionHeaderRow: {
       flexDirection: 'row',
@@ -235,12 +235,13 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     },
     sectionTitle: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: '600',
+      letterSpacing: 0.2,
     },
     sectionBody: {
       color: colors.textMuted,
-      marginTop: -Spacing.xs,
       marginBottom: Spacing.sm,
+      lineHeight: 20,
     },
     profileRow: {
       flexDirection: 'row',
@@ -254,14 +255,15 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     },
     profileName: {
       color: colors.text,
-      fontWeight: '700',
+      fontWeight: '600',
     },
     profileEmail: {
       color: colors.textMuted,
+      lineHeight: 20,
     },
     inputLabel: {
       color: colors.text,
-      marginBottom: -Spacing.xs,
+      marginBottom: 0,
       fontWeight: '600',
     },
     input: {
