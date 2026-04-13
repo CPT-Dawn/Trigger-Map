@@ -896,11 +896,6 @@ export default function LogsScreen() {
   const visibleEntries = entries.filter((entry) => filter === 'all' || entry.type === filter);
   const visibleSections = groupEntriesByDate(visibleEntries);
 
-  const today = new Date();
-  const visibleTodayCount = visibleEntries.filter((entry) => isSameLocalDay(parseLocalDate(entry.logDate), today)).length;
-  const visibleSymptomsCount = visibleEntries.filter((entry) => entry.type === 'pain' || entry.type === 'stress').length;
-  const visibleContextCount = visibleEntries.filter((entry) => entry.type === 'medicine' || entry.type === 'food').length;
-
   const typeConfig: Record<LogType, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; container: string; iconColor: string }> = {
     pain: {
       label: 'Pain',
@@ -1243,10 +1238,7 @@ export default function LogsScreen() {
                   </View>
                   <View style={styles.deleteModalHeaderText}>
                     <Text variant="titleLarge" style={[styles.cardTitle, { color: colors.text }]}> 
-                      Delete entry
-                    </Text>
-                    <Text variant="bodySmall" style={[styles.deleteModalSubtitle, { color: colors.textMuted }]}> 
-                      This removes the log from your history.
+                      Delete
                     </Text>
                   </View>
                 </View>
@@ -1298,18 +1290,6 @@ export default function LogsScreen() {
                     {pendingDeleteEntry
                       ? `${formatSectionTitle(pendingDeleteEntry.logDate)} · ${formatTime(pendingDeleteEntry.loggedAt)}`
                       : ''}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.deleteModalWarningRow,
-                    { backgroundColor: colors.dangerSoft, borderColor: colors.ghostBorder },
-                  ]}
-                >
-                  <MaterialCommunityIcons name="backup-restore" size={16} color={colors.error} />
-                  <Text variant="bodySmall" style={[styles.deleteModalWarningText, { color: colors.textMuted }]}>
-                    You can undo this for a few seconds after deletion.
                   </Text>
                 </View>
               </View>
