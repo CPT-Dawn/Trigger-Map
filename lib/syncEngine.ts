@@ -216,7 +216,14 @@ export async function pushLocalChanges() {
 
         await runQueueOperation(row);
         removeFromSyncQueue(row.id);
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.code === '22P02') {
+          // Malformed UUID payloads can never sync to Supabase UUID columns.
+          removeFromSyncQueue(row.id);
+          console.warn('[sync] Dropped malformed queue row with invalid UUID payload', { rowId: row.id });
+          continue;
+        }
+
         console.warn('[sync] Failed to push queue row', { rowId: row.id, error });
       }
     }

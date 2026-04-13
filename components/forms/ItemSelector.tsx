@@ -19,7 +19,8 @@ import {
 } from '@gorhom/bottom-sheet';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { Radius, Spacing } from '../../constants/theme';
-import { supabase } from '../../lib/supabase';
+import { addToSyncQueue, createUuid, db } from '../../lib/localDb';
+import { runSync } from '../../lib/syncEngine';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { AppCard } from '../ui/AppCard';
@@ -241,18 +242,17 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from(tableName)
-        .select('id, display_name, name, quantity, unit')
-        .eq('user_id', user.id)
-        .order('display_name', { ascending: true });
+      const nextItems = db.getAllSync<ItemRecord>(
+        `
+          SELECT id, display_name, name, quantity, unit
+          FROM ${tableName}
+          WHERE user_id = ?
+          ORDER BY display_name ASC;
+        `,
+        [user.id],
+      );
 
-      if (error) {
-        throw error;
-      }
-
-      const nextItems = (data ?? []) as ItemRecord[];
-      setItems(nextItems);
+      setItems(sortMasterItems(nextItems));
 
       if (targetEditItemId) {
         const targetItem = nextItems.find((item) => item.id === targetEditItemId);
@@ -347,23 +347,43 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
       setIsSaving(true);
 
       try {
-        const logsDeleteResult = await supabase
-          .from(logTableName)
-          .delete()
-          .eq('user_id', user.id)
-          .eq(logForeignKey, item.id);
+        db.execSync('BEGIN TRANSACTION;');
 
-        if (logsDeleteResult.error) {
-          throw logsDeleteResult.error;
-        }
+        try {
+          const relatedLogRows = db.getAllSync<{ id: string }>(
+            `
+              SELECT id
+              FROM ${logTableName}
+              WHERE user_id = ? AND ${logForeignKey} = ?;
+            `,
+            [user.id, item.id],
+          );
 
-        const { error } = await supabase
-          .from(tableName)
-          .delete()
-          .eq('id', item.id)
-          .eq('user_id', user.id);
+          db.runSync(
+            `
+              DELETE FROM ${logTableName}
+              WHERE user_id = ? AND ${logForeignKey} = ?;
+            `,
+            [user.id, item.id],
+          );
 
-        if (error) {
+          db.runSync(
+            `
+              DELETE FROM ${tableName}
+              WHERE id = ? AND user_id = ?;
+            `,
+            [item.id, user.id],
+          );
+
+          for (const logRow of relatedLogRows) {
+            addToSyncQueue(logTableName, 'DELETE', { id: logRow.id });
+          }
+
+          addToSyncQueue(tableName, 'DELETE', { id: item.id });
+
+          db.execSync('COMMIT;');
+        } catch (error) {
+          db.execSync('ROLLBACK;');
           throw error;
         }
 
@@ -375,6 +395,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
         }
 
         showError(`${displayType} deleted.`);
+        void runSync();
       } catch (error: any) {
         showError(error?.message ?? `Unable to delete this ${displayType.toLowerCase()}.`);
       } finally {
@@ -425,73 +446,103 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
       return;
     }
 
-    const payload = {
-      user_id: user.id,
+    const normalizedUnit = trimmedUnit.length > 0 ? trimmedUnit : null;
+    const basePayload = {
       name: trimmedName,
       quantity: parsedQuantity,
-      unit: trimmedUnit.length > 0 ? trimmedUnit : null,
+      unit: normalizedUnit,
     };
     const resolvedDisplayName = buildMasterItemDisplayName(
       trimmedName,
       parsedQuantity,
-      trimmedUnit.length > 0 ? trimmedUnit : null,
+      normalizedUnit,
     );
 
     setIsSaving(true);
 
     try {
       if (activeForm?.mode === 'edit' && activeForm.itemId) {
-        const { data, error } = await supabase
-          .from(tableName)
-          .update(payload)
-          .eq('id', activeForm.itemId)
-          .eq('user_id', user.id)
-          .select('id, display_name, name, quantity, unit')
-          .single();
+        const resolvedItem: ItemRecord = {
+          id: activeForm.itemId,
+          display_name: resolvedDisplayName,
+          ...basePayload,
+        };
 
-        if (error) {
+        db.execSync('BEGIN TRANSACTION;');
+
+        try {
+          db.runSync(
+            `
+              UPDATE ${tableName}
+              SET name = ?, quantity = ?, unit = ?, display_name = ?
+              WHERE id = ? AND user_id = ?;
+            `,
+            [
+              basePayload.name,
+              basePayload.quantity,
+              basePayload.unit,
+              resolvedItem.display_name,
+              activeForm.itemId,
+              user.id,
+            ],
+          );
+
+          addToSyncQueue(tableName, 'UPDATE', {
+            id: activeForm.itemId,
+            data: basePayload,
+          });
+
+          db.execSync('COMMIT;');
+        } catch (error) {
+          db.execSync('ROLLBACK;');
           throw error;
         }
 
-        if (data) {
-          const nextItem = data as ItemRecord;
-          const resolvedItem = {
-            ...nextItem,
-            display_name: nextItem.display_name ?? resolvedDisplayName,
-          };
-
-          setItems((currentItems) =>
-            sortMasterItems(currentItems.map((currentItem) => (currentItem.id === resolvedItem.id ? resolvedItem : currentItem))),
-          );
-          onMasterItemChange?.(resolvedItem);
-          setSearchQuery(getMasterItemDisplayName(resolvedItem));
-        }
+        setItems((currentItems) =>
+          sortMasterItems(currentItems.map((currentItem) => (currentItem.id === resolvedItem.id ? resolvedItem : currentItem))),
+        );
+        onMasterItemChange?.(resolvedItem);
+        setSearchQuery(getMasterItemDisplayName(resolvedItem));
 
         resetForm();
         showError(`${displayType} updated.`);
+        void runSync();
       } else {
-        const { data, error } = await supabase
-          .from(tableName)
-          .insert(payload)
-          .select('id, display_name, name, quantity, unit')
-          .single();
+        const itemId = createUuid();
+        const resolvedItem: ItemRecord = {
+          id: itemId,
+          display_name: resolvedDisplayName,
+          ...basePayload,
+        };
 
-        if (error) {
+        db.execSync('BEGIN TRANSACTION;');
+
+        try {
+          db.runSync(
+            `
+              INSERT INTO ${tableName} (id, user_id, name, quantity, unit, display_name)
+              VALUES (?, ?, ?, ?, ?, ?);
+            `,
+            [itemId, user.id, basePayload.name, basePayload.quantity, basePayload.unit, resolvedItem.display_name],
+          );
+
+          addToSyncQueue(tableName, 'INSERT', {
+            id: itemId,
+            user_id: user.id,
+            ...basePayload,
+          });
+
+          db.execSync('COMMIT;');
+        } catch (error) {
+          db.execSync('ROLLBACK;');
           throw error;
         }
 
-        if (data) {
-          const createdItem = data as ItemRecord;
-          const resolvedItem = {
-            ...createdItem,
-            display_name: createdItem.display_name ?? resolvedDisplayName,
-          };
-
-          setItems((currentItems) => sortMasterItems([...currentItems, resolvedItem]));
-          onMasterItemChange?.(resolvedItem);
-          onSelect(resolvedItem.id, getMasterItemDisplayName(resolvedItem));
-          closeSheet();
-        }
+        setItems((currentItems) => sortMasterItems([...currentItems, resolvedItem]));
+        onMasterItemChange?.(resolvedItem);
+        onSelect(resolvedItem.id, getMasterItemDisplayName(resolvedItem));
+        closeSheet();
+        void runSync();
 
         resetForm();
       }

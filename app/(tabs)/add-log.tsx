@@ -21,7 +21,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import Slider from '@react-native-community/slider';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { Radius, Spacing } from '../../constants/theme';
-import { addToSyncQueue, db } from '../../lib/localDb';
+import { addToSyncQueue, createUuid, db } from '../../lib/localDb';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { ItemSelector, type ItemRecord, type ItemSelectorHandle } from '../../components/forms/ItemSelector';
@@ -56,14 +56,6 @@ const cardReveal = (delay: number) => FadeInDown.delay(delay).duration(340);
 
 function createPainEntryId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function createRecordId() {
-  if (typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function normalizeStressLevel(level: StressLevel) {
@@ -428,7 +420,7 @@ export default function AddLogScreen() {
       try {
         if (painEntries.length > 0) {
           for (const entry of painEntries) {
-            const id = createRecordId();
+            const id = createUuid();
             const payload = {
               id,
               user_id: user.id,
@@ -461,7 +453,7 @@ export default function AddLogScreen() {
         }
 
         if (stressLevel !== null) {
-          const id = createRecordId();
+          const id = createUuid();
           const normalizedStressLevel = normalizeStressLevel(stressLevel);
           const payload = {
             id,
@@ -485,7 +477,7 @@ export default function AddLogScreen() {
 
         if (selectedMedicines.length > 0) {
           for (const medicine of selectedMedicines) {
-            const id = createRecordId();
+            const id = createUuid();
             const payload = {
               id,
               user_id: user.id,
@@ -509,7 +501,7 @@ export default function AddLogScreen() {
 
         if (selectedFoods.length > 0) {
           for (const food of selectedFoods) {
-            const id = createRecordId();
+            const id = createUuid();
             const payload = {
               id,
               user_id: user.id,

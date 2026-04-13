@@ -21,9 +21,8 @@ import { useIsFocused } from '@react-navigation/native';
 import { Radius, Spacing } from '../../constants/theme';
 import { useAppColors, useThemePreference } from '../../providers/ThemeProvider';
 import { useAuth } from '../../providers/AuthProvider';
-import { db } from '../../lib/localDb';
+import { addToSyncQueue, db } from '../../lib/localDb';
 import { runSync } from '../../lib/syncEngine';
-import { supabase } from '../../lib/supabase';
 import { AppCard } from '../../components/ui/AppCard';
 import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
@@ -217,6 +216,28 @@ function coerceStressLevel(value: StressLevelValue | null | undefined): StressLe
     if (value <= 2) return 'low';
     if (value <= 5) return 'moderate';
     return 'high';
+  }
+
+  return 'none';
+}
+
+function normalizeStressLevel(value: StressLevelValue | string | null | undefined): StressLevel {
+  if (value === 'none' || value === 'low' || value === 'moderate' || value === 'high') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const lowered = value.toLowerCase();
+
+    if (lowered === 'mid') {
+      return 'moderate';
+    }
+
+    return 'none';
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return coerceStressLevel(value);
   }
 
   return 'none';
@@ -606,59 +627,99 @@ export default function LogsScreen() {
     }
 
     if (entry.payload.kind === 'pain') {
-      const { error } = await supabase.from('pain_logs').insert({
+      const payload = {
+        id: entry.payload.row.id,
         user_id: user.id,
         logged_at: entry.loggedAt,
         log_date: entry.logDate,
         body_part: entry.payload.row.body_part,
         pain_level: entry.payload.row.pain_level,
         swelling: entry.payload.row.swelling,
-      });
+      };
 
-      if (error) {
-        throw error;
-      }
+      db.runSync(
+        `
+          INSERT OR REPLACE INTO pain_logs
+          (id, user_id, logged_at, log_date, body_part, pain_level, swelling)
+          VALUES (?, ?, ?, ?, ?, ?, ?);
+        `,
+        [
+          payload.id,
+          payload.user_id,
+          payload.logged_at,
+          payload.log_date,
+          payload.body_part,
+          payload.pain_level,
+          payload.swelling === null ? null : payload.swelling ? 1 : 0,
+        ],
+      );
+
+      addToSyncQueue('pain_logs', 'INSERT', payload);
       return;
     }
 
     if (entry.payload.kind === 'stress') {
-      const { error } = await supabase.from('stress_logs').insert({
+      const payload = {
+        id: entry.payload.row.id,
         user_id: user.id,
         logged_at: entry.loggedAt,
         log_date: entry.logDate,
-        level: entry.payload.row.level,
-      });
+        level: normalizeStressLevel(entry.payload.row.level),
+      };
 
-      if (error) {
-        throw error;
-      }
+      db.runSync(
+        `
+          INSERT OR REPLACE INTO stress_logs
+          (id, user_id, logged_at, log_date, level)
+          VALUES (?, ?, ?, ?, ?);
+        `,
+        [payload.id, payload.user_id, payload.logged_at, payload.log_date, payload.level],
+      );
+
+      addToSyncQueue('stress_logs', 'INSERT', payload);
       return;
     }
 
     if (entry.payload.kind === 'medicine') {
-      const { error } = await supabase.from('medicine_logs').insert({
+      const payload = {
+        id: entry.payload.row.id,
         user_id: user.id,
         medicine_id: entry.payload.row.medicine_id,
         logged_at: entry.loggedAt,
         log_date: entry.logDate,
-      });
+      };
 
-      if (error) {
-        throw error;
-      }
+      db.runSync(
+        `
+          INSERT OR REPLACE INTO medicine_logs
+          (id, user_id, medicine_id, logged_at, log_date)
+          VALUES (?, ?, ?, ?, ?);
+        `,
+        [payload.id, payload.user_id, payload.medicine_id, payload.logged_at, payload.log_date],
+      );
+
+      addToSyncQueue('medicine_logs', 'INSERT', payload);
       return;
     }
 
-    const { error } = await supabase.from('food_logs').insert({
+    const payload = {
+      id: entry.payload.row.id,
       user_id: user.id,
       food_id: entry.payload.row.food_id,
       logged_at: entry.loggedAt,
       log_date: entry.logDate,
-    });
+    };
 
-    if (error) {
-      throw error;
-    }
+    db.runSync(
+      `
+        INSERT OR REPLACE INTO food_logs
+        (id, user_id, food_id, logged_at, log_date)
+        VALUES (?, ?, ?, ?, ?);
+      `,
+      [payload.id, payload.user_id, payload.food_id, payload.logged_at, payload.log_date],
+    );
+
+    addToSyncQueue('food_logs', 'INSERT', payload);
   };
 
   const deleteLogEntry = async (entry: TimelineEntry) => {
@@ -669,21 +730,17 @@ export default function LogsScreen() {
 
     try {
       if (entry.payload.kind === 'pain') {
-        const { error } = await supabase.from('pain_logs').delete().eq('id', entry.payload.row.id).eq('user_id', user.id);
-
-        if (error) throw error;
+        db.runSync('DELETE FROM pain_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
+        addToSyncQueue('pain_logs', 'DELETE', { id: entry.payload.row.id });
       } else if (entry.payload.kind === 'stress') {
-        const { error } = await supabase.from('stress_logs').delete().eq('id', entry.payload.row.id).eq('user_id', user.id);
-
-        if (error) throw error;
+        db.runSync('DELETE FROM stress_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
+        addToSyncQueue('stress_logs', 'DELETE', { id: entry.payload.row.id });
       } else if (entry.payload.kind === 'medicine') {
-        const { error } = await supabase.from('medicine_logs').delete().eq('id', entry.payload.row.id).eq('user_id', user.id);
-
-        if (error) throw error;
+        db.runSync('DELETE FROM medicine_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
+        addToSyncQueue('medicine_logs', 'DELETE', { id: entry.payload.row.id });
       } else {
-        const { error } = await supabase.from('food_logs').delete().eq('id', entry.payload.row.id).eq('user_id', user.id);
-
-        if (error) throw error;
+        db.runSync('DELETE FROM food_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
+        addToSyncQueue('food_logs', 'DELETE', { id: entry.payload.row.id });
       }
 
     } catch (error: any) {
@@ -701,6 +758,7 @@ export default function LogsScreen() {
     try {
       setIsDeletingEntry(true);
       await deleteLogEntry(pendingDeleteEntry);
+      void runSync();
       setDeletedEntry(pendingDeleteEntry);
       setUndoVisible(true);
       closeDeleteConfirm();
@@ -719,6 +777,7 @@ export default function LogsScreen() {
 
     try {
       await insertPayloadRow(deletedEntry);
+      void runSync();
       setUndoVisible(false);
       setDeletedEntry(null);
       await loadLogs('refresh');
@@ -745,53 +804,88 @@ export default function LogsScreen() {
           return;
         }
 
-        const { error } = await supabase
-          .from('pain_logs')
-          .update({
-            body_part: editPainBodyPart.trim(),
-            pain_level: editPainLevel,
-            swelling: editPainSwelling,
-          })
-          .eq('id', editingEntry.payload.row.id)
-          .eq('user_id', user.id);
+        const updateData = {
+          body_part: editPainBodyPart.trim(),
+          pain_level: editPainLevel,
+          swelling: editPainSwelling,
+        };
 
-        if (error) throw error;
+        db.runSync(
+          `
+            UPDATE pain_logs
+            SET body_part = ?, pain_level = ?, swelling = ?
+            WHERE id = ? AND user_id = ?;
+          `,
+          [
+            updateData.body_part,
+            updateData.pain_level,
+            updateData.swelling ? 1 : 0,
+            editingEntry.payload.row.id,
+            user.id,
+          ],
+        );
+
+        addToSyncQueue('pain_logs', 'UPDATE', {
+          id: editingEntry.payload.row.id,
+          data: updateData,
+        });
       } else if (editingEntry.payload.kind === 'stress') {
-        const { error } = await supabase
-          .from('stress_logs')
-          .update({ level: editStressLevel })
-          .eq('id', editingEntry.payload.row.id)
-          .eq('user_id', user.id);
+        const normalizedLevel = normalizeStressLevel(editStressLevel);
 
-        if (error) throw error;
+        db.runSync(
+          `
+            UPDATE stress_logs
+            SET level = ?
+            WHERE id = ? AND user_id = ?;
+          `,
+          [normalizedLevel, editingEntry.payload.row.id, user.id],
+        );
+
+        addToSyncQueue('stress_logs', 'UPDATE', {
+          id: editingEntry.payload.row.id,
+          data: { level: normalizedLevel },
+        });
       } else if (editingEntry.payload.kind === 'medicine') {
         if (!editSelectedItem) {
           showError('Select a medicine before saving.');
           return;
         }
 
-        const { error } = await supabase
-          .from('medicine_logs')
-          .update({ medicine_id: editSelectedItem.id })
-          .eq('id', editingEntry.payload.row.id)
-          .eq('user_id', user.id);
+        db.runSync(
+          `
+            UPDATE medicine_logs
+            SET medicine_id = ?
+            WHERE id = ? AND user_id = ?;
+          `,
+          [editSelectedItem.id, editingEntry.payload.row.id, user.id],
+        );
 
-        if (error) throw error;
+        addToSyncQueue('medicine_logs', 'UPDATE', {
+          id: editingEntry.payload.row.id,
+          data: { medicine_id: editSelectedItem.id },
+        });
       } else {
         if (!editSelectedItem) {
           showError('Select a food item before saving.');
           return;
         }
 
-        const { error } = await supabase
-          .from('food_logs')
-          .update({ food_id: editSelectedItem.id })
-          .eq('id', editingEntry.payload.row.id)
-          .eq('user_id', user.id);
+        db.runSync(
+          `
+            UPDATE food_logs
+            SET food_id = ?
+            WHERE id = ? AND user_id = ?;
+          `,
+          [editSelectedItem.id, editingEntry.payload.row.id, user.id],
+        );
 
-        if (error) throw error;
+        addToSyncQueue('food_logs', 'UPDATE', {
+          id: editingEntry.payload.row.id,
+          data: { food_id: editSelectedItem.id },
+        });
       }
 
+      void runSync();
       closeEditor();
       await loadLogs('refresh');
     } catch (error: any) {
