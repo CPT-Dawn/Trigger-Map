@@ -72,6 +72,10 @@ interface MedicineLogRow {
   logged_at: string;
   log_date: string;
   medicine_id: string;
+  item_display_name: string | null;
+  item_name: string | null;
+  item_quantity: number | null;
+  item_unit: string | null;
 }
 
 interface FoodLogRow {
@@ -79,6 +83,10 @@ interface FoodLogRow {
   logged_at: string;
   log_date: string;
   food_id: string;
+  item_display_name: string | null;
+  item_name: string | null;
+  item_quantity: number | null;
+  item_unit: string | null;
 }
 
 interface UserItemRow {
@@ -87,6 +95,13 @@ interface UserItemRow {
   name: string | null;
   quantity: number | null;
   unit: string | null;
+}
+
+interface ItemSnapshotRow {
+  name: string | null;
+  quantity: number | null;
+  unit: string | null;
+  display_name: string | null;
 }
 
 interface TimelineEntry {
@@ -271,6 +286,25 @@ function formatItemQuantityAndUnit(item?: UserItemRow | null) {
 
   const quantity = item.quantity !== null && item.quantity !== undefined ? String(item.quantity) : '';
   const unit = item.unit?.trim() ?? '';
+
+  if (quantity && unit) {
+    return `${quantity} ${unit}`;
+  }
+
+  if (quantity) {
+    return quantity;
+  }
+
+  if (unit) {
+    return unit;
+  }
+
+  return '';
+}
+
+function formatSnapshotQuantityAndUnit(quantityValue: number | null | undefined, unitValue: string | null | undefined) {
+  const quantity = quantityValue !== null && quantityValue !== undefined ? String(quantityValue) : '';
+  const unit = unitValue?.trim() ?? '';
 
   if (quantity && unit) {
     return `${quantity} ${unit}`;
@@ -681,10 +715,15 @@ export default function LogsScreen() {
     }
 
     if (entry.payload.kind === 'medicine') {
+      const itemDisplayName = entry.payload.row.item_display_name?.trim() || entry.title;
       const payload = {
         id: entry.payload.row.id,
         user_id: user.id,
         medicine_id: entry.payload.row.medicine_id,
+        item_display_name: itemDisplayName,
+        item_name: entry.payload.row.item_name,
+        item_quantity: entry.payload.row.item_quantity,
+        item_unit: entry.payload.row.item_unit,
         logged_at: entry.loggedAt,
         log_date: entry.logDate,
       };
@@ -692,20 +731,41 @@ export default function LogsScreen() {
       db.runSync(
         `
           INSERT OR REPLACE INTO medicine_logs
-          (id, user_id, medicine_id, logged_at, log_date)
-          VALUES (?, ?, ?, ?, ?);
+          (id, user_id, medicine_id, item_display_name, item_name, item_quantity, item_unit, logged_at, log_date)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         `,
-        [payload.id, payload.user_id, payload.medicine_id, payload.logged_at, payload.log_date],
+        [
+          payload.id,
+          payload.user_id,
+          payload.medicine_id,
+          payload.item_display_name,
+          payload.item_name,
+          payload.item_quantity,
+          payload.item_unit,
+          payload.logged_at,
+          payload.log_date,
+        ],
       );
 
-      addToSyncQueue('medicine_logs', 'INSERT', payload);
+      addToSyncQueue('medicine_logs', 'INSERT', {
+        id: payload.id,
+        user_id: payload.user_id,
+        medicine_id: payload.medicine_id,
+        logged_at: payload.logged_at,
+        log_date: payload.log_date,
+      });
       return;
     }
 
+    const itemDisplayName = entry.payload.row.item_display_name?.trim() || entry.title;
     const payload = {
       id: entry.payload.row.id,
       user_id: user.id,
       food_id: entry.payload.row.food_id,
+      item_display_name: itemDisplayName,
+      item_name: entry.payload.row.item_name,
+      item_quantity: entry.payload.row.item_quantity,
+      item_unit: entry.payload.row.item_unit,
       logged_at: entry.loggedAt,
       log_date: entry.logDate,
     };
@@ -713,13 +773,29 @@ export default function LogsScreen() {
     db.runSync(
       `
         INSERT OR REPLACE INTO food_logs
-        (id, user_id, food_id, logged_at, log_date)
-        VALUES (?, ?, ?, ?, ?);
+        (id, user_id, food_id, item_display_name, item_name, item_quantity, item_unit, logged_at, log_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
       `,
-      [payload.id, payload.user_id, payload.food_id, payload.logged_at, payload.log_date],
+      [
+        payload.id,
+        payload.user_id,
+        payload.food_id,
+        payload.item_display_name,
+        payload.item_name,
+        payload.item_quantity,
+        payload.item_unit,
+        payload.logged_at,
+        payload.log_date,
+      ],
     );
 
-    addToSyncQueue('food_logs', 'INSERT', payload);
+    addToSyncQueue('food_logs', 'INSERT', {
+      id: payload.id,
+      user_id: payload.user_id,
+      food_id: payload.food_id,
+      logged_at: payload.logged_at,
+      log_date: payload.log_date,
+    });
   };
 
   const deleteLogEntry = async (entry: TimelineEntry) => {
@@ -851,13 +927,35 @@ export default function LogsScreen() {
           return;
         }
 
+        const snapshotRow = db.getFirstSync<ItemSnapshotRow>(
+          `
+            SELECT name, quantity, unit, display_name
+            FROM user_medicines
+            WHERE id = ? AND user_id = ?;
+          `,
+          [editSelectedItem.id, user.id],
+        );
+
+        const nextItemName = snapshotRow?.name?.trim() || editSelectedItem.name;
+        const nextItemQuantity = snapshotRow?.quantity ?? null;
+        const nextItemUnit = snapshotRow?.unit?.trim() || null;
+        const nextItemDisplayName = snapshotRow?.display_name?.trim() || editSelectedItem.name;
+
         db.runSync(
           `
             UPDATE medicine_logs
-            SET medicine_id = ?
+            SET medicine_id = ?, item_display_name = ?, item_name = ?, item_quantity = ?, item_unit = ?
             WHERE id = ? AND user_id = ?;
           `,
-          [editSelectedItem.id, editingEntry.payload.row.id, user.id],
+          [
+            editSelectedItem.id,
+            nextItemDisplayName,
+            nextItemName,
+            nextItemQuantity,
+            nextItemUnit,
+            editingEntry.payload.row.id,
+            user.id,
+          ],
         );
 
         addToSyncQueue('medicine_logs', 'UPDATE', {
@@ -870,13 +968,35 @@ export default function LogsScreen() {
           return;
         }
 
+        const snapshotRow = db.getFirstSync<ItemSnapshotRow>(
+          `
+            SELECT name, quantity, unit, display_name
+            FROM user_foods
+            WHERE id = ? AND user_id = ?;
+          `,
+          [editSelectedItem.id, user.id],
+        );
+
+        const nextItemName = snapshotRow?.name?.trim() || editSelectedItem.name;
+        const nextItemQuantity = snapshotRow?.quantity ?? null;
+        const nextItemUnit = snapshotRow?.unit?.trim() || null;
+        const nextItemDisplayName = snapshotRow?.display_name?.trim() || editSelectedItem.name;
+
         db.runSync(
           `
             UPDATE food_logs
-            SET food_id = ?
+            SET food_id = ?, item_display_name = ?, item_name = ?, item_quantity = ?, item_unit = ?
             WHERE id = ? AND user_id = ?;
           `,
-          [editSelectedItem.id, editingEntry.payload.row.id, user.id],
+          [
+            editSelectedItem.id,
+            nextItemDisplayName,
+            nextItemName,
+            nextItemQuantity,
+            nextItemUnit,
+            editingEntry.payload.row.id,
+            user.id,
+          ],
         );
 
         addToSyncQueue('food_logs', 'UPDATE', {
@@ -933,7 +1053,7 @@ export default function LogsScreen() {
       );
       const medicineRows = db.getAllSync<MedicineLogRow>(
         `
-          SELECT id, logged_at, log_date, medicine_id
+          SELECT id, logged_at, log_date, medicine_id, item_display_name, item_name, item_quantity, item_unit
           FROM medicine_logs
           WHERE user_id = ?${dateClause}
           ORDER BY logged_at DESC;
@@ -942,7 +1062,7 @@ export default function LogsScreen() {
       );
       const foodRows = db.getAllSync<FoodLogRow>(
         `
-          SELECT id, logged_at, log_date, food_id
+          SELECT id, logged_at, log_date, food_id, item_display_name, item_name, item_quantity, item_unit
           FROM food_logs
           WHERE user_id = ?${dateClause}
           ORDER BY logged_at DESC;
@@ -998,14 +1118,17 @@ export default function LogsScreen() {
 
       const medicineEntries: TimelineEntry[] = medicineRows.map((row: MedicineLogRow) => {
         const medicineItem = medicineItems.get(row.medicine_id) ?? null;
-        const medicineDose = formatItemQuantityAndUnit(medicineItem);
+        const snapshotTitle = row.item_name?.trim() || row.item_display_name?.trim() || '';
+        const snapshotDose = formatSnapshotQuantityAndUnit(row.item_quantity, row.item_unit);
+        const medicineDose = snapshotDose || formatItemQuantityAndUnit(medicineItem);
+        const resolvedTitle = snapshotTitle || buildDisplayName(medicineItem);
 
         return {
           id: `medicine-${row.id}`,
           type: 'medicine',
           logDate: row.log_date,
           loggedAt: row.logged_at,
-          title: buildDisplayName(medicineItem),
+          title: resolvedTitle,
           subtitle: medicineDose ? `${medicineDose} • ${formatTime(row.logged_at)}` : formatTime(row.logged_at),
           payload: { kind: 'medicine', row, item: medicineItem },
         };
@@ -1013,14 +1136,17 @@ export default function LogsScreen() {
 
       const foodEntries: TimelineEntry[] = foodRows.map((row: FoodLogRow) => {
         const foodItem = foodItems.get(row.food_id) ?? null;
-        const serving = formatItemQuantityAndUnit(foodItem);
+        const snapshotTitle = row.item_name?.trim() || row.item_display_name?.trim() || '';
+        const snapshotServing = formatSnapshotQuantityAndUnit(row.item_quantity, row.item_unit);
+        const serving = snapshotServing || formatItemQuantityAndUnit(foodItem);
+        const resolvedTitle = snapshotTitle || buildDisplayName(foodItem);
 
         return {
           id: `food-${row.id}`,
           type: 'food',
           logDate: row.log_date,
           loggedAt: row.logged_at,
-          title: buildDisplayName(foodItem),
+          title: resolvedTitle,
           subtitle: serving ? `${serving} • ${formatTime(row.logged_at)}` : formatTime(row.logged_at),
           payload: { kind: 'food', row, item: foodItem },
         };

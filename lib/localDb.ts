@@ -21,6 +21,10 @@ interface QueueRowForMigration {
   payload: string;
 }
 
+interface TableColumnInfoRow {
+  name: string;
+}
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function isLogTableName(tableName: string): tableName is LogTableName {
@@ -204,6 +208,135 @@ function runLocalIdRepairMigration() {
   repairSyncQueuePayloadIds(idMapByTable);
 }
 
+function hasColumn(tableName: string, columnName: string) {
+  const columns = db.getAllSync<TableColumnInfoRow>(`PRAGMA table_info(${tableName});`);
+
+  return columns.some((column) => column.name === columnName);
+}
+
+function ensureColumn(tableName: string, columnName: string, definition: string) {
+  if (hasColumn(tableName, columnName)) {
+    return;
+  }
+
+  db.execSync(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition};`);
+}
+
+function backfillLogItemDisplayNames() {
+  db.execSync(`
+    UPDATE medicine_logs
+    SET
+      item_name = CASE
+        WHEN item_name IS NOT NULL AND TRIM(item_name) <> '' THEN item_name
+        ELSE (
+          SELECT um.name
+          FROM user_medicines AS um
+          WHERE um.id = medicine_logs.medicine_id AND um.user_id = medicine_logs.user_id
+        )
+      END,
+      item_quantity = COALESCE(
+        item_quantity,
+        (
+          SELECT um.quantity
+          FROM user_medicines AS um
+          WHERE um.id = medicine_logs.medicine_id AND um.user_id = medicine_logs.user_id
+        )
+      ),
+      item_unit = CASE
+        WHEN item_unit IS NOT NULL AND TRIM(item_unit) <> '' THEN item_unit
+        ELSE (
+          SELECT um.unit
+          FROM user_medicines AS um
+          WHERE um.id = medicine_logs.medicine_id AND um.user_id = medicine_logs.user_id
+        )
+      END,
+      item_display_name = CASE
+        WHEN item_display_name IS NOT NULL AND TRIM(item_display_name) <> '' THEN item_display_name
+        ELSE (
+          SELECT CASE
+            WHEN um.display_name IS NOT NULL AND TRIM(um.display_name) <> '' THEN um.display_name
+            WHEN um.name IS NOT NULL AND TRIM(um.name) <> '' THEN um.name
+            ELSE NULL
+          END
+          FROM user_medicines AS um
+          WHERE um.id = medicine_logs.medicine_id AND um.user_id = medicine_logs.user_id
+        )
+      END
+    WHERE
+      item_name IS NULL OR TRIM(item_name) = '' OR
+      item_quantity IS NULL OR
+      item_unit IS NULL OR TRIM(item_unit) = '' OR
+      item_display_name IS NULL OR TRIM(item_display_name) = '';
+
+    UPDATE food_logs
+    SET
+      item_name = CASE
+        WHEN item_name IS NOT NULL AND TRIM(item_name) <> '' THEN item_name
+        ELSE (
+          SELECT uf.name
+          FROM user_foods AS uf
+          WHERE uf.id = food_logs.food_id AND uf.user_id = food_logs.user_id
+        )
+      END,
+      item_quantity = COALESCE(
+        item_quantity,
+        (
+          SELECT uf.quantity
+          FROM user_foods AS uf
+          WHERE uf.id = food_logs.food_id AND uf.user_id = food_logs.user_id
+        )
+      ),
+      item_unit = CASE
+        WHEN item_unit IS NOT NULL AND TRIM(item_unit) <> '' THEN item_unit
+        ELSE (
+          SELECT uf.unit
+          FROM user_foods AS uf
+          WHERE uf.id = food_logs.food_id AND uf.user_id = food_logs.user_id
+        )
+      END,
+      item_display_name = CASE
+        WHEN item_display_name IS NOT NULL AND TRIM(item_display_name) <> '' THEN item_display_name
+        ELSE (
+          SELECT CASE
+            WHEN uf.display_name IS NOT NULL AND TRIM(uf.display_name) <> '' THEN uf.display_name
+            WHEN uf.name IS NOT NULL AND TRIM(uf.name) <> '' THEN uf.name
+            ELSE NULL
+          END
+          FROM user_foods AS uf
+          WHERE uf.id = food_logs.food_id AND uf.user_id = food_logs.user_id
+        )
+      END
+    WHERE
+      item_name IS NULL OR TRIM(item_name) = '' OR
+      item_quantity IS NULL OR
+      item_unit IS NULL OR TRIM(item_unit) = '' OR
+      item_display_name IS NULL OR TRIM(item_display_name) = '';
+  `);
+}
+
+function applySchemaMigrations() {
+  ensureColumn('medicine_logs', 'item_display_name', 'TEXT');
+  ensureColumn('medicine_logs', 'item_name', 'TEXT');
+  ensureColumn('medicine_logs', 'item_quantity', 'REAL');
+  ensureColumn('medicine_logs', 'item_unit', 'TEXT');
+  ensureColumn('food_logs', 'item_display_name', 'TEXT');
+  ensureColumn('food_logs', 'item_name', 'TEXT');
+  ensureColumn('food_logs', 'item_quantity', 'REAL');
+  ensureColumn('food_logs', 'item_unit', 'TEXT');
+
+  db.execSync(`
+    CREATE INDEX IF NOT EXISTS idx_sync_queue_created_at ON sync_queue(created_at);
+    CREATE INDEX IF NOT EXISTS idx_user_medicines_user_id ON user_medicines(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_foods_user_id ON user_foods(user_id);
+    CREATE INDEX IF NOT EXISTS idx_pain_logs_user_logged_at ON pain_logs(user_id, logged_at);
+    CREATE INDEX IF NOT EXISTS idx_stress_logs_user_logged_at ON stress_logs(user_id, logged_at);
+    CREATE INDEX IF NOT EXISTS idx_medicine_logs_user_logged_at ON medicine_logs(user_id, logged_at);
+    CREATE INDEX IF NOT EXISTS idx_food_logs_user_logged_at ON food_logs(user_id, logged_at);
+  `);
+
+  backfillLogItemDisplayNames();
+}
+
 export function initLocalDB() {
   db.execSync(`
     PRAGMA journal_mode = WAL;
@@ -249,6 +382,10 @@ export function initLocalDB() {
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       medicine_id TEXT NOT NULL,
+      item_display_name TEXT,
+      item_name TEXT,
+      item_quantity REAL,
+      item_unit TEXT,
       logged_at TEXT NOT NULL,
       log_date TEXT NOT NULL
     );
@@ -257,6 +394,10 @@ export function initLocalDB() {
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       food_id TEXT NOT NULL,
+      item_display_name TEXT,
+      item_name TEXT,
+      item_quantity REAL,
+      item_unit TEXT,
       logged_at TEXT NOT NULL,
       log_date TEXT NOT NULL
     );
@@ -280,8 +421,9 @@ export function initLocalDB() {
       updated_at TEXT NOT NULL
     );
 
-    CREATE INDEX IF NOT EXISTS idx_sync_queue_created_at ON sync_queue(created_at);
   `);
+
+  applySchemaMigrations();
 
   runLocalIdRepairMigration();
 }

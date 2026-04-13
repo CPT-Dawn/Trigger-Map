@@ -446,9 +446,30 @@ function upsertMedicineLogs(rows: MedicineLogRow[]) {
   for (const row of rows) {
     db.runSync(
       `
-        INSERT OR REPLACE INTO medicine_logs
+        INSERT INTO medicine_logs
         (id, user_id, medicine_id, logged_at, log_date)
-        VALUES (?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          user_id = excluded.user_id,
+          medicine_id = excluded.medicine_id,
+          item_display_name = CASE
+            WHEN medicine_logs.medicine_id = excluded.medicine_id THEN medicine_logs.item_display_name
+            ELSE NULL
+          END,
+          item_name = CASE
+            WHEN medicine_logs.medicine_id = excluded.medicine_id THEN medicine_logs.item_name
+            ELSE NULL
+          END,
+          item_quantity = CASE
+            WHEN medicine_logs.medicine_id = excluded.medicine_id THEN medicine_logs.item_quantity
+            ELSE NULL
+          END,
+          item_unit = CASE
+            WHEN medicine_logs.medicine_id = excluded.medicine_id THEN medicine_logs.item_unit
+            ELSE NULL
+          END,
+          logged_at = excluded.logged_at,
+          log_date = excluded.log_date;
       `,
       [row.id, row.user_id, row.medicine_id, row.logged_at, row.log_date],
     );
@@ -459,13 +480,110 @@ function upsertFoodLogs(rows: FoodLogRow[]) {
   for (const row of rows) {
     db.runSync(
       `
-        INSERT OR REPLACE INTO food_logs
+        INSERT INTO food_logs
         (id, user_id, food_id, logged_at, log_date)
-        VALUES (?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          user_id = excluded.user_id,
+          food_id = excluded.food_id,
+          item_display_name = CASE
+            WHEN food_logs.food_id = excluded.food_id THEN food_logs.item_display_name
+            ELSE NULL
+          END,
+          item_name = CASE
+            WHEN food_logs.food_id = excluded.food_id THEN food_logs.item_name
+            ELSE NULL
+          END,
+          item_quantity = CASE
+            WHEN food_logs.food_id = excluded.food_id THEN food_logs.item_quantity
+            ELSE NULL
+          END,
+          item_unit = CASE
+            WHEN food_logs.food_id = excluded.food_id THEN food_logs.item_unit
+            ELSE NULL
+          END,
+          logged_at = excluded.logged_at,
+          log_date = excluded.log_date;
       `,
       [row.id, row.user_id, row.food_id, row.logged_at, row.log_date],
     );
   }
+}
+
+function backfillRecentLogSnapshots(userId: string) {
+  db.runSync(
+    `
+      UPDATE medicine_logs
+      SET item_display_name = (
+        SELECT CASE
+          WHEN um.display_name IS NOT NULL AND TRIM(um.display_name) <> '' THEN um.display_name
+          WHEN um.name IS NOT NULL AND TRIM(um.name) <> '' THEN um.name
+          ELSE NULL
+        END
+        FROM user_medicines AS um
+        WHERE um.id = medicine_logs.medicine_id AND um.user_id = medicine_logs.user_id
+      ),
+      item_name = (
+        SELECT um.name
+        FROM user_medicines AS um
+        WHERE um.id = medicine_logs.medicine_id AND um.user_id = medicine_logs.user_id
+      ),
+      item_quantity = (
+        SELECT um.quantity
+        FROM user_medicines AS um
+        WHERE um.id = medicine_logs.medicine_id AND um.user_id = medicine_logs.user_id
+      ),
+      item_unit = (
+        SELECT um.unit
+        FROM user_medicines AS um
+        WHERE um.id = medicine_logs.medicine_id AND um.user_id = medicine_logs.user_id
+      )
+      WHERE user_id = ? AND (
+        item_display_name IS NULL OR TRIM(item_display_name) = '' OR
+        item_name IS NULL OR TRIM(item_name) = '' OR
+        item_quantity IS NULL OR
+        item_unit IS NULL OR TRIM(item_unit) = ''
+      );
+    `,
+    [userId],
+  );
+
+  db.runSync(
+    `
+      UPDATE food_logs
+      SET item_display_name = (
+        SELECT CASE
+          WHEN uf.display_name IS NOT NULL AND TRIM(uf.display_name) <> '' THEN uf.display_name
+          WHEN uf.name IS NOT NULL AND TRIM(uf.name) <> '' THEN uf.name
+          ELSE NULL
+        END
+        FROM user_foods AS uf
+        WHERE uf.id = food_logs.food_id AND uf.user_id = food_logs.user_id
+      ),
+      item_name = (
+        SELECT uf.name
+        FROM user_foods AS uf
+        WHERE uf.id = food_logs.food_id AND uf.user_id = food_logs.user_id
+      ),
+      item_quantity = (
+        SELECT uf.quantity
+        FROM user_foods AS uf
+        WHERE uf.id = food_logs.food_id AND uf.user_id = food_logs.user_id
+      ),
+      item_unit = (
+        SELECT uf.unit
+        FROM user_foods AS uf
+        WHERE uf.id = food_logs.food_id AND uf.user_id = food_logs.user_id
+      )
+      WHERE user_id = ? AND (
+        item_display_name IS NULL OR TRIM(item_display_name) = '' OR
+        item_name IS NULL OR TRIM(item_name) = '' OR
+        item_quantity IS NULL OR
+        item_unit IS NULL OR TRIM(item_unit) = ''
+      );
+    `,
+    [userId],
+  );
 }
 
 async function fetchRecentLogsFromSupabase(userId: string) {
@@ -562,6 +680,7 @@ export async function pullRemoteChanges() {
       upsertStressLogs(recentLogs.stressLogs);
       upsertMedicineLogs(recentLogs.medicineLogs);
       upsertFoodLogs(recentLogs.foodLogs);
+      backfillRecentLogSnapshots(user.id);
       db.execSync('COMMIT;');
     } catch (error) {
       db.execSync('ROLLBACK;');

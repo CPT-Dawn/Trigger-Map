@@ -350,23 +350,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
         db.execSync('BEGIN TRANSACTION;');
 
         try {
-          const relatedLogRows = db.getAllSync<{ id: string }>(
-            `
-              SELECT id
-              FROM ${logTableName}
-              WHERE user_id = ? AND ${logForeignKey} = ?;
-            `,
-            [user.id, item.id],
-          );
-
-          db.runSync(
-            `
-              DELETE FROM ${logTableName}
-              WHERE user_id = ? AND ${logForeignKey} = ?;
-            `,
-            [user.id, item.id],
-          );
-
           db.runSync(
             `
               DELETE FROM ${tableName}
@@ -374,10 +357,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
             `,
             [item.id, user.id],
           );
-
-          for (const logRow of relatedLogRows) {
-            addToSyncQueue(logTableName, 'DELETE', { id: logRow.id });
-          }
 
           addToSyncQueue(tableName, 'DELETE', { id: item.id });
 
@@ -402,14 +381,32 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
         setIsSaving(false);
       }
     },
-    [activeForm, displayType, logForeignKey, logTableName, onMasterItemDelete, resetForm, showError, tableName, user],
+    [activeForm, displayType, onMasterItemDelete, resetForm, showError, tableName, user],
   );
 
   const handleDeleteMasterItem = useCallback(
     (item: ItemRecord) => {
+      const relatedLogCount = user
+        ? Number(
+            db.getFirstSync<{ count: number }>(
+              `
+                SELECT COUNT(1) AS count
+                FROM ${logTableName}
+                WHERE user_id = ? AND ${logForeignKey} = ?;
+              `,
+              [user.id, item.id],
+            )?.count ?? 0,
+          )
+        : 0;
+
+      const linkedLogsHint =
+        relatedLogCount > 0
+          ? `This item is referenced by ${relatedLogCount} historical log${relatedLogCount === 1 ? '' : 's'}. Existing logs will be kept.`
+          : 'This only removes the saved item from future selections.';
+
       Alert.alert(
         'Delete saved item?',
-        'Delete this saved item? This will remove historical logs associated with it.',
+        linkedLogsHint,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -422,7 +419,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
         ],
       );
     },
-    [performDeleteMasterItem],
+    [logForeignKey, logTableName, performDeleteMasterItem, user],
   );
 
   const handleSubmitMasterItem = useCallback(async () => {

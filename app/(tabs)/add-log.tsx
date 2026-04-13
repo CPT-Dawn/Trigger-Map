@@ -35,6 +35,13 @@ interface SelectedItem {
   name: string;
 }
 
+interface ItemSnapshotRow {
+  name: string | null;
+  quantity: number | null;
+  unit: string | null;
+  display_name: string | null;
+}
+
 interface PainEntry {
   id: string;
   body_part: string;
@@ -475,7 +482,21 @@ export default function AddLogScreen() {
         if (selectedMedicines.length > 0) {
           for (const medicine of selectedMedicines) {
             const id = createUuid();
-            const payload = {
+            const snapshotRow = db.getFirstSync<ItemSnapshotRow>(
+              `
+                SELECT name, quantity, unit, display_name
+                FROM user_medicines
+                WHERE id = ? AND user_id = ?;
+              `,
+              [medicine.id, user.id],
+            );
+
+            const itemName = snapshotRow?.name?.trim() || medicine.name;
+            const itemQuantity = snapshotRow?.quantity ?? null;
+            const itemUnit = snapshotRow?.unit?.trim() || null;
+            const itemDisplayName = snapshotRow?.display_name?.trim() || medicine.name;
+
+            const queuePayload = {
               id,
               user_id: user.id,
               medicine_id: medicine.id,
@@ -483,23 +504,55 @@ export default function AddLogScreen() {
               log_date: logDateString,
             };
 
+            const localRow = {
+              ...queuePayload,
+              item_display_name: itemDisplayName,
+              item_name: itemName,
+              item_quantity: itemQuantity,
+              item_unit: itemUnit,
+            };
+
             db.runSync(
               `
                 INSERT INTO medicine_logs
-                (id, user_id, medicine_id, logged_at, log_date)
-                VALUES (?, ?, ?, ?, ?);
+                (id, user_id, medicine_id, item_display_name, item_name, item_quantity, item_unit, logged_at, log_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
               `,
-              [payload.id, payload.user_id, payload.medicine_id, payload.logged_at, payload.log_date],
+              [
+                localRow.id,
+                localRow.user_id,
+                localRow.medicine_id,
+                localRow.item_display_name,
+                localRow.item_name,
+                localRow.item_quantity,
+                localRow.item_unit,
+                localRow.logged_at,
+                localRow.log_date,
+              ],
             );
 
-            addToSyncQueue('medicine_logs', 'INSERT', payload);
+            addToSyncQueue('medicine_logs', 'INSERT', queuePayload);
           }
         }
 
         if (selectedFoods.length > 0) {
           for (const food of selectedFoods) {
             const id = createUuid();
-            const payload = {
+            const snapshotRow = db.getFirstSync<ItemSnapshotRow>(
+              `
+                SELECT name, quantity, unit, display_name
+                FROM user_foods
+                WHERE id = ? AND user_id = ?;
+              `,
+              [food.id, user.id],
+            );
+
+            const itemName = snapshotRow?.name?.trim() || food.name;
+            const itemQuantity = snapshotRow?.quantity ?? null;
+            const itemUnit = snapshotRow?.unit?.trim() || null;
+            const itemDisplayName = snapshotRow?.display_name?.trim() || food.name;
+
+            const queuePayload = {
               id,
               user_id: user.id,
               food_id: food.id,
@@ -507,16 +560,34 @@ export default function AddLogScreen() {
               log_date: logDateString,
             };
 
+            const localRow = {
+              ...queuePayload,
+              item_display_name: itemDisplayName,
+              item_name: itemName,
+              item_quantity: itemQuantity,
+              item_unit: itemUnit,
+            };
+
             db.runSync(
               `
                 INSERT INTO food_logs
-                (id, user_id, food_id, logged_at, log_date)
-                VALUES (?, ?, ?, ?, ?);
+                (id, user_id, food_id, item_display_name, item_name, item_quantity, item_unit, logged_at, log_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
               `,
-              [payload.id, payload.user_id, payload.food_id, payload.logged_at, payload.log_date],
+              [
+                localRow.id,
+                localRow.user_id,
+                localRow.food_id,
+                localRow.item_display_name,
+                localRow.item_name,
+                localRow.item_quantity,
+                localRow.item_unit,
+                localRow.logged_at,
+                localRow.log_date,
+              ],
             );
 
-            addToSyncQueue('food_logs', 'INSERT', payload);
+            addToSyncQueue('food_logs', 'INSERT', queuePayload);
           }
         }
 

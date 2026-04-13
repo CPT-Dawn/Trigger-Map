@@ -223,7 +223,7 @@ Visibility model:
 - file: `components/forms/ItemSelector.tsx`
 - reused for both food and medicine master data
 - supports create/edit/delete of master items via local DB + queue
-- deleting master item also deletes dependent local logs and queues dependent deletes
+- deleting a master item removes it from future selection only; historical logs are preserved
 
 ## 9. Implementation Rules For Contributors And Agents
 
