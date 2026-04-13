@@ -1,7 +1,7 @@
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
-import { db, getSyncQueue, removeFromSyncQueue } from './localDb';
+import { db, getPendingSyncCount, getSyncMeta, getSyncQueue, removeFromSyncQueue, setSyncMeta } from './localDb';
 import { supabase } from './supabase';
 
 type QueueOperation = 'INSERT' | 'UPDATE' | 'DELETE';
@@ -60,7 +60,96 @@ interface FoodLogRow {
 
 export const BACKGROUND_SYNC_TASK = 'BACKGROUND_SYNC_TASK';
 
+export interface SyncStatusSnapshot {
+  isSyncing: boolean;
+  pendingCount: number;
+  lastSyncAt: string | null;
+  lastError: string | null;
+}
+
 let syncInFlight: Promise<void> | null = null;
+let syncStatus: SyncStatusSnapshot = {
+  isSyncing: false,
+  pendingCount: 0,
+  lastSyncAt: null,
+  lastError: null,
+};
+
+const syncStatusListeners = new Set<(status: SyncStatusSnapshot) => void>();
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return 'Unknown sync error';
+  }
+}
+
+function notifySyncStatusListeners() {
+  const snapshot = { ...syncStatus };
+
+  for (const listener of syncStatusListeners) {
+    listener(snapshot);
+  }
+}
+
+function updateSyncStatus(partial: Partial<SyncStatusSnapshot>) {
+  syncStatus = {
+    ...syncStatus,
+    ...partial,
+  };
+
+  notifySyncStatusListeners();
+}
+
+function recordSyncError(error: unknown) {
+  const errorMessage = getErrorMessage(error);
+
+  try {
+    setSyncMeta('last_sync_error', errorMessage);
+  } catch {
+    // Keep in-memory status even if persistent metadata write fails.
+  }
+
+  updateSyncStatus({
+    lastError: errorMessage,
+  });
+}
+
+export function getSyncStatusSnapshot() {
+  return { ...syncStatus };
+}
+
+export function subscribeSyncStatus(listener: (status: SyncStatusSnapshot) => void) {
+  syncStatusListeners.add(listener);
+  listener({ ...syncStatus });
+
+  return () => {
+    syncStatusListeners.delete(listener);
+  };
+}
+
+export function refreshSyncStatusSnapshot() {
+  try {
+    updateSyncStatus({
+      pendingCount: getPendingSyncCount(),
+      lastSyncAt: getSyncMeta('last_sync_at'),
+      lastError: getSyncMeta('last_sync_error'),
+    });
+  } catch {
+    // If local DB isn't initialized yet, keep existing in-memory status.
+  }
+
+  return getSyncStatusSnapshot();
+}
 
 function isOnline(state: NetInfoState) {
   return Boolean(state.isConnected) && state.isInternetReachable !== false;
@@ -197,11 +286,13 @@ async function runQueueOperation(row: QueueRow) {
 }
 
 export async function pushLocalChanges() {
+  let hadError = false;
+
   try {
     const networkState = await NetInfo.fetch();
 
     if (!isOnline(networkState)) {
-      return;
+      return false;
     }
 
     const queue = getSyncQueue() as QueueRow[];
@@ -216,20 +307,30 @@ export async function pushLocalChanges() {
 
         await runQueueOperation(row);
         removeFromSyncQueue(row.id);
+        updateSyncStatus({ pendingCount: Math.max(0, syncStatus.pendingCount - 1) });
       } catch (error: any) {
         if (error?.code === '22P02') {
           // Malformed UUID payloads can never sync to Supabase UUID columns.
           removeFromSyncQueue(row.id);
           console.warn('[sync] Dropped malformed queue row with invalid UUID payload', { rowId: row.id });
+          updateSyncStatus({ pendingCount: Math.max(0, syncStatus.pendingCount - 1) });
           continue;
         }
 
         console.warn('[sync] Failed to push queue row', { rowId: row.id, error });
+        recordSyncError(error);
+        hadError = true;
       }
     }
+
+    refreshSyncStatusSnapshot();
   } catch (error) {
     console.warn('[sync] Failed while pushing local changes', error);
+    recordSyncError(error);
+    hadError = true;
   }
+
+  return !hadError;
 }
 
 function upsertUserMedicines(rows: UserItemRow[]) {
@@ -363,7 +464,7 @@ export async function pullRemoteChanges() {
     const networkState = await NetInfo.fetch();
 
     if (!isOnline(networkState)) {
-      return;
+      return false;
     }
 
     const {
@@ -376,7 +477,7 @@ export async function pullRemoteChanges() {
     }
 
     if (!user) {
-      return;
+      return false;
     }
 
     const [medicinesResult, foodsResult, recentLogs] = await Promise.all([
@@ -413,22 +514,48 @@ export async function pullRemoteChanges() {
       db.execSync('ROLLBACK;');
       throw error;
     }
+
+    return true;
   } catch (error) {
     console.warn('[sync] Failed while pulling remote changes', error);
+    recordSyncError(error);
+    return false;
   }
 }
 
 export async function runSync() {
+  refreshSyncStatusSnapshot();
+
   if (syncInFlight) {
     return syncInFlight;
   }
 
+  updateSyncStatus({ isSyncing: true });
+
   syncInFlight = (async () => {
     try {
-      await pushLocalChanges();
-      await pullRemoteChanges();
+      const pushSucceeded = await pushLocalChanges();
+      const pullSucceeded = await pullRemoteChanges();
+
+      if (pushSucceeded && pullSucceeded) {
+        const syncedAt = new Date().toISOString();
+
+        try {
+          setSyncMeta('last_sync_at', syncedAt);
+          setSyncMeta('last_sync_error', null);
+        } catch {
+          // Keep in-memory status if metadata persistence fails.
+        }
+
+        updateSyncStatus({
+          lastSyncAt: syncedAt,
+          lastError: null,
+        });
+      }
     } finally {
       syncInFlight = null;
+      refreshSyncStatusSnapshot();
+      updateSyncStatus({ isSyncing: false });
     }
   })();
 

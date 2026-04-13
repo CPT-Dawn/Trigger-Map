@@ -269,6 +269,11 @@ export function initLocalDB() {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS sync_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_sync_queue_created_at ON sync_queue(created_at);
   `);
 
@@ -305,4 +310,31 @@ export function getSyncQueue() {
 
 export function removeFromSyncQueue(id: string) {
   db.runSync('DELETE FROM sync_queue WHERE id = ?;', [id]);
+}
+
+export function getPendingSyncCount() {
+  const row = db.getFirstSync<{ count: number }>('SELECT COUNT(1) AS count FROM sync_queue;', []);
+
+  return Number(row?.count ?? 0);
+}
+
+export function setSyncMeta(key: string, value: string | null) {
+  if (value === null) {
+    db.runSync('DELETE FROM sync_meta WHERE key = ?;', [key]);
+    return;
+  }
+
+  db.runSync(
+    `
+      INSERT OR REPLACE INTO sync_meta (key, value)
+      VALUES (?, ?);
+    `,
+    [key, value],
+  );
+}
+
+export function getSyncMeta(key: string) {
+  const row = db.getFirstSync<{ value: string }>('SELECT value FROM sync_meta WHERE key = ?;', [key]);
+
+  return row?.value ?? null;
 }
