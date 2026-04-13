@@ -11,7 +11,6 @@ import { useAppColors, useThemePreference } from '../../providers/ThemeProvider'
 
 type BottomNavBarProps = BottomTabBarProps & {
   onAddPress: () => void;
-  blurTarget: React.RefObject<View | null>;
 };
 
 type TabName = 'index' | 'logs' | 'settings';
@@ -100,13 +99,17 @@ function NavTabButton({
   );
 }
 
-export function BottomNavBar({ state, navigation, onAddPress, blurTarget }: BottomNavBarProps) {
+export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProps) {
   const colors = useAppColors();
   const { appliedTheme } = useThemePreference();
   const insets = useSafeAreaInsets();
   const hasPersistentNavigationBar = Platform.OS === 'android' && insets.bottom >= 24;
   const dockBottomOffset = hasPersistentNavigationBar ? insets.bottom : 0;
   const activeRouteName = state.routes[state.index]?.name;
+  const blurIntensity = appliedTheme === 'dark' ? 100 : 96;
+  const chromeBaseColor = appliedTheme === 'dark' ? colors.acrylicElevated : colors.acrylicBase;
+  const depthVeilOpacity = appliedTheme === 'dark' ? 0.34 : 0.2;
+  const topSheenOpacity = appliedTheme === 'dark' ? 0.34 : 0.52;
 
   const routeByName = (routeName: TabName) => state.routes.find((route) => route.name === routeName);
 
@@ -119,32 +122,37 @@ export function BottomNavBar({ state, navigation, onAddPress, blurTarget }: Bott
         style={[
           styles.surface,
           {
-            backgroundColor: colors.surfaceContainerLow,
+            backgroundColor: chromeBaseColor,
             borderColor: colors.ghostBorder,
             paddingBottom: hasPersistentNavigationBar ? Spacing.sm : Spacing.xs,
           },
         ]}
       >
         <BlurView
-          intensity={88}
+          intensity={blurIntensity}
           tint={appliedTheme === 'dark' ? 'dark' : 'light'}
-          blurMethod="dimezisBlurViewSdk31Plus"
-          blurTarget={blurTarget}
+          blurMethod={Platform.OS === 'android' ? 'none' : undefined}
           style={StyleSheet.absoluteFill}
         />
         <LinearGradient
           pointerEvents="none"
-          colors={[
-            colors.surfaceBright,
-            colors.glassSurface,
-            colors.surfaceContainerLow,
-          ]}
+          colors={[colors.acrylicTintStrong, colors.acrylicTintSoft, colors.surfaceOverlayEnd]}
           locations={[0, 0.55, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <View style={[styles.topSheen, { backgroundColor: colors.onPrimary, opacity: 0.08 }]} />
+        <View
+          pointerEvents="none"
+          style={[
+            styles.depthVeil,
+            {
+              backgroundColor: colors.surfaceContainerHighest,
+              opacity: depthVeilOpacity,
+            },
+          ]}
+        />
+        <View style={[styles.topSheen, { backgroundColor: colors.acrylicEdge, opacity: topSheenOpacity }]} />
         <View style={styles.row}>
           <View style={styles.tabsGroup}>
             <NavTabButton
@@ -273,5 +281,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
+  },
+  depthVeil: {
+    ...StyleSheet.absoluteFillObject,
   },
 });

@@ -32,7 +32,7 @@ export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps)
         pointerEvents="none"
         intensity={blurIntensity}
         tint={appliedTheme === 'dark' ? 'dark' : 'light'}
-        blurMethod={Platform.OS === 'android' ? 'dimezisBlurViewSdk31Plus' : undefined}
+        blurMethod={Platform.OS === 'android' ? 'none' : undefined}
         style={StyleSheet.absoluteFill}
       />
 
