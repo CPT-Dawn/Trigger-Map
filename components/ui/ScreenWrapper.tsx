@@ -1,6 +1,5 @@
 import React from 'react';
 import { StyleSheet, View, ViewProps } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing } from '../../constants/theme';
 import { useAppColors, useThemePreference } from '../../providers/ThemeProvider';
@@ -13,36 +12,37 @@ export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps)
   const colors = useAppColors();
   const { appliedTheme } = useThemePreference();
   const atmosphereVeilOpacity = appliedTheme === 'dark' ? 0.24 : 0.12;
+  const surfaceTintOpacity = appliedTheme === 'dark' ? 0.2 : 0.3;
+  const accentTintOpacity = appliedTheme === 'dark' ? 0.16 : 0.12;
 
   return (
-    <LinearGradient
-      colors={[colors.background, colors.gradientStart, colors.gradientEnd]}
-      locations={[0, 0.38, 1]}
-      style={[styles.container, style]}
-      {...props}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }, style]} {...props}>
       <View pointerEvents="none" style={styles.ambientLayer}>
         <View style={[styles.orb, styles.orbPrimary, { backgroundColor: colors.ambientPrimary }]} />
         <View style={[styles.orb, styles.orbSecondary, { backgroundColor: colors.ambientSecondary }]} />
         <View style={[styles.orb, styles.orbTertiary, { backgroundColor: colors.ambientTertiary }]} />
       </View>
 
-      <LinearGradient
+      <View
         pointerEvents="none"
-        colors={[colors.surfaceOverlayStart, colors.surfaceOverlayEnd]}
-        locations={[0, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
+        style={[
+          styles.surfaceTint,
+          {
+            backgroundColor: colors.surfaceOverlayStart,
+            opacity: surfaceTintOpacity,
+          },
+        ]}
       />
 
-      <LinearGradient
+      <View
         pointerEvents="none"
-        colors={[colors.acrylicTintSoft, 'transparent']}
-        locations={[0, 0.58, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
+        style={[
+          styles.accentTint,
+          {
+            backgroundColor: colors.acrylicTintSoft,
+            opacity: accentTintOpacity,
+          },
+        ]}
       />
 
       <View
@@ -61,7 +61,7 @@ export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps)
       <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         {children}
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -110,6 +110,12 @@ const styles = StyleSheet.create({
     opacity: 0.52,
   },
   atmosphereVeil: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  surfaceTint: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  accentTint: {
     ...StyleSheet.absoluteFillObject,
   },
 });
