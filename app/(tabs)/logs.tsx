@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Reanimated, {
   Easing,
+  FadeIn,
   FadeInDown,
   FadeOut,
   Layout,
@@ -463,41 +464,45 @@ function ExpandableLogCard({
               },
             ]}
           >
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Edit ${entry.title}`}
-              onPress={() => onEdit(entry)}
-              style={({ pressed }) => [
-                styles.entryActionButton,
-                {
-                  backgroundColor: colors.primaryContainer,
-                  borderColor: colors.ghostBorder,
-                },
-                pressed && styles.entryActionButtonPressed,
-              ]}
-            >
-              <Text variant="labelLarge" style={[styles.entryActionLabel, { color: colors.onPrimaryContainer }]}> 
-                Edit
-              </Text>
-            </Pressable>
+            <Reanimated.View entering={FadeInDown.duration(160).delay(10)} style={styles.entryActionSlot}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${entry.title}`}
+                onPressIn={() => onEdit(entry)}
+                style={({ pressed }) => [
+                  styles.entryActionButton,
+                  {
+                    backgroundColor: colors.primaryContainer,
+                    borderColor: colors.ghostBorder,
+                  },
+                  pressed && styles.entryActionButtonPressed,
+                ]}
+              >
+                <Text variant="labelLarge" style={[styles.entryActionLabel, { color: colors.onPrimaryContainer }]}> 
+                  Edit
+                </Text>
+              </Pressable>
+            </Reanimated.View>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Delete ${entry.title}`}
-              onPress={() => onDelete(entry)}
-              style={({ pressed }) => [
-                styles.entryActionButton,
-                {
-                  backgroundColor: colors.errorContainer,
-                  borderColor: colors.ghostBorder,
-                },
-                pressed && styles.entryActionButtonPressed,
-              ]}
-            >
-              <Text variant="labelLarge" style={[styles.entryActionLabel, { color: colors.onErrorContainer }]}> 
-                Delete
-              </Text>
-            </Pressable>
+            <Reanimated.View entering={FadeInDown.duration(160).delay(35)} style={styles.entryActionSlot}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Delete ${entry.title}`}
+                onPressIn={() => onDelete(entry)}
+                style={({ pressed }) => [
+                  styles.entryActionButton,
+                  {
+                    backgroundColor: colors.errorContainer,
+                    borderColor: colors.ghostBorder,
+                  },
+                  pressed && styles.entryActionButtonPressed,
+                ]}
+              >
+                <Text variant="labelLarge" style={[styles.entryActionLabel, { color: colors.onErrorContainer }]}> 
+                  Delete
+                </Text>
+              </Pressable>
+            </Reanimated.View>
           </Reanimated.View>
         ) : null}
       </Reanimated.View>
@@ -1484,16 +1489,19 @@ export default function LogsScreen() {
         </View>
       </Modal>
 
-      <Modal visible={pendingDeleteEntry !== null} transparent animationType="fade" onRequestClose={closeDeleteConfirm}>
+      <Modal visible={pendingDeleteEntry !== null} transparent animationType="none" onRequestClose={closeDeleteConfirm}>
         <View style={styles.modalContainer}>
-          <Pressable
-            style={[styles.modalBackdrop, { backgroundColor: deleteModalScrimColor, opacity: 0.66 }]}
-            onPress={isDeletingEntry ? undefined : closeDeleteConfirm}
-          />
+          <Reanimated.View entering={FadeIn.duration(90)} style={styles.modalBackdrop}>
+            <Pressable
+              style={[styles.modalBackdrop, { backgroundColor: deleteModalScrimColor, opacity: 0.66 }]}
+              onPress={isDeletingEntry ? undefined : closeDeleteConfirm}
+            />
+          </Reanimated.View>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.modalKeyboard}
           >
+            <Reanimated.View entering={FadeInDown.duration(170).easing(Easing.out(Easing.cubic))}>
             <AppCard variant="solid" style={[styles.modalCard, styles.deleteModalCard]}>
               <View style={styles.deleteModalTopRow}>
                 <View style={styles.deleteModalHeadingBlock}>
@@ -1574,6 +1582,7 @@ export default function LogsScreen() {
                 </CustomButton>
               </View>
             </AppCard>
+            </Reanimated.View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
@@ -1757,6 +1766,9 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     flexDirection: 'row',
     gap: Spacing.sm,
+  },
+  entryActionSlot: {
+    flex: 1,
   },
   entryActionButton: {
     flex: 1,
