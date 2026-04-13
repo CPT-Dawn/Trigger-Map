@@ -41,26 +41,26 @@ export function AppCard({
   const colors = useAppColors();
   const { appliedTheme } = useThemePreference();
 
-  const overlayColors: [string, string] =
+  const tintOverlayColors: [string, string] =
     variant === 'glass'
-      ? [colors.surfaceOverlayStart, colors.surfaceOverlayEnd]
+      ? [colors.acrylicTintStrong, colors.acrylicTintSoft]
       : variant === 'subtle'
-        ? [colors.surfaceOverlayStart, colors.glassSurface]
-        : [colors.surfaceContainerLow, colors.surfaceContainer];
+        ? [colors.surfaceOverlayStart, colors.acrylicTintSoft]
+        : [colors.surfaceOverlayStart, colors.surfaceOverlayEnd];
 
   const baseBackgroundColor =
     variant === 'glass'
-      ? colors.glassSurface
+      ? colors.acrylicBase
       : variant === 'subtle'
-        ? colors.inputSurface
-        : colors.surfaceContainer;
+        ? colors.acrylicElevated
+        : colors.surfaceContainerLow;
 
   const blurIntensity =
     variant === 'glass'
-      ? appliedTheme === 'dark' ? 30 : 36
+      ? appliedTheme === 'dark' ? 74 : 84
       : variant === 'subtle'
-        ? appliedTheme === 'dark' ? 20 : 24
-        : appliedTheme === 'dark' ? 14 : 16;
+        ? appliedTheme === 'dark' ? 62 : 70
+        : appliedTheme === 'dark' ? 50 : 58;
 
   const cardNode = (
     <View
@@ -83,11 +83,12 @@ export function AppCard({
       />
       <LinearGradient
         pointerEvents="none"
-        colors={overlayColors}
+        colors={tintOverlayColors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      <View pointerEvents="none" style={[styles.topSheen, { backgroundColor: colors.acrylicEdge }]} />
       <View style={contentStyle}>{children}</View>
     </View>
   );
@@ -118,10 +119,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.lg,
     overflow: 'hidden',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 16,
-    elevation: 3,
+    shadowOpacity: 0.24,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  topSheen: {
+    position: 'absolute',
+    left: 1,
+    right: 1,
+    top: 0,
+    height: 1,
   },
   pressed: {
     opacity: 0.95,

@@ -13,6 +13,7 @@ export interface ScreenWrapperProps extends ViewProps {
 export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps) {
   const colors = useAppColors();
   const { appliedTheme } = useThemePreference();
+  const blurIntensity = appliedTheme === 'dark' ? 42 : 54;
 
   return (
     <LinearGradient
@@ -29,7 +30,7 @@ export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps)
 
       <BlurView
         pointerEvents="none"
-        intensity={appliedTheme === 'dark' ? 18 : 22}
+        intensity={blurIntensity}
         tint={appliedTheme === 'dark' ? 'dark' : 'light'}
         blurMethod={Platform.OS === 'android' ? 'dimezisBlurViewSdk31Plus' : undefined}
         style={StyleSheet.absoluteFill}
@@ -37,11 +38,14 @@ export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps)
 
       <LinearGradient
         pointerEvents="none"
-        colors={[colors.surfaceOverlayStart, colors.surfaceOverlayEnd]}
+        colors={[colors.acrylicTintStrong, colors.acrylicTintSoft, colors.surfaceOverlayEnd]}
+        locations={[0, 0.58, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+
+      <View pointerEvents="none" style={[styles.acrylicSheen, { backgroundColor: colors.acrylicEdge }]} />
 
       <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         {children}
@@ -85,5 +89,13 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     paddingTop: Spacing.sm,
+  },
+  acrylicSheen: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 1,
+    opacity: 0.52,
   },
 });
