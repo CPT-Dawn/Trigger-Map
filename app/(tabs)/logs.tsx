@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Animated,
   RefreshControl,
   ScrollView,
   SectionList,
@@ -8,11 +7,19 @@ import {
   View,
   KeyboardAvoidingView,
   Modal,
-  PanResponder,
   Platform,
   Pressable,
 } from 'react-native';
-import Reanimated, { FadeInDown } from 'react-native-reanimated';
+import Reanimated, {
+  Easing,
+  FadeInDown,
+  FadeOut,
+  Layout,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { ActivityIndicator, Chip, IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -258,9 +265,6 @@ function normalizeStressLevel(value: StressLevelValue | string | null | undefine
   return 'none';
 }
 
-const swipeActionWidth = 112;
-const swipeThreshold = 72;
-const swipeActivationDistance = 8;
 const listReveal = (delay: number) => FadeInDown.delay(delay).duration(300);
 
 function buildDisplayName(item?: UserItemRow | null) {
@@ -337,7 +341,7 @@ function groupEntriesByDate(entries: TimelineEntry[]) {
   }));
 }
 
-interface SwipeableLogCardProps {
+interface ExpandableLogCardProps {
   entry: TimelineEntry;
   config: {
     label: string;
@@ -346,222 +350,176 @@ interface SwipeableLogCardProps {
     iconColor: string;
   };
   colors: ReturnType<typeof useAppColors>;
-  isActive: boolean;
-  onActivate: (entryId: string) => void;
+  itemIndex: number;
+  isExpanded: boolean;
+  onToggle: (entry: TimelineEntry) => void;
   onEdit: (entry: TimelineEntry) => void;
   onDelete: (entry: TimelineEntry) => void;
 }
 
-function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit, onDelete }: SwipeableLogCardProps) {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const translateXValue = useRef(0);
-  const startX = useRef(0);
+function ExpandableLogCard({
+  entry,
+  config,
+  colors,
+  itemIndex,
+  isExpanded,
+  onToggle,
+  onEdit,
+  onDelete,
+}: ExpandableLogCardProps) {
+  const pressProgress = useSharedValue(0);
+  const expandProgress = useSharedValue(isExpanded ? 1 : 0);
 
-  const snapTo = (value: number, options?: { onComplete?: () => void; immediate?: boolean }) => {
-    translateXValue.current = value;
+  useEffect(() => {
+    expandProgress.value = withSpring(isExpanded ? 1 : 0, {
+      damping: 18,
+      stiffness: 210,
+      mass: 0.9,
+    });
+  }, [expandProgress, isExpanded]);
 
-    if (options?.immediate && options.onComplete) {
-      options.onComplete();
-    }
+  const cardMotionStyle = useAnimatedStyle(() => {
+    const lift = expandProgress.value * 2.5 + pressProgress.value * 1.5;
 
-    Animated.spring(translateX, {
-      toValue: value,
-      useNativeDriver: true,
-      friction: 13,
-      tension: 230,
-    }).start(({ finished }) => {
-      if (finished && !options?.immediate && options?.onComplete) {
-        options.onComplete();
-      }
+    return {
+      transform: [{ translateY: -lift }, { scale: 1 - pressProgress.value * 0.015 }] as const,
+    };
+  });
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${expandProgress.value * 180}deg` }],
+  }));
+
+  const handlePressIn = () => {
+    pressProgress.value = withTiming(1, {
+      duration: 120,
+      easing: Easing.out(Easing.quad),
     });
   };
 
-  useEffect(() => {
-    if (!isActive) {
-      snapTo(0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive]);
-
-  const handleOpenEdit = () => {
-    snapTo(swipeActionWidth, { onComplete: () => onEdit(entry), immediate: true });
+  const handlePressOut = () => {
+    pressProgress.value = withTiming(0, {
+      duration: 170,
+      easing: Easing.out(Easing.cubic),
+    });
   };
-
-  const handleOpenDelete = () => {
-    snapTo(-swipeActionWidth, { onComplete: () => onDelete(entry), immediate: true });
-  };
-
-  const editOpacity = translateX.interpolate({
-    inputRange: [0, swipeActivationDistance, swipeActionWidth * 0.45, swipeActionWidth],
-    outputRange: [0, 0.48, 0.86, 1],
-    extrapolate: 'clamp',
-  });
-
-  const deleteOpacity = translateX.interpolate({
-    inputRange: [-swipeActionWidth, -swipeActionWidth * 0.45, -swipeActivationDistance, 0],
-    outputRange: [1, 0.86, 0.48, 0],
-    extrapolate: 'clamp',
-  });
-
-  const editScale = translateX.interpolate({
-    inputRange: [0, swipeActionWidth],
-    outputRange: [0.95, 1],
-    extrapolate: 'clamp',
-  });
-
-  const deleteScale = translateX.interpolate({
-    inputRange: [-swipeActionWidth, 0],
-    outputRange: [1, 0.95],
-    extrapolate: 'clamp',
-  });
-
-  const editTranslate = translateX.interpolate({
-    inputRange: [0, swipeActionWidth],
-    outputRange: [10, 0],
-    extrapolate: 'clamp',
-  });
-
-  const deleteTranslate = translateX.interpolate({
-    inputRange: [-swipeActionWidth, 0],
-    outputRange: [0, 10],
-    extrapolate: 'clamp',
-  });
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2,
-        onPanResponderGrant: () => {
-          translateX.stopAnimation((currentX) => {
-            translateXValue.current = currentX;
-            startX.current = currentX;
-          });
-          onActivate(entry.id);
-        },
-        onPanResponderMove: (_, gestureState) => {
-          const nextX = Math.max(-swipeActionWidth, Math.min(swipeActionWidth, startX.current + gestureState.dx));
-          translateXValue.current = nextX;
-          translateX.setValue(nextX);
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          const projectedX = Math.max(
-            -swipeActionWidth,
-            Math.min(swipeActionWidth, startX.current + gestureState.dx + gestureState.vx * 24),
-          );
-
-          if (projectedX >= swipeThreshold) {
-            handleOpenEdit();
-            return;
-          }
-
-          if (projectedX <= -swipeThreshold) {
-            handleOpenDelete();
-            return;
-          }
-
-          snapTo(0);
-        },
-        onPanResponderTerminate: () => {
-          snapTo(0);
-        },
-      }),
-    [entry.id, onActivate, onDelete, onEdit, translateX],
-  );
 
   return (
-    <View style={styles.swipeContainer}>
-      <View style={styles.swipeUnderlay} pointerEvents="box-none">
+    <Reanimated.View
+      entering={listReveal(Math.min(itemIndex * 24, 220))}
+      layout={Layout.springify().damping(19).stiffness(170)}
+      style={styles.motionCardWrap}
+    >
+      <Reanimated.View style={cardMotionStyle}>
         <Pressable
           accessibilityRole="button"
-            onPress={handleOpenEdit}
-            style={styles.swipeActionLeft}
+          accessibilityLabel={`${entry.type} entry ${entry.title}`}
+          onPress={() => onToggle(entry)}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          style={[
+            styles.entryCard,
+            styles.entryPressable,
+            {
+              backgroundColor: colors.surfaceContainerLowest,
+              borderColor: isExpanded ? config.iconColor : colors.ghostBorder,
+              borderLeftColor: config.iconColor,
+              shadowColor: colors.shadowAmbient,
+            },
+          ]}
         >
-          <Animated.View
-            style={[
-              styles.swipeActionContent,
-              {
-                opacity: editOpacity,
-                transform: [{ translateX: editTranslate }, { scale: editScale }],
-                backgroundColor: colors.primaryContainer,
-              },
-            ]}
-          >
-            <View style={[styles.swipeActionIconWrap, { backgroundColor: colors.primaryContainer }]}> 
-              <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.onPrimaryContainer} />
+          <View style={styles.entryTopRow}>
+            <View style={styles.entryLeading}>
+              <View style={[styles.iconWrap, { backgroundColor: config.container }]}> 
+                <MaterialCommunityIcons name={config.icon} size={20} color={config.iconColor} />
+              </View>
+              <View style={styles.entryTextBlock}>
+                <Text variant="titleMedium" style={{ color: colors.text }}>
+                  {entry.title}
+                </Text>
+                <Text variant="labelSmall" style={{ color: colors.textMuted }}>
+                  {entry.subtitle}
+                </Text>
+              </View>
             </View>
-            <Text variant="labelLarge" style={[styles.swipeActionLabel, { color: colors.onPrimaryContainer }]}> 
-              Edit
-            </Text>
-          </Animated.View>
-        </Pressable>
 
-        <View style={styles.swipeSpacer} />
+            <View style={styles.entryHeaderRight}>
+              <Chip
+                compact
+                style={[styles.entryChip, { backgroundColor: config.container }]}
+                textStyle={{ color: config.iconColor }}
+              >
+                {config.label}
+              </Chip>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={handleOpenDelete}
-          style={styles.swipeActionRight}
-        >
-          <Animated.View
-            style={[
-              styles.swipeActionContent,
-              {
-                opacity: deleteOpacity,
-                transform: [{ translateX: deleteTranslate }, { scale: deleteScale }],
-                backgroundColor: colors.errorContainer,
-              },
-            ]}
-          >
-            <View style={[styles.swipeActionIconWrap, { backgroundColor: colors.errorContainer }]}> 
-              <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.onErrorContainer} />
-            </View>
-            <Text variant="labelLarge" style={[styles.swipeActionLabel, { color: colors.onErrorContainer }]}> 
-              Delete
-            </Text>
-          </Animated.View>
-        </Pressable>
-      </View>
-
-      <Animated.View
-        style={[
-          styles.entryCard,
-          styles.swipeCard,
-          {
-            backgroundColor: colors.surfaceContainerLowest,
-            borderColor: colors.ghostBorder,
-            borderLeftColor: config.iconColor,
-            shadowColor: colors.shadowAmbient,
-            transform: [{ translateX }],
-          },
-        ]}
-        {...panResponder.panHandlers}
-      >
-        <View style={styles.entryTopRow}>
-          <View style={styles.entryLeading}>
-            <View style={[styles.iconWrap, { backgroundColor: config.container }]}> 
-              <MaterialCommunityIcons name={config.icon} size={20} color={config.iconColor} />
-            </View>
-            <View style={styles.entryTextBlock}>
-              <Text variant="titleMedium" style={{ color: colors.text }}>
-                {entry.title}
-              </Text>
-              <Text variant="labelSmall" style={{ color: colors.textMuted }}>
-                {entry.subtitle}
-              </Text>
+              <Reanimated.View
+                style={[
+                  styles.expandIndicator,
+                  chevronStyle,
+                  {
+                    backgroundColor: colors.surfaceContainerHigh,
+                    borderColor: colors.ghostBorder,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons name="chevron-down" size={18} color={colors.textMuted} />
+              </Reanimated.View>
             </View>
           </View>
+        </Pressable>
+      </Reanimated.View>
 
-          <Chip
-            compact
-            style={[styles.entryChip, { backgroundColor: config.container }]}
-            textStyle={{ color: config.iconColor }}
+      {isExpanded ? (
+        <Reanimated.View
+          entering={FadeInDown.duration(240)}
+          exiting={FadeOut.duration(160)}
+          layout={Layout.springify().damping(20).stiffness(180)}
+          style={[
+            styles.actionDrawer,
+            {
+              backgroundColor: colors.surfaceContainerLow,
+              borderColor: colors.ghostBorder,
+            },
+          ]}
+        >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Edit ${entry.title}`}
+            onPress={() => onEdit(entry)}
+            style={[
+              styles.drawerActionButton,
+              {
+                backgroundColor: colors.primaryContainer,
+                borderColor: colors.ghostBorder,
+              },
+            ]}
           >
-            {config.label}
-          </Chip>
-        </View>
-      </Animated.View>
-    </View>
+            <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.onPrimaryContainer} />
+            <Text variant="labelLarge" style={[styles.drawerActionLabel, { color: colors.onPrimaryContainer }]}>
+              Edit
+            </Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Delete ${entry.title}`}
+            onPress={() => onDelete(entry)}
+            style={[
+              styles.drawerActionButton,
+              {
+                backgroundColor: colors.errorContainer,
+                borderColor: colors.ghostBorder,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.onErrorContainer} />
+            <Text variant="labelLarge" style={[styles.drawerActionLabel, { color: colors.onErrorContainer }]}>
+              Delete
+            </Text>
+          </Pressable>
+        </Reanimated.View>
+      ) : null}
+    </Reanimated.View>
   );
 }
 
@@ -576,7 +534,7 @@ export default function LogsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<LogFilter>('all');
-  const [activeSwipeKey, setActiveSwipeKey] = useState<string | null>(null);
+  const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<TimelineEntry | null>(null);
   const [editPainBodyPart, setEditPainBodyPart] = useState('');
   const [editPainLevel, setEditPainLevel] = useState(1);
@@ -604,11 +562,11 @@ export default function LogsScreen() {
     setEditSelectedItem(null);
     setPendingDeleteEntry(null);
     setIsDeletingEntry(false);
-    setActiveSwipeKey(null);
+    setExpandedEntryId(null);
   };
 
   const openEditor = (entry: TimelineEntry) => {
-    setActiveSwipeKey(entry.id);
+    setExpandedEntryId(entry.id);
     setEditingEntry(entry);
     setEditSelectorVisible(false);
     setPendingDeleteEntry(null);
@@ -646,13 +604,13 @@ export default function LogsScreen() {
     setEditSelectedItem(null);
     setPendingDeleteEntry(entry);
     setIsDeletingEntry(false);
-    setActiveSwipeKey(entry.id);
+    setExpandedEntryId(entry.id);
   };
 
   const closeDeleteConfirm = () => {
     setPendingDeleteEntry(null);
     setIsDeletingEntry(false);
-    setActiveSwipeKey(null);
+    setExpandedEntryId(null);
   };
 
   const insertPayloadRow = async (entry: TimelineEntry) => {
@@ -1218,16 +1176,21 @@ export default function LogsScreen() {
     { value: 'stress', label: 'Stress', icon: 'brain' },
   ];
 
-  const renderEntry = ({ item }: { item: TimelineEntry }) => {
+  const toggleEntryActions = (entry: TimelineEntry) => {
+    setExpandedEntryId((currentId) => (currentId === entry.id ? null : entry.id));
+  };
+
+  const renderEntry = ({ item, index }: { item: TimelineEntry; index: number }) => {
     const config = typeConfig[item.type];
 
     return (
-      <SwipeableLogCard
+      <ExpandableLogCard
         entry={item}
         config={config}
         colors={colors}
-        isActive={activeSwipeKey === item.id}
-        onActivate={setActiveSwipeKey}
+        itemIndex={index}
+        isExpanded={expandedEntryId === item.id}
+        onToggle={toggleEntryActions}
         onEdit={openEditor}
         onDelete={openDeleteConfirm}
       />
@@ -1767,62 +1730,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderLeftWidth: 4,
     padding: Spacing.md,
-    marginBottom: Spacing.xxs,
     gap: Spacing.sm,
+    shadowOpacity: 0.11,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
   },
-  swipeContainer: {
+  motionCardWrap: {
     marginBottom: Spacing.xxs,
-    borderRadius: Radius.xl,
-    overflow: 'hidden',
-  },
-  swipeUnderlay: {
-    ...StyleSheet.absoluteFillObject,
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  swipeActionLeft: {
-    width: swipeActionWidth,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.sm,
-  },
-  swipeActionRight: {
-    width: swipeActionWidth,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.sm,
-  },
-  swipeSpacer: {
-    flex: 1,
-  },
-  swipeActionContent: {
-    flex: 1,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: Spacing.xs,
-    borderRadius: Radius.xl,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
-    overflow: 'hidden',
   },
-  swipeActionIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  swipeActionLabel: {
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  swipeActionHint: {
-    textAlign: 'center',
-    opacity: 0.88,
-  },
-  swipeCard: {
-    marginBottom: 0,
+  entryPressable: {
+    minHeight: 74,
   },
   entryTopRow: {
     flexDirection: 'row',
@@ -1849,6 +1768,38 @@ const styles = StyleSheet.create({
   },
   entryChip: {
     alignSelf: 'flex-start',
+  },
+  entryHeaderRight: {
+    alignItems: 'flex-end',
+    gap: Spacing.xs,
+  },
+  expandIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  actionDrawer: {
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    padding: Spacing.sm,
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  drawerActionButton: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  drawerActionLabel: {
+    fontWeight: '700',
   },
   modalContainer: {
     flex: 1,

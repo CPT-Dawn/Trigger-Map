@@ -204,7 +204,7 @@ Visibility model:
 - reads timeline from SQLite only
 - groups by `log_date` into section headers
 - supports filter chips (all/pain/stress/medicine/food)
-- supports swipe-to-edit/delete and undo delete
+- supports tap-to-expand action drawer (edit/delete) and undo delete
 - every edit/delete writes locally, queues mutation, then silently syncs
 - pull-to-refresh triggers `runSync()` and reloads local data
 
