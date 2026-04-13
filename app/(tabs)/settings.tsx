@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SegmentedButtons, Snackbar, Text } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Radius, resolveColors, Spacing } from '../../constants/theme';
 import { CustomButton } from '../../components/ui/CustomButton';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
@@ -12,16 +14,16 @@ import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 
 export default function SettingsScreen() {
   const colors = useAppColors();
-  const { themePreference, appliedTheme, setThemePreference } = useThemePreference();
+  const { themePreference, setThemePreference } = useThemePreference();
   const { user } = useAuth();
 
   const initialDisplayName = useMemo(
     () =>
-      ((user?.user_metadata?.display_name as string | undefined) ??
+      (user?.user_metadata?.display_name as string | undefined) ??
       (user?.user_metadata?.full_name as string | undefined) ??
       user?.email?.split('@')[0] ??
-      ''),
-    [user]
+      '',
+    [user],
   );
 
   const [displayName, setDisplayName] = useState(initialDisplayName);
@@ -92,8 +94,6 @@ export default function SettingsScreen() {
     { value: 'dark', label: 'Dark' },
   ];
 
-  const activeTheme = appliedTheme;
-
   return (
     <ScreenWrapper>
       <ScrollView
@@ -101,99 +101,130 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.card}>
-          <View style={styles.profileHeader}>
-            <View style={styles.profileHeaderCopy}>
-              <Text variant="titleMedium" style={styles.sectionTitle}>Profile</Text>
-              <Text variant="bodyMedium" style={styles.sectionBody}>
-                Update your profile name.
+        <Animated.View entering={FadeInDown.delay(60).springify()}>
+          <LinearGradient
+            colors={[colors.glassSurface, colors.surfaceOverlayEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.card}
+          >
+            <View style={styles.sectionHeaderRow}>
+              <Text variant="headlineSmall" style={styles.sectionTitle}>
+                Profile
               </Text>
             </View>
-          </View>
 
-          <View style={styles.profileRow}>
-            <ProfileInitialAvatar name={displayName} size={56} />
-            <View style={styles.profileMeta}>
-              <Text variant="titleMedium" style={styles.profileName} numberOfLines={1}>
-                {trimmedDisplayName || 'Set your name'}
-              </Text>
-              <Text variant="bodyMedium" style={styles.profileEmail} numberOfLines={1}>
-                {userEmail}
-              </Text>
+            <View style={styles.profileRow}>
+              <ProfileInitialAvatar name={displayName} size={64} />
+              <View style={styles.profileMeta}>
+                <Text variant="headlineSmall" style={styles.profileName} numberOfLines={1}>
+                  {trimmedDisplayName || 'Set your name'}
+                </Text>
+                <Text variant="bodyLarge" style={styles.profileEmail} numberOfLines={1}>
+                  {userEmail}
+                </Text>
+              </View>
             </View>
-          </View>
 
-          <CustomTextInput
-            mode="outlined"
-            label="Display name"
-            value={displayName}
-            onChangeText={setDisplayName}
-            placeholder="Your display name"
-            autoCapitalize="words"
-            style={styles.input}
-          />
+            <Text variant="titleMedium" style={styles.inputLabel}>
+              Display name
+            </Text>
 
-          <CustomButton
-            mode="contained"
-            icon="content-save-outline"
-            onPress={handleSaveProfile}
-            isLoading={isSavingProfile}
-            disabled={!canSaveProfile}
-            style={styles.saveButton}
+            <CustomTextInput
+              mode="outlined"
+              value={displayName}
+              onChangeText={setDisplayName}
+              placeholder="Your display name"
+              autoCapitalize="words"
+              style={styles.input}
+            />
+
+            <CustomButton
+              mode="contained"
+              icon="content-save-outline"
+              onPress={handleSaveProfile}
+              isLoading={isSavingProfile}
+              disabled={!canSaveProfile}
+              buttonColor={colors.surfaceContainerHigh}
+              textColor={colors.text}
+              style={styles.saveButton}
+            >
+              Save Profile
+            </CustomButton>
+          </LinearGradient>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(120).springify()}>
+          <LinearGradient
+            colors={[colors.glassSurface, colors.surfaceOverlayEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.card}
           >
-            Save Profile
-          </CustomButton>
-        </View>
+            <Text variant="headlineSmall" style={styles.sectionTitle}>
+              Theme
+            </Text>
+            <Text variant="bodyLarge" style={styles.sectionBody}>
+              Choose how Trigger Map appears across your devices.
+            </Text>
 
-        <View style={styles.card}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>Theme</Text>
-          <Text variant="bodyMedium" style={styles.sectionBody}>
-            Choose how Trigger Map appears across your devices.
-          </Text>
+            <SegmentedButtons
+              value={themePreference}
+              onValueChange={(value) => {
+                if (value === 'auto' || value === 'light' || value === 'dark') {
+                  void setThemePreference(value);
+                }
+              }}
+              density="small"
+              style={styles.segmentedRoot}
+              buttons={themeOptions.map((option) => ({
+                value: option.value,
+                label: option.label,
+                showSelectedCheck: false,
+                style: styles.segmentedButton,
+              }))}
+              theme={{
+                colors: {
+                  secondaryContainer: colors.primaryContainer,
+                  onSecondaryContainer: colors.onPrimaryContainer,
+                  outline: colors.ghostBorder,
+                },
+              }}
+            />
 
-          <SegmentedButtons
-            value={themePreference}
-            onValueChange={(value) => {
-              if (value === 'auto' || value === 'light' || value === 'dark') {
-                void setThemePreference(value);
-              }
-            }}
-            density="small"
-            style={styles.segmentedRoot}
-            buttons={themeOptions.map((option) => ({
-              value: option.value,
-              label: option.label,
-              showSelectedCheck: false,
-              style: styles.segmentedButton,
-            }))}
-            theme={{
-              colors: {
-                secondaryContainer: colors.primaryContainer,
-                onSecondaryContainer: colors.onPrimaryContainer,
-                outline: colors.ghostBorder,
-              },
-            }}
-          />
-        </View>
+            <Text variant="bodyMedium" style={styles.themeHint}>
+              Match your device appearance settings.
+            </Text>
+          </LinearGradient>
+        </Animated.View>
 
-        <View style={styles.card}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>Account</Text>
-          <Text variant="bodyMedium" style={styles.sectionBody}>
-            Log out to switch your account.
-          </Text>
-
-          <CustomButton
-            mode="contained"
-            icon="logout"
-            onPress={handleSignOut}
-            isLoading={isSigningOut}
-            buttonColor={colors.errorContainer}
-            textColor={colors.onErrorContainer}
-            style={styles.logoutButton}
+        <Animated.View entering={FadeInDown.delay(180).springify()}>
+          <LinearGradient
+            colors={[colors.glassSurface, colors.surfaceOverlayEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.card}
           >
-            Log Out
-          </CustomButton>
-        </View>
+            <Text variant="headlineSmall" style={styles.sectionTitle}>
+              Account
+            </Text>
+            <Text variant="bodyLarge" style={styles.sectionBody}>
+              Log out to switch your account.
+            </Text>
+
+            <CustomButton
+              mode="contained"
+              icon="logout"
+              onPress={handleSignOut}
+              isLoading={isSigningOut}
+              buttonColor={colors.dangerSoft}
+              textColor={colors.error}
+              style={styles.logoutButton}
+            >
+              Log Out
+            </CustomButton>
+          </LinearGradient>
+        </Animated.View>
       </ScrollView>
 
       <Snackbar
@@ -217,81 +248,74 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     contentContainer: {
       paddingHorizontal: Spacing.lg,
       paddingTop: Spacing.xs,
-      paddingBottom: 95,
+      paddingBottom: 100,
       gap: Spacing.lg,
     },
     card: {
-      backgroundColor: colors.glassSurface,
       borderColor: colors.ghostBorder,
       borderWidth: 1,
       borderRadius: Radius.xl,
       padding: Spacing.lg,
+      gap: Spacing.md,
+      overflow: 'hidden',
+      shadowColor: colors.shadowAmbient,
+      shadowOpacity: 0.22,
+      shadowOffset: { width: 0, height: 12 },
+      shadowRadius: 18,
+      elevation: 4,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: Spacing.sm,
     },
     sectionTitle: {
       color: colors.text,
-      marginBottom: Spacing.xs,
       fontWeight: '700',
     },
     sectionBody: {
       color: colors.textMuted,
-      marginBottom: Spacing.md,
-    },
-    profileHeader: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      gap: Spacing.sm,
-    },
-    profileHeaderCopy: {
-      flex: 1,
-      gap: Spacing.xxs,
-    },
-    headerBadge: {
-      alignSelf: 'flex-start',
-      borderRadius: Radius.full,
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: Spacing.xs,
-    },
-    headerBadgeText: {
-      color: colors.textMuted,
-      fontWeight: '700',
-      letterSpacing: 0.3,
+      marginTop: -Spacing.xs,
+      marginBottom: Spacing.sm,
     },
     profileRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: Spacing.sm,
-      marginTop: Spacing.sm,
-      marginBottom: Spacing.md,
+      gap: Spacing.md,
+      marginBottom: Spacing.sm,
     },
     profileMeta: {
       flex: 1,
-      gap: Spacing.xs,
+      gap: Spacing.xxs,
     },
     profileName: {
-      fontWeight: '700',
       color: colors.text,
+      fontWeight: '700',
     },
     profileEmail: {
       color: colors.textMuted,
     },
+    inputLabel: {
+      color: colors.text,
+      marginBottom: -Spacing.xs,
+      fontWeight: '600',
+    },
     input: {
-      marginBottom: Spacing.sm,
-      minHeight: 48,
-      backgroundColor: 'transparent',
+      marginBottom: Spacing.xs,
     },
     saveButton: {
-      marginTop: Spacing.xs,
+      marginTop: 0,
     },
     segmentedRoot: {
-      marginBottom: Spacing.md,
+      marginBottom: Spacing.xs,
     },
     segmentedButton: {
       borderColor: colors.ghostBorder,
+      minHeight: 46,
     },
     themeHint: {
       color: colors.textMuted,
-      textAlign: 'center',
     },
     logoutButton: {
       marginTop: Spacing.xs,

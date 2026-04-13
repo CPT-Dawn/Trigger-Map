@@ -24,18 +24,18 @@ export function CustomTextInput({
         mode={mode}
         error={hasError}
         style={[styles.input, style]}
-        outlineColor={currentColors.outline}
+        outlineColor={currentColors.ghostBorder}
         activeOutlineColor={currentColors.primary}
         textColor={currentColors.text}
         contentStyle={styles.inputContent}
         theme={{
           colors: {
-            background: currentColors.surfaceContainerLowest,
+            background: currentColors.inputSurface,
             error: currentColors.error,
             primary: currentColors.primary,
             onSurfaceVariant: currentColors.textMuted,
           },
-          roundness: Radius.md,
+          roundness: Radius.xl,
         }}
         {...props}
       />
@@ -53,11 +53,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   input: {
-    minHeight: 52,
+    minHeight: 50,
     backgroundColor: 'transparent',
   },
-  inputContent: {
-  },
+  inputContent: {},
   errorText: {
     marginTop: Spacing.xs,
     marginLeft: Spacing.sm,

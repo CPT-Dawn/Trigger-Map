@@ -22,12 +22,12 @@ export function CustomButton({
   const isContained = mode === 'contained';
   const isOutlined = mode === 'outlined';
   const buttonColor = isContained
-    ? currentColors.primary
+    ? currentColors.primaryContainer
     : isOutlined
-      ? currentColors.surfaceContainer
+      ? currentColors.inputSurface
       : undefined;
   const textColor = isContained
-    ? currentColors.onPrimary
+    ? currentColors.onPrimaryContainer
     : isOutlined
       ? currentColors.text
       : currentColors.primary;
@@ -67,7 +67,8 @@ export function CustomButton({
           textColor={textColor}
           style={{
             borderRadius: Radius.xl,
-            borderColor: isOutlined ? currentColors.outlineVariant : undefined,
+            borderWidth: isContained || isOutlined ? 1 : 0,
+            borderColor: isContained ? currentColors.ghostBorder : isOutlined ? currentColors.outlineVariant : undefined,
           }}
           contentStyle={[
             styles.content,
@@ -95,9 +96,10 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.xs,
   },
   content: {
-    minHeight: 52,
+    minHeight: 50,
   },
   label: {
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });

@@ -13,7 +13,6 @@ To maintain a modern, beautiful, and consistent Android-inclined aesthetic:
 
 - **Never use inline styles for colors/fonts.** Always import from `constants/theme.ts` or use the React Native Paper theme provider.
 - **Components:** All base UI elements (Buttons, TextInputs) MUST be imported from `components/ui/` or `react-native-paper`. Do not build one-off buttons.
-- **Spacing:** Use consistent multiples of 8 (8, 16, 24, 32) for margins and padding.
 - **Typography:** Rely on Material Design 3 typography scales.
 
 ## 3. Authentication

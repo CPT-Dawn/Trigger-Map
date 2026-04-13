@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Link } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { CustomButton } from '../../components/ui/CustomButton';
@@ -45,8 +47,16 @@ export default function SignInScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={[styles.formCard, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder, borderWidth: 1 }]}> 
+          <LinearGradient
+            colors={[colors.glassSurface, colors.surfaceOverlayEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.formCard, { borderColor: colors.ghostBorder, borderWidth: 1 }]}
+          >
             <View style={styles.header}>
+              <View style={[styles.headerIconWrap, { backgroundColor: colors.primaryContainer }]}> 
+                <MaterialCommunityIcons name="account-heart-outline" size={22} color={colors.onPrimaryContainer} />
+              </View>
               <Text variant="headlineMedium" style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
               <Text variant="bodyLarge" style={[styles.subtitle, { color: colors.textMuted }]}>Sign in to continue tracking your health context.</Text>
             </View>
@@ -77,8 +87,11 @@ export default function SignInScreen() {
 
               <CustomButton
                 mode="contained"
+                icon="login"
                 onPress={handleSignIn}
                 isLoading={loading}
+                buttonColor={colors.primary}
+                textColor={colors.onPrimary}
                 style={styles.submitButton}
               >
                 Sign In
@@ -96,7 +109,7 @@ export default function SignInScreen() {
                 </Link>
               </View>
             </View>
-          </View>
+          </LinearGradient>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenWrapper>
@@ -117,9 +130,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.xl,
     gap: Spacing.lg,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 3,
   },
   header: {
     gap: Spacing.sm,
+    alignItems: 'flex-start',
+  },
+  headerIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontWeight: '800',

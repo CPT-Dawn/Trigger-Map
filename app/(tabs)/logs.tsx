@@ -1006,7 +1006,13 @@ export default function LogsScreen() {
             ? 'Try another filter or add a fresh log to continue building your history.'
             : 'Use the plus button to add pain, stress, medicine, or food entries.'}
         </Text>
-        <CustomButton mode="contained" onPress={() => router.push('/add-log')} style={styles.emptyButton}>
+        <CustomButton
+          mode="contained"
+          onPress={() => router.push('/add-log')}
+          buttonColor={colors.primary}
+          textColor={colors.onPrimary}
+          style={styles.emptyButton}
+        >
           Add Entry
         </CustomButton>
       </View>
@@ -1183,7 +1189,14 @@ export default function LogsScreen() {
                 <CustomButton mode="outlined" onPress={closeEditor} style={styles.modalActionButton}>
                   Cancel
                 </CustomButton>
-                <CustomButton mode="contained" onPress={handleSaveEdit} isLoading={isSavingEdit} style={styles.modalActionButton}>
+                <CustomButton
+                  mode="contained"
+                  onPress={handleSaveEdit}
+                  isLoading={isSavingEdit}
+                  buttonColor={colors.primary}
+                  textColor={colors.onPrimary}
+                  style={styles.modalActionButton}
+                >
                   Save
                 </CustomButton>
               </View>

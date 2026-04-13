@@ -8,9 +8,14 @@ import React, {
   useState,
 } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, IconButton, Snackbar, Text, TextInput } from 'react-native-paper';
+import { ActivityIndicator, IconButton, Snackbar, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetModal } from '@gorhom/bottom-sheet';
+import {
+  BottomSheetBackdrop,
+  BottomSheetFlatList,
+  BottomSheetModal,
+  BottomSheetTextInput,
+} from '@gorhom/bottom-sheet';
 import { Swipeable } from 'react-native-gesture-handler';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { Radius, Spacing } from '../../constants/theme';
@@ -18,7 +23,6 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { CustomButton } from '../ui/CustomButton';
-import { CustomTextInput } from '../ui/CustomTextInput';
 
 export interface ItemRecord {
   id: string;
@@ -29,7 +33,7 @@ export interface ItemRecord {
 }
 
 export interface ItemSelectorHandle {
-  present: () => void;
+  present: (options?: { editItemId?: string | null }) => void;
   dismiss: () => void;
 }
 
@@ -69,6 +73,42 @@ function getMasterItemSearchText(item: Pick<ItemRecord, 'display_name' | 'name' 
 
 function sortMasterItems(items: ItemRecord[]) {
   return [...items].sort((left, right) => getMasterItemDisplayName(left).localeCompare(getMasterItemDisplayName(right)));
+}
+
+interface SheetTextFieldProps extends React.ComponentProps<typeof BottomSheetTextInput> {
+  label?: string;
+  icon?: keyof typeof MaterialCommunityIcons.glyphMap;
+  trailing?: React.ReactNode;
+  colors: ReturnType<typeof useAppColors>;
+}
+
+function SheetTextField({ label, icon, trailing, colors, style, ...props }: SheetTextFieldProps) {
+  return (
+    <View style={styles.fieldBlock}>
+      {label ? (
+        <Text variant="labelMedium" style={[styles.fieldLabel, { color: colors.textMuted }]}>
+          {label}
+        </Text>
+      ) : null}
+      <View
+        style={[
+          styles.fieldSurface,
+          {
+            backgroundColor: colors.surfaceContainerLowest,
+            borderColor: colors.ghostBorder,
+          },
+        ]}
+      >
+        {icon ? <MaterialCommunityIcons name={icon} size={18} color={colors.textMuted} /> : null}
+        <BottomSheetTextInput
+          {...props}
+          style={[styles.fieldInput, { color: colors.text }, style]}
+          placeholderTextColor={colors.textMuted}
+        />
+        {trailing}
+      </View>
+    </View>
+  );
 }
 
 interface ItemRowProps {
@@ -160,6 +200,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
   const colors = useAppColors();
   const { user } = useAuth();
   const sheetRef = useRef<BottomSheetModal>(null);
+  const pendingOpenOptionsRef = useRef<{ editItemId?: string | null } | null>(null);
 
   const [items, setItems] = useState<ItemRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -192,7 +233,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     setDraftUnit('');
   }, []);
 
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (targetEditItemId?: string | null) => {
     if (!user) {
       setItems([]);
       return;
@@ -211,7 +252,20 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
         throw error;
       }
 
-      setItems((data ?? []) as ItemRecord[]);
+      const nextItems = (data ?? []) as ItemRecord[];
+      setItems(nextItems);
+
+      if (targetEditItemId) {
+        const targetItem = nextItems.find((item) => item.id === targetEditItemId);
+
+        if (targetItem) {
+          setActiveForm({ mode: 'edit', itemId: targetItem.id });
+          setDraftName(targetItem.name?.trim() || getMasterItemDisplayName(targetItem));
+          setDraftQuantity(targetItem.quantity !== null ? String(targetItem.quantity) : '');
+          setDraftUnit(targetItem.unit?.trim() || '');
+          setSearchQuery(getMasterItemDisplayName(targetItem));
+        }
+      }
     } catch (error: any) {
       showError(error?.message ?? `Unable to load ${displayType.toLowerCase()} items.`);
     } finally {
@@ -219,10 +273,14 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     }
   }, [displayType, showError, tableName, user]);
 
-  const openSheet = useCallback(() => {
-    sheetRef.current?.present();
-    void fetchItems();
-  }, [fetchItems]);
+  const openSheet = useCallback(
+    (options?: { editItemId?: string | null }) => {
+      pendingOpenOptionsRef.current = options ?? null;
+      sheetRef.current?.present();
+      void fetchItems(options?.editItemId ?? null);
+    },
+    [fetchItems],
+  );
 
   const closeSheet = useCallback(() => {
     sheetRef.current?.dismiss();
@@ -433,6 +491,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     setSearchQuery('');
     setItems([]);
     resetForm();
+    pendingOpenOptionsRef.current = null;
     onClose?.();
   }, [onClose, resetForm]);
 
@@ -464,22 +523,22 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
         <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeSheet} />
       </View>
 
-      <CustomTextInput
+      <SheetTextField
+        colors={colors}
+        icon="magnify"
         placeholder={`Search ${displayType.toLowerCase()}...`}
         value={searchQuery}
         onChangeText={setSearchQuery}
-        left={<TextInput.Icon icon="magnify" color={colors.textMuted} />}
-        right={
-          searchQuery.length > 0 ? (
-            <TextInput.Icon
-              icon="close-circle"
-              color={colors.textMuted}
-              onPress={() => setSearchQuery('')}
-              forceTextInputFocus={false}
-            />
-          ) : undefined
-        }
         autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="search"
+        trailing={
+          searchQuery.length > 0 ? (
+            <Pressable accessibilityRole="button" onPress={() => setSearchQuery('')} hitSlop={Spacing.sm}>
+              <MaterialCommunityIcons name="close-circle" size={18} color={colors.textMuted} />
+            </Pressable>
+          ) : null
+        }
       />
 
       {loading && (
@@ -496,7 +555,8 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
           </Text>
 
           <View style={styles.formFields}>
-            <CustomTextInput
+            <SheetTextField
+              colors={colors}
               label="Name"
               placeholder={`e.g. ${type === 'medicine' ? 'Ibuprofen' : 'Apple'}`}
               value={draftName}
@@ -507,22 +567,26 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
             <View style={styles.formRow}>
               <View style={styles.formColumn}>
-                <CustomTextInput
+                <SheetTextField
+                  colors={colors}
                   label="Quantity"
                   placeholder="e.g. 400"
                   value={draftQuantity}
                   onChangeText={setDraftQuantity}
                   keyboardType="decimal-pad"
+                  returnKeyType="next"
                 />
               </View>
 
               <View style={styles.formColumn}>
-                <CustomTextInput
+                <SheetTextField
+                  colors={colors}
                   label="Unit"
                   placeholder={`e.g. ${type === 'medicine' ? 'mg' : 'piece'}`}
                   value={draftUnit}
                   onChangeText={setDraftUnit}
                   autoCapitalize="words"
+                  returnKeyType="done"
                 />
               </View>
             </View>
@@ -677,6 +741,26 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     flex: 1,
+  },
+  fieldBlock: {
+    gap: Spacing.xs,
+  },
+  fieldLabel: {
+    marginLeft: Spacing.xs,
+  },
+  fieldSurface: {
+    minHeight: 52,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  fieldInput: {
+    flex: 1,
+    minHeight: 24,
   },
   formCard: {
     borderRadius: Radius.xl,

@@ -638,7 +638,13 @@ export default function HomeScreen() {
           </Text>
 
           <View style={styles.heroActions}>
-            <CustomButton mode="contained" onPress={() => router.push('/add-log')} style={styles.heroActionButton}>
+            <CustomButton
+              mode="contained"
+              onPress={() => router.push('/add-log')}
+              buttonColor={colors.primary}
+              textColor={colors.onPrimary}
+              style={styles.heroActionButton}
+            >
               Add Entry
             </CustomButton>
             <CustomButton mode="outlined" onPress={() => router.push('/logs')} style={styles.heroActionButton}>
@@ -743,7 +749,13 @@ export default function HomeScreen() {
               <Text variant="bodyMedium" style={{ color: colors.textMuted, textAlign: 'center' }}>
                 No logs yet. Add your first entry to start building correlations.
               </Text>
-              <CustomButton mode="contained" onPress={() => router.push('/add-log')} style={styles.emptyButton}>
+              <CustomButton
+                mode="contained"
+                onPress={() => router.push('/add-log')}
+                buttonColor={colors.primary}
+                textColor={colors.onPrimary}
+                style={styles.emptyButton}
+              >
                 Add Entry
               </CustomButton>
             </View>

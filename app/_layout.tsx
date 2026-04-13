@@ -8,6 +8,18 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { PaperProvider, MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { useFonts } from 'expo-font';
+import {
+  Sora_500Medium,
+  Sora_600SemiBold,
+  Sora_700Bold,
+} from '@expo-google-fonts/sora';
+import {
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+} from '@expo-google-fonts/manrope';
 import { Colors } from '../constants/theme';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { ThemeProvider, useThemePreference } from '../providers/ThemeProvider';
@@ -18,10 +30,35 @@ function RootLayoutNav() {
   const router = useRouter();
   const { appliedTheme } = useThemePreference();
 
-  const paperTheme =
-    appliedTheme === 'dark'
-      ? { ...MD3DarkTheme, colors: { ...MD3DarkTheme.colors, ...Colors.dark } }
-      : { ...MD3LightTheme, colors: { ...MD3LightTheme.colors, ...Colors.light } };
+  const baseTheme = appliedTheme === 'dark' ? MD3DarkTheme : MD3LightTheme;
+  const resolvedColors = appliedTheme === 'dark' ? Colors.dark : Colors.light;
+
+  const paperTheme = {
+    ...baseTheme,
+    colors: {
+      ...baseTheme.colors,
+      ...resolvedColors,
+    },
+    fonts: {
+      ...baseTheme.fonts,
+      displayLarge: { ...baseTheme.fonts.displayLarge, fontFamily: 'Sora_700Bold' },
+      displayMedium: { ...baseTheme.fonts.displayMedium, fontFamily: 'Sora_700Bold' },
+      displaySmall: { ...baseTheme.fonts.displaySmall, fontFamily: 'Sora_600SemiBold' },
+      headlineLarge: { ...baseTheme.fonts.headlineLarge, fontFamily: 'Sora_700Bold' },
+      headlineMedium: { ...baseTheme.fonts.headlineMedium, fontFamily: 'Sora_600SemiBold' },
+      headlineSmall: { ...baseTheme.fonts.headlineSmall, fontFamily: 'Sora_600SemiBold' },
+      titleLarge: { ...baseTheme.fonts.titleLarge, fontFamily: 'Sora_600SemiBold' },
+      titleMedium: { ...baseTheme.fonts.titleMedium, fontFamily: 'Sora_600SemiBold' },
+      titleSmall: { ...baseTheme.fonts.titleSmall, fontFamily: 'Sora_500Medium' },
+      labelLarge: { ...baseTheme.fonts.labelLarge, fontFamily: 'Manrope_700Bold' },
+      labelMedium: { ...baseTheme.fonts.labelMedium, fontFamily: 'Manrope_600SemiBold' },
+      labelSmall: { ...baseTheme.fonts.labelSmall, fontFamily: 'Manrope_600SemiBold' },
+      bodyLarge: { ...baseTheme.fonts.bodyLarge, fontFamily: 'Manrope_500Medium' },
+      bodyMedium: { ...baseTheme.fonts.bodyMedium, fontFamily: 'Manrope_400Regular' },
+      bodySmall: { ...baseTheme.fonts.bodySmall, fontFamily: 'Manrope_400Regular' },
+      default: { ...baseTheme.fonts.default, fontFamily: 'Manrope_500Medium' },
+    },
+  };
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -53,6 +90,20 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Sora_500Medium,
+    Sora_600SemiBold,
+    Sora_700Bold,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <GestureHandlerRootView style={styles.root}>

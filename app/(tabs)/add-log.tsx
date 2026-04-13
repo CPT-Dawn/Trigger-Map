@@ -103,10 +103,11 @@ interface SelectionChipProps {
   label: string;
   accentColor: string;
   colors: AddLogColors;
+  onEdit?: () => void;
   onRemove: () => void;
 }
 
-function SelectionChip({ label, accentColor, colors, onRemove }: SelectionChipProps) {
+function SelectionChip({ label, accentColor, colors, onEdit, onRemove }: SelectionChipProps) {
   return (
     <Animated.View
       layout={Layout.springify()}
@@ -121,6 +122,11 @@ function SelectionChip({ label, accentColor, colors, onRemove }: SelectionChipPr
       <Text variant="bodySmall" style={[styles.chipLabel, { color: colors.text }]} numberOfLines={1}>
         {label}
       </Text>
+      {onEdit ? (
+        <Pressable accessibilityRole="button" onPress={onEdit} hitSlop={Spacing.sm} style={styles.chipActionButton}>
+          <MaterialCommunityIcons name="pencil-outline" size={12} color={accentColor} />
+        </Pressable>
+      ) : null}
       <Pressable accessibilityRole="button" onPress={onRemove} hitSlop={Spacing.sm} style={styles.chipCloseButton}>
         <MaterialCommunityIcons name="close" size={12} color={accentColor} />
       </Pressable>
@@ -209,6 +215,8 @@ interface SelectionSectionProps {
   selectedItems: SelectedItem[];
   emptyText: string;
   buttonLabel: string;
+  subtitle: string;
+  onEditItem?: (id: string) => void;
   onOpen: () => void;
   onRemove: (id: string) => void;
 }
@@ -224,6 +232,8 @@ function SelectionSection({
   selectedItems,
   emptyText,
   buttonLabel,
+  subtitle,
+  onEditItem,
   onOpen,
   onRemove,
 }: SelectionSectionProps) {
@@ -232,7 +242,7 @@ function SelectionSection({
       delay={delay}
       icon={icon}
       title={title}
-      subtitle="Choose from saved items or create a new master entry."
+      subtitle={subtitle}
       accentColor={accentColor}
       colors={colors}
     >
@@ -254,6 +264,7 @@ function SelectionSection({
               label={item.name}
               accentColor={accentColor}
               colors={colors}
+              onEdit={onEditItem ? () => onEditItem(item.id) : undefined}
               onRemove={() => onRemove(item.id)}
             />
           ))}
@@ -504,6 +515,14 @@ export default function AddLogScreen() {
     foodSelectorRef.current?.present();
   }, []);
 
+  const handleEditMedicineItem = useCallback((itemId: string) => {
+    medicineSelectorRef.current?.present({ editItemId: itemId });
+  }, []);
+
+  const handleEditFoodItem = useCallback((itemId: string) => {
+    foodSelectorRef.current?.present({ editItemId: itemId });
+  }, []);
+
   const handleMedicineChipRemove = useCallback((itemId: string) => {
     setSelectedMedicines((currentItems) => currentItems.filter((currentItem) => currentItem.id !== itemId));
   }, []);
@@ -514,7 +533,12 @@ export default function AddLogScreen() {
 
   return (
     <ScreenWrapper>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <LogSectionCard
           delay={0}
           icon="clock-outline"
@@ -533,8 +557,66 @@ export default function AddLogScreen() {
           </View>
         </LogSectionCard>
 
-        <LogSectionCard
+        <SelectionSection
           delay={100}
+          icon="food-apple"
+          title="Food"
+          subtitle="Choose from saved items or create a new master entry."
+          accentColor={colors.secondary}
+          buttonColor={colors.secondaryContainer}
+          buttonTextColor={colors.onSecondaryContainer}
+          colors={colors}
+          selectedItems={selectedFoods}
+          emptyText="No food selected yet."
+          buttonLabel="Open Food Selector"
+          onEditItem={handleEditFoodItem}
+          onOpen={handleOpenFoodSelector}
+          onRemove={handleFoodChipRemove}
+        />
+
+        <LogSectionCard
+          delay={200}
+          icon="arm-flex"
+          title="Pain by Body Part"
+          subtitle="Track pain separately for each affected area."
+          accentColor={colors.chartTrigger}
+          colors={colors}
+          action={
+            <CustomButton mode="outlined" icon="plus" compact onPress={openBodyPartModal}>
+              Add Body Part
+            </CustomButton>
+          }
+        >
+          {painEntries.length === 0 ? (
+            <Text variant="bodyMedium" style={[styles.emptyState, { color: colors.textMuted }]}> 
+              No body parts added yet.
+            </Text>
+          ) : (
+            painEntries.map((entry, index) => (
+              <PainEntryCard key={entry.id} entry={entry} index={index} colors={colors} onChange={updatePainEntry} onRemove={removePainEntry} />
+            ))
+          )}
+        </LogSectionCard>
+
+        <SelectionSection
+          delay={300}
+          title="Medicine"
+          icon="pill"
+          subtitle="Choose from saved items or create a new master entry."
+          accentColor={colors.primary}
+          buttonColor={colors.primaryContainer}
+          buttonTextColor={colors.onPrimaryContainer}
+          colors={colors}
+          selectedItems={selectedMedicines}
+          emptyText="No medicine selected yet."
+          buttonLabel="Open Medicine Selector"
+          onEditItem={handleEditMedicineItem}
+          onOpen={handleOpenMedicineSelector}
+          onRemove={handleMedicineChipRemove}
+        />
+
+        <LogSectionCard
+          delay={400}
           icon="brain"
           title="Stress Level"
           subtitle="Select the current categorical stress level."
@@ -573,62 +655,15 @@ export default function AddLogScreen() {
           />
         </LogSectionCard>
 
-        <LogSectionCard
-          delay={200}
-          icon="arm-flex"
-          title="Pain by Body Part"
-          subtitle="Track pain separately for each affected area."
-          accentColor={colors.chartTrigger}
-          colors={colors}
-          action={
-            <CustomButton mode="outlined" icon="plus" compact onPress={openBodyPartModal}>
-              Add Body Part
-            </CustomButton>
-          }
-        >
-          {painEntries.length === 0 ? (
-            <Text variant="bodyMedium" style={[styles.emptyState, { color: colors.textMuted }]}>
-              No body parts added yet.
-            </Text>
-          ) : (
-            painEntries.map((entry, index) => (
-              <PainEntryCard key={entry.id} entry={entry} index={index} colors={colors} onChange={updatePainEntry} onRemove={removePainEntry} />
-            ))
-          )}
-        </LogSectionCard>
-
-        <SelectionSection
-          delay={300}
-          title="Medicine"
-          icon="pill"
-          accentColor={colors.primary}
-          buttonColor={colors.primaryContainer}
-          buttonTextColor={colors.onPrimaryContainer}
-          colors={colors}
-          selectedItems={selectedMedicines}
-          emptyText="No medicine selected yet."
-          buttonLabel="Open Medicine Selector"
-          onOpen={handleOpenMedicineSelector}
-          onRemove={handleMedicineChipRemove}
-        />
-
-        <SelectionSection
-          delay={400}
-          title="Food"
-          icon="food-apple"
-          accentColor={colors.secondary}
-          buttonColor={colors.secondaryContainer}
-          buttonTextColor={colors.onSecondaryContainer}
-          colors={colors}
-          selectedItems={selectedFoods}
-          emptyText="No food selected yet."
-          buttonLabel="Open Food Selector"
-          onOpen={handleOpenFoodSelector}
-          onRemove={handleFoodChipRemove}
-        />
-
         <Animated.View entering={FadeInDown.delay(500).springify()} layout={Layout.springify()}>
-          <CustomButton mode="contained" onPress={handleSaveLog} isLoading={isSaving} style={styles.saveButton}>
+          <CustomButton
+            mode="contained"
+            onPress={handleSaveLog}
+            isLoading={isSaving}
+            buttonColor={colors.primary}
+            textColor={colors.onPrimary}
+            style={styles.saveButton}
+          >
             Save Entry
           </CustomButton>
         </Animated.View>
@@ -675,7 +710,13 @@ export default function AddLogScreen() {
                 <CustomButton mode="outlined" onPress={closeBodyPartModal} style={styles.modalActionButton}>
                   Cancel
                 </CustomButton>
-                <CustomButton mode="contained" onPress={handleAddBodyPart} style={styles.modalActionButton}>
+                <CustomButton
+                  mode="contained"
+                  onPress={handleAddBodyPart}
+                  buttonColor={colors.primary}
+                  textColor={colors.onPrimary}
+                  style={styles.modalActionButton}
+                >
                   Add
                 </CustomButton>
               </View>
@@ -856,6 +897,12 @@ const styles = StyleSheet.create({
       maxWidth: 180,
     },
     chipCloseButton: {
+      width: 20,
+      height: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    chipActionButton: {
       width: 20,
       height: 20,
       alignItems: 'center',

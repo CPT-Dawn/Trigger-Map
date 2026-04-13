@@ -4,6 +4,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurTargetView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAppColors } from '../../providers/ThemeProvider';
 import { Radius, Spacing } from '../../constants/theme';
@@ -60,12 +61,20 @@ export default function TabLayout() {
           )}
           screenOptions={{
             headerStyle: {
-              backgroundColor: colors.surfaceContainerLow,
+              backgroundColor: 'transparent',
               elevation: 0,
               shadowOpacity: 0,
               borderBottomWidth: 1,
               borderBottomColor: colors.ghostBorder,
             },
+            headerBackground: () => (
+              <LinearGradient
+                colors={[colors.glassSurface, colors.surfaceOverlayEnd]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+            ),
             headerTitleAlign: 'left',
             headerTitleStyle: {
               fontWeight: '700',

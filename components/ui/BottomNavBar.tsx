@@ -60,9 +60,7 @@ function NavTabButton({
   unfocusedIcon,
 }: NavTabButtonProps) {
   const colors = useAppColors();
-
-  const isCenterTab = routeName === 'logs';
-  const tabColor = focused ? colors.primary : colors.tabIconDefault;
+  const tabColor = focused ? colors.onPrimaryContainer : colors.tabIconDefault;
 
   return (
     <Pressable
@@ -86,19 +84,17 @@ function NavTabButton({
       }}
       style={[
         styles.tabItem,
-        isCenterTab && styles.centerTabItem,
         {
-          backgroundColor: focused ? colors.surfaceContainerHigh : 'transparent',
+          backgroundColor: focused ? colors.primaryContainer : 'transparent',
           borderColor: focused ? colors.ghostBorder : 'transparent',
         },
       ]}
     >
       <View style={styles.tabContent}>
-        <MaterialCommunityIcons name={focused ? focusedIcon : unfocusedIcon} size={focused ? 26 : 24} color={tabColor} />
+        <MaterialCommunityIcons name={focused ? focusedIcon : unfocusedIcon} size={focused ? 24 : 22} color={tabColor} />
         <Text variant="labelSmall" style={[styles.tabLabel, { color: tabColor }, focused && styles.tabLabelFocused]}>
           {label}
         </Text>
-        {focused && <View style={[styles.activeIndicator, { backgroundColor: colors.primary }]} />}
       </View>
     </Pressable>
   );
@@ -150,42 +146,46 @@ export function BottomNavBar({ state, navigation, onAddPress, blurTarget }: Bott
         />
         <View style={[styles.topSheen, { backgroundColor: colors.onPrimary, opacity: 0.08 }]} />
         <View style={styles.row}>
-          <NavTabButton
-            routeName="index"
-            routeKey={routeByName('index')?.key ?? 'index'}
-            focused={activeRouteName === 'index'}
-            navigation={navigation}
-            label={TAB_CONFIG.index.label}
-            focusedIcon={TAB_CONFIG.index.focusedIcon}
-            unfocusedIcon={TAB_CONFIG.index.unfocusedIcon}
-          />
-          <NavTabButton
-            routeName="logs"
-            routeKey={routeByName('logs')?.key ?? 'logs'}
-            focused={activeRouteName === 'logs'}
-            navigation={navigation}
-            label={TAB_CONFIG.logs.label}
-            focusedIcon={TAB_CONFIG.logs.focusedIcon}
-            unfocusedIcon={TAB_CONFIG.logs.unfocusedIcon}
-          />
-          <NavTabButton
-            routeName="settings"
-            routeKey={routeByName('settings')?.key ?? 'settings'}
-            focused={activeRouteName === 'settings'}
-            navigation={navigation}
-            label={TAB_CONFIG.settings.label}
-            focusedIcon={TAB_CONFIG.settings.focusedIcon}
-            unfocusedIcon={TAB_CONFIG.settings.unfocusedIcon}
-          />
+          <View style={styles.tabsGroup}>
+            <NavTabButton
+              routeName="index"
+              routeKey={routeByName('index')?.key ?? 'index'}
+              focused={activeRouteName === 'index'}
+              navigation={navigation}
+              label={TAB_CONFIG.index.label}
+              focusedIcon={TAB_CONFIG.index.focusedIcon}
+              unfocusedIcon={TAB_CONFIG.index.unfocusedIcon}
+            />
+            <NavTabButton
+              routeName="logs"
+              routeKey={routeByName('logs')?.key ?? 'logs'}
+              focused={activeRouteName === 'logs'}
+              navigation={navigation}
+              label={TAB_CONFIG.logs.label}
+              focusedIcon={TAB_CONFIG.logs.focusedIcon}
+              unfocusedIcon={TAB_CONFIG.logs.unfocusedIcon}
+            />
+            <NavTabButton
+              routeName="settings"
+              routeKey={routeByName('settings')?.key ?? 'settings'}
+              focused={activeRouteName === 'settings'}
+              navigation={navigation}
+              label={TAB_CONFIG.settings.label}
+              focusedIcon={TAB_CONFIG.settings.focusedIcon}
+              unfocusedIcon={TAB_CONFIG.settings.unfocusedIcon}
+            />
+          </View>
 
           <View style={styles.addSlot}>
             <Pressable onPress={onAddPress} accessibilityRole="button" style={styles.addButton}>
-              <View style={[styles.addButtonContent, { backgroundColor: colors.primary }]}> 
-                <MaterialCommunityIcons name="plus-thick" size={18} color={colors.onPrimary} />
-                <Text variant="labelMedium" numberOfLines={1} style={[styles.addButtonLabel, { color: colors.onPrimary }]}> 
-                  Add
-                </Text>
-              </View>
+              <LinearGradient
+                colors={[colors.primary, colors.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.addButtonContent}
+              >
+                <MaterialCommunityIcons name="plus-thick" size={22} color={colors.onPrimary} />
+              </LinearGradient>
             </Pressable>
           </View>
         </View>
@@ -197,95 +197,81 @@ export function BottomNavBar({ state, navigation, onAddPress, blurTarget }: Bott
 const styles = StyleSheet.create({
   shell: {
     position: 'absolute',
-    left: -1,
-    right: -1,
+    left: Spacing.md,
+    right: Spacing.md,
     bottom: 0,
     zIndex: 50,
     elevation: 16,
   },
   surface: {
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.18,
-    shadowRadius: 16,
-    minHeight: 84,
+    shadowRadius: 20,
+    minHeight: 76,
   },
   row: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: Spacing.sm,
+    paddingTop: Spacing.xs,
+    gap: Spacing.sm,
+  },
+  tabsGroup: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingTop: 5,
-    gap: 0,
+    gap: Spacing.xs,
   },
   tabItem: {
-    flex: 0.98,
+    flex: 1,
     borderRadius: Radius.lg,
-    minHeight: 56,
+    minHeight: 52,
     borderWidth: 1,
     borderColor: 'transparent',
     overflow: 'hidden',
-  },
-  centerTabItem: {
-    flex: 1,
   },
   tabContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
+    gap: Spacing.xxs,
+    paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.xs,
     borderRadius: Radius.lg,
   },
   addSlot: {
-    flex: 1.5,
+    width: 64,
     justifyContent: 'center',
-    paddingHorizontal: Spacing.xs,
   },
   addButton: {
-    width: '100%',
-    minWidth: 100,
+    width: 58,
+    height: 58,
+    marginBottom: Spacing.xs,
   },
   addButtonContent: {
-    flexDirection: 'row',
-    gap: Spacing.xs,
-    width: '100%',
-    minHeight: 48,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 0,
+    width: 58,
+    height: 58,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: Radius.full,
-    elevation: 3,
-  },
-  addButtonLabel: {
-    fontWeight: '700',
-    letterSpacing: 0.15,
+    elevation: 6,
   },
   tabLabel: {
-    opacity: 0.74,
+    opacity: 0.82,
   },
   tabLabelFocused: {
     opacity: 1,
     fontWeight: '700',
     letterSpacing: 0.15,
   },
-  activeIndicator: {
-    width: 20,
-    height: 3,
-    borderRadius: Radius.full,
-    marginTop: Spacing.xxs,
-  },
   topSheen: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 1,
+    height: 2,
   },
 });
