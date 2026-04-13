@@ -19,7 +19,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { Radius, Spacing } from '../../constants/theme';
-import { useAppColors } from '../../providers/ThemeProvider';
+import { useAppColors, useThemePreference } from '../../providers/ThemeProvider';
 import { useAuth } from '../../providers/AuthProvider';
 import { supabase } from '../../lib/supabase';
 import { AppCard } from '../../components/ui/AppCard';
@@ -134,10 +134,13 @@ function formatSectionTitle(dateString: string) {
 }
 
 function formatTime(dateString: string) {
-  return new Date(dateString).toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return new Date(dateString)
+    .toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+    .replace(/\s?(AM|PM)$/, (match) => match.toLowerCase());
 }
 
 function titleCase(value: string) {
@@ -149,18 +152,23 @@ function titleCase(value: string) {
 }
 
 function formatPainEntryTitle(row: PainLogRow) {
-  const bodyPart = row.body_part?.trim() || 'Pain entry';
-  const painLevel = row.pain_level;
+  const bodyPart = row.body_part?.trim();
 
-  return painLevel !== null && painLevel !== undefined ? `${bodyPart} · Pain ${painLevel}` : bodyPart;
+  return bodyPart && bodyPart.length > 0 ? bodyPart : 'Pain entry';
 }
 
 function formatPainEntrySubtitle(row: PainLogRow) {
-  const pieces: string[] = [`Logged at ${formatTime(row.logged_at)}`];
+  const pieces: string[] = [];
+
+  if (row.pain_level !== null && row.pain_level !== undefined) {
+    pieces.push(String(row.pain_level));
+  }
 
   if (row.swelling) {
-    pieces.push('Swelling present');
+    pieces.push('Swelling');
   }
+
+  pieces.push(formatTime(row.logged_at));
 
   return pieces.join(' • ');
 }
@@ -179,14 +187,14 @@ function formatStressLabel(value: StressLevelValue | null | undefined) {
 
 function formatStressEntryTitle(value: StressLevelValue | null | undefined) {
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return `Stress level ${value}`;
+    return String(value);
   }
 
   if (typeof value === 'string') {
-    return `Stress: ${formatStressLabel(value)}`;
+    return formatStressLabel(value);
   }
 
-  return 'Stress';
+  return 'Unknown';
 }
 
 function coerceStressLevel(value: StressLevelValue | null | undefined): StressLevel {
@@ -213,14 +221,38 @@ function buildDisplayName(item?: UserItemRow | null) {
     return 'Unknown item';
   }
 
+  if (item.name && item.name.trim().length > 0) {
+    return item.name;
+  }
+
   if (item.display_name && item.display_name.trim().length > 0) {
     return item.display_name;
   }
 
-  const pieces = [item.name?.trim(), item.quantity !== null ? String(item.quantity) : null, item.unit?.trim()]
-    .filter((piece): piece is string => !!piece);
+  return 'Unknown item';
+}
 
-  return pieces.length > 0 ? pieces.join(' ') : 'Unknown item';
+function formatItemQuantityAndUnit(item?: UserItemRow | null) {
+  if (!item) {
+    return '';
+  }
+
+  const quantity = item.quantity !== null && item.quantity !== undefined ? String(item.quantity) : '';
+  const unit = item.unit?.trim() ?? '';
+
+  if (quantity && unit) {
+    return `${quantity} ${unit}`;
+  }
+
+  if (quantity) {
+    return quantity;
+  }
+
+  if (unit) {
+    return unit;
+  }
+
+  return '';
 }
 
 function groupEntriesByDate(entries: TimelineEntry[]) {
@@ -447,7 +479,7 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
               <Text variant="titleMedium" style={{ color: colors.text }}>
                 {entry.title}
               </Text>
-              <Text variant="bodySmall" style={{ color: colors.textMuted }}>
+              <Text variant={entry.type === 'stress' ? 'labelSmall' : 'bodySmall'} style={{ color: colors.textMuted }}>
                 {entry.subtitle}
               </Text>
             </View>
@@ -461,15 +493,6 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
             {config.label}
           </Chip>
         </View>
-
-        <View style={styles.entryFooter}>
-          <Text variant="labelSmall" style={{ color: colors.textMuted }}>
-            {formatTime(entry.loggedAt)}
-          </Text>
-          <Text variant="labelSmall" style={{ color: colors.textMuted }}>
-            {formatSectionTitle(entry.logDate)}
-          </Text>
-        </View>
       </Animated.View>
     </View>
   );
@@ -477,6 +500,7 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
 
 export default function LogsScreen() {
   const colors = useAppColors();
+  const { appliedTheme } = useThemePreference();
   const { user } = useAuth();
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -847,29 +871,39 @@ export default function LogsScreen() {
         logDate: row.log_date,
         loggedAt: row.logged_at,
         title: formatStressEntryTitle(row.level),
-        subtitle: `Logged at ${formatTime(row.logged_at)}`,
+        subtitle: formatTime(row.logged_at),
         payload: { kind: 'stress', row },
       }));
 
-      const medicineEntries: TimelineEntry[] = (medicineResult.data ?? []).map((row: MedicineLogRow) => ({
-        id: `medicine-${row.id}`,
-        type: 'medicine',
-        logDate: row.log_date,
-        loggedAt: row.logged_at,
-        title: buildDisplayName(medicineItems.get(row.medicine_id)),
-        subtitle: `Logged at ${formatTime(row.logged_at)}`,
-        payload: { kind: 'medicine', row, item: medicineItems.get(row.medicine_id) ?? null },
-      }));
+      const medicineEntries: TimelineEntry[] = (medicineResult.data ?? []).map((row: MedicineLogRow) => {
+        const medicineItem = medicineItems.get(row.medicine_id) ?? null;
+        const medicineDose = formatItemQuantityAndUnit(medicineItem);
 
-      const foodEntries: TimelineEntry[] = (foodResult.data ?? []).map((row: FoodLogRow) => ({
-        id: `food-${row.id}`,
-        type: 'food',
-        logDate: row.log_date,
-        loggedAt: row.logged_at,
-        title: buildDisplayName(foodItems.get(row.food_id)),
-        subtitle: `Logged at ${formatTime(row.logged_at)}`,
-        payload: { kind: 'food', row, item: foodItems.get(row.food_id) ?? null },
-      }));
+        return {
+          id: `medicine-${row.id}`,
+          type: 'medicine',
+          logDate: row.log_date,
+          loggedAt: row.logged_at,
+          title: buildDisplayName(medicineItem),
+          subtitle: medicineDose ? `${medicineDose} • ${formatTime(row.logged_at)}` : formatTime(row.logged_at),
+          payload: { kind: 'medicine', row, item: medicineItem },
+        };
+      });
+
+      const foodEntries: TimelineEntry[] = (foodResult.data ?? []).map((row: FoodLogRow) => {
+        const foodItem = foodItems.get(row.food_id) ?? null;
+        const serving = formatItemQuantityAndUnit(foodItem);
+
+        return {
+          id: `food-${row.id}`,
+          type: 'food',
+          logDate: row.log_date,
+          loggedAt: row.logged_at,
+          title: buildDisplayName(foodItem),
+          subtitle: serving ? `${serving} • ${formatTime(row.logged_at)}` : formatTime(row.logged_at),
+          payload: { kind: 'food', row, item: foodItem },
+        };
+      });
 
       const allEntries = [...painEntries, ...stressEntries, ...medicineEntries, ...foodEntries].sort(
         (left, right) => new Date(right.loggedAt).getTime() - new Date(left.loggedAt).getTime(),
@@ -924,6 +958,7 @@ export default function LogsScreen() {
   };
 
   const pendingDeleteConfig = pendingDeleteEntry ? typeConfig[pendingDeleteEntry.type] : null;
+  const deleteModalScrimColor = appliedTheme === 'dark' ? colors.background : colors.text;
 
   const filterOptions: Array<{ value: LogFilter; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = [
     { value: 'all', label: 'All', icon: 'timeline-text' },
@@ -1223,26 +1258,26 @@ export default function LogsScreen() {
       <Modal visible={pendingDeleteEntry !== null} transparent animationType="fade" onRequestClose={closeDeleteConfirm}>
         <View style={styles.modalContainer}>
           <Pressable
-            style={[styles.modalBackdrop, { backgroundColor: colors.text, opacity: 0.45 }]}
+            style={[styles.modalBackdrop, { backgroundColor: deleteModalScrimColor, opacity: 0.66 }]}
             onPress={isDeletingEntry ? undefined : closeDeleteConfirm}
           />
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.modalKeyboard}
           >
-            <AppCard style={styles.modalCard}>
-              <View style={styles.deleteModalHeader}>
-                <View style={styles.deleteModalHeaderLeft}>
-                  <View style={[styles.deleteModalIconWrap, { backgroundColor: colors.errorContainer }]}>
-                    <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.onErrorContainer} />
-                  </View>
-                  <View style={styles.deleteModalHeaderText}>
-                    <Text variant="titleLarge" style={[styles.cardTitle, { color: colors.text }]}> 
-                      Delete
-                    </Text>
-                  </View>
+            <AppCard variant="solid" style={[styles.modalCard, styles.deleteModalCard]}>
+              <View style={styles.deleteModalTopRow}>
+                <View style={[styles.deleteModalIconWrap, { backgroundColor: colors.errorContainer }]}> 
+                  <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.onErrorContainer} />
                 </View>
-                <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeDeleteConfirm} disabled={isDeletingEntry} />
+                <IconButton
+                  icon="close"
+                  iconColor={colors.text}
+                  size={24}
+                  onPress={closeDeleteConfirm}
+                  disabled={isDeletingEntry}
+                  style={styles.deleteModalCloseButton}
+                />
               </View>
 
               <View
@@ -1266,16 +1301,16 @@ export default function LogsScreen() {
                   </View>
 
                   <View style={styles.deleteModalSummaryCopy}>
-                    <Text variant="labelMedium" style={{ color: colors.textMuted }}>
-                      Entry to delete
-                    </Text>
-                    <Text variant="titleMedium" style={{ color: colors.text }} numberOfLines={2}>
-                      {pendingDeleteEntry?.title ?? 'Entry'}
-                    </Text>
+                      <Text variant="titleMedium" style={[styles.deleteModalTitle, { color: colors.text }]} numberOfLines={2}>
+                        {pendingDeleteEntry?.title ?? 'Entry'}
+                      </Text>
+                      {pendingDeleteEntry ? (
+                        <Text variant="bodySmall" style={{ color: colors.textMuted }} numberOfLines={2}>
+                          {pendingDeleteEntry.subtitle}
+                        </Text>
+                        
+                      ) : null}
                   </View>
-                </View>
-
-                <View style={styles.deleteModalMetaRow}>
                   <Chip
                     compact
                     style={[
@@ -1286,15 +1321,10 @@ export default function LogsScreen() {
                   >
                     {pendingDeleteEntry ? titleCase(pendingDeleteEntry.type) : 'Entry'}
                   </Chip>
-                  <Text variant="labelSmall" style={{ color: colors.textMuted }}>
-                    {pendingDeleteEntry
-                      ? `${formatSectionTitle(pendingDeleteEntry.logDate)} · ${formatTime(pendingDeleteEntry.loggedAt)}`
-                      : ''}
-                  </Text>
                 </View>
               </View>
 
-              <View style={styles.modalActions}>
+              <View style={[styles.modalActions, styles.deleteModalActions]}>
                 <CustomButton mode="outlined" onPress={closeDeleteConfirm} style={styles.modalActionButton} disabled={isDeletingEntry}>
                   Cancel
                 </CustomButton>
@@ -1498,12 +1528,6 @@ const styles = StyleSheet.create({
   entryChip: {
     alignSelf: 'flex-start',
   },
-  entryFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 56,
-  },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1526,28 +1550,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.md,
   },
-  deleteModalHeader: {
+  deleteModalCard: {
+    padding: Spacing.xl,
+    gap: Spacing.lg,
+  },
+  deleteModalTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.sm,
   },
-  deleteModalHeaderLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
+  deleteModalCloseButton: {
+    margin: 0,
   },
-  deleteModalHeaderText: {
-    flex: 1,
-    gap: Spacing.xxs,
+  deleteModalHeadingBlock: {
+    gap: Spacing.xs,
   },
-  deleteModalSubtitle: {
-    lineHeight: 18,
+  deleteModalEyebrow: {
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
   deleteModalIconWrap: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1560,7 +1585,7 @@ const styles = StyleSheet.create({
   },
   deleteModalSummaryTop: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: Spacing.sm,
   },
   deleteModalTypeIcon: {
@@ -1573,6 +1598,9 @@ const styles = StyleSheet.create({
   deleteModalSummaryCopy: {
     flex: 1,
     gap: Spacing.xxs,
+  },
+  deleteModalTitle: {
+    fontWeight: '700',
   },
   deleteModalMetaRow: {
     flexDirection: 'row',
@@ -1594,6 +1622,9 @@ const styles = StyleSheet.create({
   },
   deleteModalWarningText: {
     flex: 1,
+  },
+  deleteModalActions: {
+    marginTop: Spacing.xs,
   },
   cardTitle: {
     fontWeight: '700',
