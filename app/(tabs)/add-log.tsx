@@ -70,6 +70,27 @@ function normalizeStressLevel(level: StressLevel) {
   return level;
 }
 
+function formatSelectedItemLabel(
+  item: Pick<ItemSnapshotRow, 'display_name' | 'name' | 'quantity' | 'unit'> | null,
+  fallbackLabel: string,
+) {
+  if (!item) {
+    return fallbackLabel;
+  }
+
+  const explicitDisplayName = item.display_name?.trim() || null;
+  const resolvedName = item.name?.trim() || explicitDisplayName || fallbackLabel;
+  const quantity = item.quantity;
+  const unit = item.unit?.trim() || null;
+
+  if (quantity !== null && Number.isFinite(quantity)) {
+    const quantityWithUnit = unit ? `${quantity} ${unit}` : `${quantity}`;
+    return `${resolvedName} • ${quantityWithUnit}`;
+  }
+
+  return explicitDisplayName || resolvedName;
+}
+
 type AddLogColors = ReturnType<typeof useAppColors>;
 
 interface LogSectionCardProps {
@@ -133,58 +154,40 @@ function LogSectionCard({
 
 interface SelectionChipProps {
   label: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   accentColor: string;
   colors: AddLogColors;
   onEdit?: () => void;
   onRemove: () => void;
 }
 
-function SelectionChip({ label, icon, accentColor, colors, onEdit, onRemove }: SelectionChipProps) {
+function SelectionChip({ label, accentColor, colors, onEdit, onRemove }: SelectionChipProps) {
   return (
     <Animated.View layout={Layout.springify().damping(22).stiffness(205)}>
-      <AppCard
-        style={[
-          styles.selectionEntryCard,
-          {
-            backgroundColor: colors.surfaceContainerLow,
-            borderColor: colors.ghostBorder,
-            shadowColor: colors.shadowAmbient,
-          },
-        ]}
-        variant="subtle"
-      >
-        <View style={styles.selectionEntryRow}>
-          <View style={[styles.selectionEntryIcon, { backgroundColor: colors.surfaceContainerHighest }]}>
-            <MaterialCommunityIcons name={icon} size={18} color={accentColor} />
-          </View>
+      <View style={[styles.selectionEntryRow, { borderBottomColor: colors.ghostBorder }]}>
+        <Text variant="titleSmall" style={[styles.selectionEntryMarker, { color: accentColor }]}>{'>'}</Text>
+        <Text variant="titleSmall" style={[styles.selectionEntryLabel, { color: colors.text }]} numberOfLines={1}>
+          {label}
+        </Text>
 
-          <Text variant="titleSmall" style={[styles.selectionEntryLabel, { color: colors.text }]} numberOfLines={1}>
-            {label}
-          </Text>
-
-          <View style={styles.selectionEntryActions}>
-            {onEdit ? (
-              <IconButton
-                icon="pencil-outline"
-                iconColor={accentColor}
-                containerColor={colors.surfaceContainerHighest}
-                size={20}
-                style={styles.selectionEntryButton}
-                onPress={onEdit}
-              />
-            ) : null}
+        <View style={styles.selectionEntryActions}>
+          {onEdit ? (
             <IconButton
-              icon="trash-can-outline"
-              iconColor={colors.error}
-              containerColor={colors.errorContainer}
+              icon="pencil-outline"
+              iconColor={accentColor}
               size={20}
               style={styles.selectionEntryButton}
-              onPress={onRemove}
+              onPress={onEdit}
             />
-          </View>
+          ) : null}
+          <IconButton
+            icon="trash-can-outline"
+            iconColor={colors.error}
+            size={20}
+            style={styles.selectionEntryButton}
+            onPress={onRemove}
+          />
         </View>
-      </AppCard>
+      </View>
     </Animated.View>
   );
 }
@@ -335,7 +338,6 @@ function SelectionSection({
             <SelectionChip
               key={item.id}
               label={item.name}
-              icon={icon}
               accentColor={accentColor}
               colors={colors}
               onEdit={onEditItem ? () => onEditItem(item.id) : undefined}
@@ -460,7 +462,8 @@ export default function AddLogScreen() {
 
   const handleSelectedItemChange = useCallback(
     (setter: React.Dispatch<React.SetStateAction<SelectedItem[]>>, item: ItemRecord) => {
-      const nextName = item.display_name?.trim() || item.name?.trim() || 'Saved item';
+      const fallbackName = item.display_name?.trim() || item.name?.trim() || 'Saved item';
+      const nextName = formatSelectedItemLabel(item, fallbackName);
 
       setter((currentItems) =>
         currentItems.some((currentItem) => currentItem.id === item.id)
@@ -992,10 +995,23 @@ export default function AddLogScreen() {
         ref={medicineSelectorRef}
         type="medicine"
         onSelect={(id, displayName) => {
+          const snapshot =
+            user
+              ? db.getFirstSync<ItemSnapshotRow>(
+                  `
+                    SELECT name, quantity, unit, display_name
+                    FROM user_medicines
+                    WHERE id = ? AND user_id = ?;
+                  `,
+                  [id, user.id],
+                )
+              : null;
+          const resolvedName = formatSelectedItemLabel(snapshot, displayName);
+
           setSelectedMedicines((currentItems) =>
             currentItems.some((medicine) => medicine.id === id)
               ? currentItems
-              : [...currentItems, { id, name: displayName }],
+              : [...currentItems, { id, name: resolvedName }],
           );
         }}
         onMasterItemChange={handleMedicineItemChange}
@@ -1006,8 +1022,21 @@ export default function AddLogScreen() {
         ref={foodSelectorRef}
         type="food"
         onSelect={(id, displayName) => {
+          const snapshot =
+            user
+              ? db.getFirstSync<ItemSnapshotRow>(
+                  `
+                    SELECT name, quantity, unit, display_name
+                    FROM user_foods
+                    WHERE id = ? AND user_id = ?;
+                  `,
+                  [id, user.id],
+                )
+              : null;
+          const resolvedName = formatSelectedItemLabel(snapshot, displayName);
+
           setSelectedFoods((currentItems) =>
-            currentItems.some((food) => food.id === id) ? currentItems : [...currentItems, { id, name: displayName }],
+            currentItems.some((food) => food.id === id) ? currentItems : [...currentItems, { id, name: resolvedName }],
           );
         }}
         onMasterItemChange={handleFoodItemChange}
@@ -1259,28 +1288,26 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   selectionEntryList: {
-    gap: Spacing.xs,
-    marginTop: 0,
-  },
-  selectionEntryCard: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xxs,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
+    gap: 0,
+    marginTop: Spacing.xxs,
   },
   selectionEntryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: Spacing.sm,
+    gap: Spacing.xs,
     minHeight: 48,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.xxs,
+    borderBottomWidth: 1,
+    elevation: 0,
+    shadowOpacity: 0,
   },
-  selectionEntryIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+  selectionEntryMarker: {
+    width: 14,
+    textAlign: 'center',
+    fontWeight: '800',
+    fontSize: 14,
   },
   selectionEntryLabel: {
     flex: 1,
@@ -1289,7 +1316,7 @@ const styles = StyleSheet.create({
   selectionEntryActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: Spacing.xxs,
   },
   selectionEntryButton: {
     margin: 0,
