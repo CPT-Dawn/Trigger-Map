@@ -19,6 +19,8 @@ You are an expert mobile app developer for Trigger-Map, a React Native Expo app 
 - React Native 0.83 + Expo SDK 55 + Expo Router
 - TypeScript
 - React Native Paper (MD3) + custom primitives in `components/ui`
+- MaterialCommunityIcons via `@expo/vector-icons`
+- Native controls: `@react-native-community/datetimepicker` + `@react-native-community/slider`
 - Supabase for Auth and remote tables
 - SQLite (`expo-sqlite`) as local source of truth for app domain data
 - Silent background sync via `expo-background-task`, `expo-task-manager`, and `@react-native-community/netinfo`
@@ -71,12 +73,13 @@ Queue and sync specifics:
 	- queues each inserted row and triggers background sync
 - `app/(tabs)/logs.tsx`:
 	- reads from local DB only
-	- supports swipe edit/delete and undo
+	- uses tap-to-expand edit/delete actions with undo snackbar
+	- edit flow is a type-aware modal for pain/stress/medicine/food
 	- edits/deletes are local-first + queued + silent sync
 - `components/forms/ItemSelector.tsx`:
 	- reusable master-data manager for food/medicine
 	- create/edit/delete all run local-first + queue
-	- deleting an item also removes dependent local logs and queues those deletes
+	- deleting a master item removes it from future selection only; historical logs remain
 - `app/(tabs)/settings.tsx`:
 	- display name saved to local `user_settings`
 	- queue entry created on `auth_profile`
@@ -92,7 +95,8 @@ Queue and sync specifics:
 
 - Reintroducing direct Supabase writes in app domain screens.
 - Creating IDs without `createUuid()` for syncable records.
-- Forgetting to queue deletes for dependent records.
+- Forgetting to queue deletes for records that are actually removed.
+- Assuming master-item deletion should remove historical logs (it should not).
 - Introducing visible sync UI contrary to seamless mode.
 - Adding raw color values or bypassing tokenized theme hooks.
 - Breaking stress level normalization (`Mid` UI value must map to `moderate` for persistence).

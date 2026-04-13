@@ -37,13 +37,6 @@ export function AppCard({
 }: AppCardProps) {
   const colors = useAppColors();
 
-  const tintOverlayColors: [string, string] =
-    variant === 'glass'
-      ? [colors.acrylicTintStrong, colors.acrylicTintSoft]
-      : variant === 'subtle'
-        ? [colors.surfaceOverlayStart, colors.surfaceOverlayEnd]
-        : [colors.surfaceOverlayStart, colors.surfaceOverlayEnd];
-
   const baseBackgroundColor =
     variant === 'glass'
       ? colors.surfaceContainerLowest

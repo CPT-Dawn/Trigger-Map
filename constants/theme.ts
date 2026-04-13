@@ -1,4 +1,3 @@
-import { DarkTheme, DefaultTheme, type Theme } from '@react-navigation/native';
 import type { ColorSchemeName } from 'react-native';
 
 export const Colors = {
@@ -133,38 +132,6 @@ export const Radius = {
   full: 9999,
 } as const;
 
-export type ThemeMode = keyof typeof Colors;
-export type ColorToken = keyof (typeof Colors)['light'];
-
 export function resolveColors(colorScheme: ColorSchemeName) {
   return colorScheme === 'dark' ? Colors.dark : Colors.light;
 }
-
-export const NavigationThemes: Record<ThemeMode, Theme> = {
-  light: {
-    ...DefaultTheme,
-    dark: false,
-    colors: {
-      ...DefaultTheme.colors,
-      primary: Colors.light.primary,
-      background: Colors.light.surface,
-      card: Colors.light.surfaceContainerLow,
-      text: Colors.light.text,
-      border: Colors.light.ghostBorder,
-      notification: Colors.light.error,
-    },
-  },
-  dark: {
-    ...DarkTheme,
-    dark: true,
-    colors: {
-      ...DarkTheme.colors,
-      primary: Colors.dark.primary,
-      background: Colors.dark.surface,
-      card: Colors.dark.surfaceContainerLow,
-      text: Colors.dark.text,
-      border: Colors.dark.ghostBorder,
-      notification: Colors.dark.error,
-    },
-  },
-};

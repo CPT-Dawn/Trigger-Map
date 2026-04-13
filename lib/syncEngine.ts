@@ -14,7 +14,6 @@ import {
 import { supabase } from './supabase';
 
 type QueueOperation = 'INSERT' | 'UPDATE' | 'DELETE';
-type LogTableName = 'pain_logs' | 'stress_logs' | 'medicine_logs' | 'food_logs';
 
 interface QueueRow {
   id: string;

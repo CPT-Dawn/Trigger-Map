@@ -14,6 +14,8 @@ Trigger-Map is an Android-first health tracking app that logs pain, stress, medi
 - Router: Expo Router (`app/` file-based)
 - Language: TypeScript
 - UI framework: React Native Paper (MD3) + custom UI primitives
+- UI icons: `@expo/vector-icons` (MaterialCommunityIcons)
+- Native input controls: `@react-native-community/datetimepicker` + `@react-native-community/slider`
 - Local storage: `expo-sqlite` (`triggermap.db`)
 - Remote backend: Supabase (Auth + Postgres tables)
 - Background jobs: `expo-background-task` + `expo-task-manager`
@@ -204,7 +206,8 @@ Visibility model:
 - reads timeline from SQLite only
 - groups by `log_date` into section headers
 - supports filter chips (all/pain/stress/medicine/food)
-- supports tap-to-expand action drawer (edit/delete) and undo delete
+- supports tap-to-expand action drawer (edit/delete) and undo delete snackbar
+- edit flow opens a type-aware modal (pain/stress/medicine/food specific controls)
 - every edit/delete writes locally, queues mutation, then silently syncs
 - pull-to-refresh triggers `runSync()` and reloads local data
 
@@ -235,6 +238,7 @@ Visibility model:
 6. Keep sync UX seamless and silent unless a task explicitly requests visible sync diagnostics.
 7. Use existing UI primitives before creating one-off components.
 8. Validate changes with `bunx tsc --noEmit` after meaningful edits.
+9. Keep dependency surface lean: remove unused runtime packages and clear dead declarations during cleanup passes.
 
 ## 10. Current Known Gaps
 
