@@ -203,8 +203,9 @@ function coerceStressLevel(value: StressLevelValue | null | undefined): StressLe
   return 'none';
 }
 
-const swipeActionWidth = 120;
-const swipeThreshold = 96;
+const swipeActionWidth = 112;
+const swipeThreshold = 72;
+const swipeActivationDistance = 8;
 const listReveal = (delay: number) => FadeInDown.delay(delay).duration(300);
 
 function buildDisplayName(item?: UserItemRow | null) {
@@ -258,16 +259,21 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
   const translateXValue = useRef(0);
   const startX = useRef(0);
 
-  const snapTo = (value: number, callback?: () => void) => {
+  const snapTo = (value: number, options?: { onComplete?: () => void; immediate?: boolean }) => {
     translateXValue.current = value;
+
+    if (options?.immediate && options.onComplete) {
+      options.onComplete();
+    }
+
     Animated.spring(translateX, {
       toValue: value,
       useNativeDriver: true,
-      friction: 16,
-      tension: 190,
+      friction: 13,
+      tension: 230,
     }).start(({ finished }) => {
-      if (finished && callback) {
-        callback();
+      if (finished && !options?.immediate && options?.onComplete) {
+        options.onComplete();
       }
     });
   };
@@ -280,34 +286,46 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
   }, [isActive]);
 
   const handleOpenEdit = () => {
-    snapTo(swipeActionWidth, () => onEdit(entry));
+    snapTo(swipeActionWidth, { onComplete: () => onEdit(entry), immediate: true });
   };
 
   const handleOpenDelete = () => {
-    snapTo(-swipeActionWidth, () => onDelete(entry));
+    snapTo(-swipeActionWidth, { onComplete: () => onDelete(entry), immediate: true });
   };
 
   const editOpacity = translateX.interpolate({
-    inputRange: [0, swipeActionWidth * 0.55, swipeActionWidth],
-    outputRange: [0, 0.8, 1],
+    inputRange: [0, swipeActivationDistance, swipeActionWidth * 0.45, swipeActionWidth],
+    outputRange: [0, 0.48, 0.86, 1],
     extrapolate: 'clamp',
   });
 
   const deleteOpacity = translateX.interpolate({
-    inputRange: [-swipeActionWidth, -swipeActionWidth * 0.55, 0],
-    outputRange: [1, 0.8, 0],
+    inputRange: [-swipeActionWidth, -swipeActionWidth * 0.45, -swipeActivationDistance, 0],
+    outputRange: [1, 0.86, 0.48, 0],
     extrapolate: 'clamp',
   });
 
   const editScale = translateX.interpolate({
     inputRange: [0, swipeActionWidth],
-    outputRange: [0.92, 1],
+    outputRange: [0.95, 1],
     extrapolate: 'clamp',
   });
 
   const deleteScale = translateX.interpolate({
     inputRange: [-swipeActionWidth, 0],
-    outputRange: [1, 0.92],
+    outputRange: [1, 0.95],
+    extrapolate: 'clamp',
+  });
+
+  const editTranslate = translateX.interpolate({
+    inputRange: [0, swipeActionWidth],
+    outputRange: [10, 0],
+    extrapolate: 'clamp',
+  });
+
+  const deleteTranslate = translateX.interpolate({
+    inputRange: [-swipeActionWidth, 0],
+    outputRange: [0, 10],
     extrapolate: 'clamp',
   });
 
@@ -315,17 +333,24 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 14 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+          Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2,
         onPanResponderGrant: () => {
-          startX.current = translateXValue.current;
+          translateX.stopAnimation((currentX) => {
+            translateXValue.current = currentX;
+            startX.current = currentX;
+          });
           onActivate(entry.id);
         },
         onPanResponderMove: (_, gestureState) => {
           const nextX = Math.max(-swipeActionWidth, Math.min(swipeActionWidth, startX.current + gestureState.dx));
+          translateXValue.current = nextX;
           translateX.setValue(nextX);
         },
         onPanResponderRelease: (_, gestureState) => {
-          const projectedX = Math.max(-swipeActionWidth, Math.min(swipeActionWidth, startX.current + gestureState.dx));
+          const projectedX = Math.max(
+            -swipeActionWidth,
+            Math.min(swipeActionWidth, startX.current + gestureState.dx + gestureState.vx * 24),
+          );
 
           if (projectedX >= swipeThreshold) {
             handleOpenEdit();
@@ -359,7 +384,7 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
               styles.swipeActionContent,
               {
                 opacity: editOpacity,
-                transform: [{ scale: editScale }],
+                transform: [{ translateX: editTranslate }, { scale: editScale }],
                 backgroundColor: colors.primaryContainer,
               },
             ]}
@@ -369,9 +394,6 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
             </View>
             <Text variant="labelLarge" style={[styles.swipeActionLabel, { color: colors.onPrimaryContainer }]}> 
               Edit
-            </Text>
-            <Text variant="bodySmall" style={[styles.swipeActionHint, { color: colors.onPrimaryContainer }]}> 
-              Swipe right
             </Text>
           </Animated.View>
         </Pressable>
@@ -388,7 +410,7 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
               styles.swipeActionContent,
               {
                 opacity: deleteOpacity,
-                transform: [{ scale: deleteScale }],
+                transform: [{ translateX: deleteTranslate }, { scale: deleteScale }],
                 backgroundColor: colors.errorContainer,
               },
             ]}
@@ -398,9 +420,6 @@ function SwipeableLogCard({ entry, config, colors, isActive, onActivate, onEdit,
             </View>
             <Text variant="labelLarge" style={[styles.swipeActionLabel, { color: colors.onErrorContainer }]}> 
               Delete
-            </Text>
-            <Text variant="bodySmall" style={[styles.swipeActionHint, { color: colors.onErrorContainer }]}> 
-              Swipe left
             </Text>
           </Animated.View>
         </Pressable>
@@ -909,6 +928,8 @@ export default function LogsScreen() {
     },
   };
 
+  const pendingDeleteConfig = pendingDeleteEntry ? typeConfig[pendingDeleteEntry.type] : null;
+
   const filterOptions: Array<{ value: LogFilter; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = [
     { value: 'all', label: 'All', icon: 'timeline-text' },
     { value: 'food', label: 'Food', icon: 'food-apple' },
@@ -1215,25 +1236,83 @@ export default function LogsScreen() {
             style={styles.modalKeyboard}
           >
             <AppCard style={styles.modalCard}>
-              <View style={styles.modalHeader}>
-                <View style={styles.deleteModalHeaderCopy}>
-                  <View style={[styles.deleteModalIconWrap, { backgroundColor: colors.errorContainer }]}> 
-                    <MaterialCommunityIcons name="trash-can-outline" size={24} color={colors.onErrorContainer} />
+              <View style={styles.deleteModalHeader}>
+                <View style={styles.deleteModalHeaderLeft}>
+                  <View style={[styles.deleteModalIconWrap, { backgroundColor: colors.errorContainer }]}>
+                    <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.onErrorContainer} />
                   </View>
-                  <Text variant="titleLarge" style={[styles.cardTitle, { color: colors.text, textAlign: 'center' }]}> 
-                    Delete this entry?
-                  </Text>
+                  <View style={styles.deleteModalHeaderText}>
+                    <Text variant="titleLarge" style={[styles.cardTitle, { color: colors.text }]}> 
+                      Delete entry
+                    </Text>
+                    <Text variant="bodySmall" style={[styles.deleteModalSubtitle, { color: colors.textMuted }]}> 
+                      This removes the log from your history.
+                    </Text>
+                  </View>
                 </View>
                 <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeDeleteConfirm} disabled={isDeletingEntry} />
               </View>
 
-              <Text variant="bodyMedium" style={[styles.sectionBody, { color: colors.textMuted, textAlign: 'center' }]}> 
-                {pendingDeleteEntry?.title}
-              </Text>
+              <View
+                style={[
+                  styles.deleteModalSummaryCard,
+                  { backgroundColor: colors.surfaceContainerLow, borderColor: colors.ghostBorder },
+                ]}
+              >
+                <View style={styles.deleteModalSummaryTop}>
+                  <View
+                    style={[
+                      styles.deleteModalTypeIcon,
+                      { backgroundColor: pendingDeleteConfig?.container ?? colors.surfaceContainerHighest },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={pendingDeleteConfig?.icon ?? 'clipboard-text-outline'}
+                      size={18}
+                      color={pendingDeleteConfig?.iconColor ?? colors.textMuted}
+                    />
+                  </View>
 
-              <Text variant="bodySmall" style={[styles.sectionBody, { color: colors.textMuted, textAlign: 'center' }]}> 
-                This will remove the log from your history. You can still undo briefly after deleting.
-              </Text>
+                  <View style={styles.deleteModalSummaryCopy}>
+                    <Text variant="labelMedium" style={{ color: colors.textMuted }}>
+                      Entry to delete
+                    </Text>
+                    <Text variant="titleMedium" style={{ color: colors.text }} numberOfLines={2}>
+                      {pendingDeleteEntry?.title ?? 'Entry'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.deleteModalMetaRow}>
+                  <Chip
+                    compact
+                    style={[
+                      styles.deleteModalTypeChip,
+                      { backgroundColor: pendingDeleteConfig?.container ?? colors.surfaceContainerHighest },
+                    ]}
+                    textStyle={{ color: pendingDeleteConfig?.iconColor ?? colors.text }}
+                  >
+                    {pendingDeleteEntry ? titleCase(pendingDeleteEntry.type) : 'Entry'}
+                  </Chip>
+                  <Text variant="labelSmall" style={{ color: colors.textMuted }}>
+                    {pendingDeleteEntry
+                      ? `${formatSectionTitle(pendingDeleteEntry.logDate)} · ${formatTime(pendingDeleteEntry.loggedAt)}`
+                      : ''}
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.deleteModalWarningRow,
+                    { backgroundColor: colors.dangerSoft, borderColor: colors.ghostBorder },
+                  ]}
+                >
+                  <MaterialCommunityIcons name="backup-restore" size={16} color={colors.error} />
+                  <Text variant="bodySmall" style={[styles.deleteModalWarningText, { color: colors.textMuted }]}>
+                    You can undo this for a few seconds after deletion.
+                  </Text>
+                </View>
+              </View>
 
               <View style={styles.modalActions}>
                 <CustomButton mode="outlined" onPress={closeDeleteConfirm} style={styles.modalActionButton} disabled={isDeletingEntry}>
@@ -1243,8 +1322,8 @@ export default function LogsScreen() {
                   mode="contained"
                   onPress={() => void handleConfirmDelete()}
                   isLoading={isDeletingEntry}
-                  buttonColor={colors.errorContainer}
-                  textColor={colors.onErrorContainer}
+                  buttonColor={colors.error}
+                  textColor={colors.onError}
                   style={styles.modalActionButton}
                 >
                   Delete
@@ -1467,17 +1546,74 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.md,
   },
-  deleteModalHeaderCopy: {
-    flex: 1,
-    alignItems: 'center',
+  deleteModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     gap: Spacing.sm,
   },
+  deleteModalHeaderLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  deleteModalHeaderText: {
+    flex: 1,
+    gap: Spacing.xxs,
+  },
+  deleteModalSubtitle: {
+    lineHeight: 18,
+  },
   deleteModalIconWrap: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  deleteModalSummaryCard: {
+    gap: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    padding: Spacing.md,
+  },
+  deleteModalSummaryTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  deleteModalTypeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteModalSummaryCopy: {
+    flex: 1,
+    gap: Spacing.xxs,
+  },
+  deleteModalMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  deleteModalTypeChip: {
+    borderWidth: 1,
+  },
+  deleteModalWarningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  deleteModalWarningText: {
+    flex: 1,
   },
   cardTitle: {
     fontWeight: '700',

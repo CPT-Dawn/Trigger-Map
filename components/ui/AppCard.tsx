@@ -76,7 +76,6 @@ export function AppCard({
           },
         ]}
       />
-      <View pointerEvents="none" style={[styles.topSheen, { backgroundColor: colors.acrylicEdge }]} />
       <View style={contentStyle}>{children}</View>
     </View>
   );
@@ -114,13 +113,6 @@ const styles = StyleSheet.create({
   },
   depthVeil: {
     ...StyleSheet.absoluteFillObject,
-  },
-  topSheen: {
-    position: 'absolute',
-    left: 1,
-    right: 1,
-    top: 0,
-    height: 1,
   },
   pressed: {
     opacity: 0.95,
