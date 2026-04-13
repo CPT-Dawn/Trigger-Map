@@ -3,7 +3,6 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Radius, Spacing } from '../../constants/theme';
@@ -106,10 +105,9 @@ export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProp
   const hasPersistentNavigationBar = Platform.OS === 'android' && insets.bottom >= 24;
   const dockBottomOffset = hasPersistentNavigationBar ? insets.bottom : 0;
   const activeRouteName = state.routes[state.index]?.name;
-  const blurIntensity = appliedTheme === 'dark' ? 100 : 96;
-  const chromeBaseColor = appliedTheme === 'dark' ? colors.acrylicElevated : colors.acrylicBase;
-  const depthVeilOpacity = appliedTheme === 'dark' ? 0.34 : 0.2;
-  const topSheenOpacity = appliedTheme === 'dark' ? 0.34 : 0.52;
+  const chromeBaseColor = appliedTheme === 'dark' ? colors.surfaceContainerLow : colors.surfaceContainerLowest;
+  const depthVeilOpacity = appliedTheme === 'dark' ? 0.26 : 0.12;
+  const topSheenOpacity = appliedTheme === 'dark' ? 0.24 : 0.5;
 
   const routeByName = (routeName: TabName) => state.routes.find((route) => route.name === routeName);
 
@@ -124,19 +122,12 @@ export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProp
           {
             backgroundColor: chromeBaseColor,
             borderColor: colors.ghostBorder,
-            paddingBottom: hasPersistentNavigationBar ? Spacing.sm : Spacing.xs,
           },
         ]}
       >
-        <BlurView
-          intensity={blurIntensity}
-          tint={appliedTheme === 'dark' ? 'dark' : 'light'}
-          blurMethod={Platform.OS === 'android' ? 'none' : undefined}
-          style={StyleSheet.absoluteFill}
-        />
         <LinearGradient
           pointerEvents="none"
-          colors={[colors.acrylicTintStrong, colors.acrylicTintSoft, colors.surfaceOverlayEnd]}
+          colors={[colors.surfaceOverlayStart, colors.surfaceOverlayEnd]}
           locations={[0, 0.55, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -205,8 +196,8 @@ export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProp
 const styles = StyleSheet.create({
   shell: {
     position: 'absolute',
-    left: Spacing.md,
-    right: Spacing.md,
+    left: 16,
+    right: 16,
     bottom: 0,
     zIndex: 50,
     elevation: 16,
@@ -251,17 +242,16 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
   },
   addSlot: {
-    width: 64,
+    width: 55,
     justifyContent: 'center',
   },
   addButton: {
-    width: 58,
-    height: 58,
-    marginBottom: Spacing.xs,
+    width: 50,
+    height: 50,
   },
   addButtonContent: {
-    width: 58,
-    height: 58,
+    width: 50,
+    height: 50,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: Radius.full,

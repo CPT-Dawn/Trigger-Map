@@ -1,9 +1,8 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Platform, View, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAppColors, useThemePreference } from '../../providers/ThemeProvider';
@@ -17,10 +16,9 @@ export default function TabLayout() {
   const { appliedTheme } = useThemePreference();
   const { user } = useAuth();
   const router = useRouter();
-  const headerBlurIntensity = appliedTheme === 'dark' ? 98 : 94;
-  const headerChromeBase = appliedTheme === 'dark' ? colors.acrylicElevated : colors.acrylicBase;
-  const headerVeilOpacity = appliedTheme === 'dark' ? 0.36 : 0.2;
-  const headerSheenOpacity = appliedTheme === 'dark' ? 0.3 : 0.48;
+  const headerChromeBase = appliedTheme === 'dark' ? colors.surfaceContainerLow : colors.surfaceContainerLowest;
+  const headerVeilOpacity = appliedTheme === 'dark' ? 0.28 : 0.14;
+  const headerSheenOpacity = appliedTheme === 'dark' ? 0.24 : 0.46;
 
   const profileName =
     (user?.user_metadata?.display_name as string | undefined) ??
@@ -72,14 +70,8 @@ export default function TabLayout() {
           headerBackground: () => (
             <View style={StyleSheet.absoluteFill}>
               <View style={[StyleSheet.absoluteFill, { backgroundColor: headerChromeBase }]} />
-              <BlurView
-                intensity={headerBlurIntensity}
-                tint={appliedTheme === 'dark' ? 'dark' : 'light'}
-                blurMethod={Platform.OS === 'android' ? 'none' : undefined}
-                style={StyleSheet.absoluteFill}
-              />
               <LinearGradient
-                colors={[colors.acrylicTintStrong, colors.acrylicTintSoft, colors.surfaceOverlayEnd]}
+                colors={[colors.surfaceOverlayStart, colors.surfaceOverlayEnd]}
                 locations={[0, 0.58, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}

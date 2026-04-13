@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Platform,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -8,11 +7,10 @@ import {
   ViewProps,
   ViewStyle,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Radius, Spacing } from '../../constants/theme';
-import { useAppColors, useThemePreference } from '../../providers/ThemeProvider';
+import { useAppColors } from '../../providers/ThemeProvider';
 
 type CardVariant = 'glass' | 'subtle' | 'solid';
 
@@ -39,28 +37,22 @@ export function AppCard({
   ...props
 }: AppCardProps) {
   const colors = useAppColors();
-  const { appliedTheme } = useThemePreference();
 
   const tintOverlayColors: [string, string] =
     variant === 'glass'
       ? [colors.acrylicTintStrong, colors.acrylicTintSoft]
       : variant === 'subtle'
-        ? [colors.surfaceOverlayStart, colors.acrylicTintSoft]
+        ? [colors.surfaceOverlayStart, colors.surfaceOverlayEnd]
         : [colors.surfaceOverlayStart, colors.surfaceOverlayEnd];
 
   const baseBackgroundColor =
     variant === 'glass'
-      ? colors.acrylicBase
+      ? colors.surfaceContainerLowest
       : variant === 'subtle'
-        ? colors.acrylicElevated
-        : colors.surfaceContainerLow;
+        ? colors.surfaceContainerLow
+        : colors.surfaceContainer;
 
-  const blurIntensity =
-    variant === 'glass'
-      ? appliedTheme === 'dark' ? 74 : 84
-      : variant === 'subtle'
-        ? appliedTheme === 'dark' ? 62 : 70
-        : appliedTheme === 'dark' ? 50 : 58;
+  const depthVeilOpacity = variant === 'glass' ? 0.16 : variant === 'subtle' ? 0.12 : 0.08;
 
   const cardNode = (
     <View
@@ -75,18 +67,22 @@ export function AppCard({
       ]}
       {...props}
     >
-      <BlurView
-        intensity={blurIntensity}
-        tint={appliedTheme === 'dark' ? 'dark' : 'light'}
-        blurMethod={Platform.OS === 'android' ? 'none' : undefined}
-        style={StyleSheet.absoluteFill}
-      />
       <LinearGradient
         pointerEvents="none"
         colors={tintOverlayColors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.depthVeil,
+          {
+            backgroundColor: colors.surfaceContainerLow,
+            opacity: depthVeilOpacity,
+          },
+        ]}
       />
       <View pointerEvents="none" style={[styles.topSheen, { backgroundColor: colors.acrylicEdge }]} />
       <View style={contentStyle}>{children}</View>
@@ -119,10 +115,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.lg,
     overflow: 'hidden',
-    shadowOpacity: 0.24,
-    shadowOffset: { width: 0, height: 12 },
-    shadowRadius: 20,
-    elevation: 4,
+    shadowOpacity: 0.16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  depthVeil: {
+    ...StyleSheet.absoluteFillObject,
   },
   topSheen: {
     position: 'absolute',

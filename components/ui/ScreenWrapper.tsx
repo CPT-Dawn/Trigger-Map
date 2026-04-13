@@ -1,6 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, View, ViewProps } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { StyleSheet, View, ViewProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing } from '../../constants/theme';
@@ -13,7 +12,7 @@ export interface ScreenWrapperProps extends ViewProps {
 export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps) {
   const colors = useAppColors();
   const { appliedTheme } = useThemePreference();
-  const blurIntensity = appliedTheme === 'dark' ? 42 : 54;
+  const atmosphereVeilOpacity = appliedTheme === 'dark' ? 0.24 : 0.12;
 
   return (
     <LinearGradient
@@ -28,21 +27,33 @@ export function ScreenWrapper({ children, style, ...props }: ScreenWrapperProps)
         <View style={[styles.orb, styles.orbTertiary, { backgroundColor: colors.ambientTertiary }]} />
       </View>
 
-      <BlurView
+      <LinearGradient
         pointerEvents="none"
-        intensity={blurIntensity}
-        tint={appliedTheme === 'dark' ? 'dark' : 'light'}
-        blurMethod={Platform.OS === 'android' ? 'none' : undefined}
+        colors={[colors.surfaceOverlayStart, colors.surfaceOverlayEnd]}
+        locations={[0, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
 
       <LinearGradient
         pointerEvents="none"
-        colors={[colors.acrylicTintStrong, colors.acrylicTintSoft, colors.surfaceOverlayEnd]}
+        colors={[colors.acrylicTintSoft, 'transparent']}
         locations={[0, 0.58, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
+      />
+
+      <View
+        pointerEvents="none"
+        style={[
+          styles.atmosphereVeil,
+          {
+            backgroundColor: colors.surfaceContainerLow,
+            opacity: atmosphereVeilOpacity,
+          },
+        ]}
       />
 
       <View pointerEvents="none" style={[styles.acrylicSheen, { backgroundColor: colors.acrylicEdge }]} />
@@ -97,5 +108,8 @@ const styles = StyleSheet.create({
     top: 0,
     height: 1,
     opacity: 0.52,
+  },
+  atmosphereVeil: {
+    ...StyleSheet.absoluteFillObject,
   },
 });
