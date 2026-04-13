@@ -831,7 +831,7 @@ export default function AddLogScreen() {
         <LogSectionCard
           delay={400}
           icon="brain"
-          title="Stress Level"
+          title="Stress"
           accentColor={colors.secondary}
           colors={colors}
           action={
