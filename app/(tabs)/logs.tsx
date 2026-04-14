@@ -1258,34 +1258,6 @@ export default function LogsScreen() {
     [colors.primary, handleRefresh, refreshing],
   );
 
-  const renderListHeader = () => {
-    if (loading && entries.length === 0) {
-      return (
-        <View style={styles.headerStack}>
-          <View style={styles.headerBlock}>
-            <Text variant="headlineSmall" style={{ color: colors.text }}>
-              Recent Logs
-            </Text>
-            <Text variant="bodyMedium" style={{ color: colors.textMuted }}>
-              Track what happened and when.
-            </Text>
-          </View>
-
-          <Reanimated.View entering={listReveal(40)}>
-            <AppCard style={styles.loadingCard}>
-              <ActivityIndicator color={colors.primary} />
-              <Text variant="bodyMedium" style={{ color: colors.textMuted }}>
-                Loading local logs...
-              </Text>
-            </AppCard>
-          </Reanimated.View>
-        </View>
-      );
-    }
-
-    return null;
-  };
-
   const renderFilterBar = () => {
     return (
       <View style={styles.filterBar}>
@@ -1328,7 +1300,37 @@ export default function LogsScreen() {
 
   const renderEmptyState = () => {
     if (loading && entries.length === 0) {
-      return null;
+      return (
+        <Reanimated.View entering={listReveal(40)}>
+          <AppCard
+            style={[
+              styles.emptyCard,
+              {
+                backgroundColor: colors.surfaceContainerLowest,
+                borderColor: colors.ghostBorder,
+                borderLeftColor: colors.primary,
+                shadowColor: colors.shadowAmbient,
+              },
+            ]}
+            variant="solid"
+          >
+            <View style={styles.emptyTopRow}>
+              <View style={[styles.emptyIconWrap, { backgroundColor: colors.primaryContainer }]}> 
+                <ActivityIndicator color={colors.onPrimaryContainer} />
+              </View>
+
+              <View style={styles.emptyCopyBlock}>
+                <Text variant="titleMedium" style={[styles.emptyTitle, { color: colors.text }]}> 
+                  Loading logs...
+                </Text>
+                <Text variant="bodyMedium" style={[styles.emptySubtitle, { color: colors.textMuted }]}> 
+                  Pulling your latest entries from local storage.
+                </Text>
+              </View>
+            </View>
+          </AppCard>
+        </Reanimated.View>
+      );
     }
 
     const isFiltered = filter !== 'all';
@@ -1408,7 +1410,6 @@ export default function LogsScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderEntry}
           renderSectionHeader={renderSectionHeader}
-          ListHeaderComponent={renderListHeader()}
           ListEmptyComponent={renderEmptyState()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -1770,50 +1771,12 @@ const styles = StyleSheet.create({
     paddingBottom: 75,
     gap: 8,
   },
-  headerStack: {
-    gap: Spacing.lg,
-  },
-  headerBlock: {
-    gap: Spacing.xs,
-    marginTop: Spacing.xs,
-  },
-  loadingCard: {
-    padding: Spacing.xl,
-    gap: Spacing.md,
-    alignItems: 'center',
-  },
-  summaryCard: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    padding: Spacing.md,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  metricCard: {
-    width: '48%',
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  metricTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   filterRow: {
     gap: Spacing.sm,
     paddingRight: Spacing.sm,
   },
   filterChip: {
     borderWidth: 1,
-  },
-  sectionHeader: {
-    minHeight: 48,
-    justifyContent: 'center',
-    zIndex: 1,
   },
   sectionHeaderCard: {
     minHeight: 40,
@@ -2016,10 +1979,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     flexShrink: 1,
   },
-  deleteModalEyebrow: {
-    fontWeight: '700',
-    letterSpacing: 0.4,
-  },
   deleteModalIconWrap: {
     width: 52,
     height: 52,
@@ -2052,26 +2011,8 @@ const styles = StyleSheet.create({
   deleteModalTitle: {
     fontWeight: '700',
   },
-  deleteModalMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
-  },
   deleteModalTypeChip: {
     borderWidth: 1,
-  },
-  deleteModalWarningRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-  },
-  deleteModalWarningText: {
-    flex: 1,
   },
   deleteModalActions: {
     marginTop: Spacing.xs,
@@ -2101,12 +2042,6 @@ const styles = StyleSheet.create({
   slider: {
     width: '100%',
     height: 40,
-  },
-  swellingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
   },
   swellingLabel: {
     flexShrink: 1,
@@ -2181,18 +2116,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  emptyHintCard: {
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  emptyHintText: {
-    flex: 1,
   },
   emptyActionsRow: {
     flexDirection: 'row',
