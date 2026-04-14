@@ -1332,30 +1332,66 @@ export default function LogsScreen() {
     }
 
     const isFiltered = filter !== 'all';
+    const activeFilter = isFiltered ? filterOptions.find((option) => option.value === filter) : null;
+    const activeFilterConfig = isFiltered ? typeConfig[filter as LogType] : null;
+    const emptyIcon = isFiltered ? activeFilter?.icon ?? 'filter-off' : 'clipboard-text-outline';
+    const emptyIconContainer = activeFilterConfig?.container ?? colors.primaryContainer;
+    const emptyAccentColor = activeFilterConfig?.iconColor ?? colors.onPrimaryContainer;
 
     return (
       <Reanimated.View entering={listReveal(60)}>
-        <AppCard style={styles.emptyCard}>
-          <View style={[styles.emptyIconWrap, { backgroundColor: colors.surfaceContainerHigh }]}> 
-            <MaterialCommunityIcons name={isFiltered ? 'filter-off' : 'clipboard-text-outline'} size={24} color={colors.textMuted} />
+        <AppCard
+          style={[
+            styles.emptyCard,
+            {
+              backgroundColor: colors.surfaceContainerLowest,
+              borderColor: colors.ghostBorder,
+              borderLeftColor: emptyAccentColor,
+              shadowColor: colors.shadowAmbient,
+            },
+          ]}
+          variant="solid"
+        >
+          <View style={styles.emptyTopRow}>
+            <View style={[styles.emptyIconWrap, { backgroundColor: emptyIconContainer }]}> 
+              <MaterialCommunityIcons name={emptyIcon} size={24} color={emptyAccentColor} />
+            </View>
+
+            <View style={styles.emptyCopyBlock}>
+              <Text variant="titleMedium" style={[styles.emptyTitle, { color: colors.text }]}> 
+                {isFiltered ? `${activeFilter?.label ?? 'Selected'} not logged yet!` : 'No logs yet!'}
+              </Text>
+              <Text variant="bodyMedium" style={[styles.emptySubtitle, { color: colors.textMuted }]}> 
+                {isFiltered
+                  ? `There are no ${activeFilter?.label?.toLowerCase() ?? 'selected'} entries right now. Try all logs or add a new entry.`
+                  : 'Start tracking health by logging Food, Pain, Medicine, or Stress.'}
+              </Text>
+            </View>
           </View>
-          <Text variant="titleMedium" style={{ color: colors.text, textAlign: 'center' }}>
-            {isFiltered ? 'No logs match this filter.' : 'Nothing logged yet.'}
-          </Text>
-          <Text variant="bodyMedium" style={{ color: colors.textMuted, textAlign: 'center' }}>
-            {isFiltered
-              ? 'Try another filter or add a fresh log to continue building your history.'
-              : 'Use the plus button to add pain, stress, medicine, or food entries.'}
-          </Text>
-          <CustomButton
-            mode="contained"
-            onPress={() => router.push('/add-log')}
-            buttonColor={colors.primary}
-            textColor={colors.onPrimary}
-            style={styles.emptyButton}
-          >
-            Add Entry
-          </CustomButton>
+
+          {isFiltered ? (
+            <View style={styles.emptyActionsRow}>
+              <CustomButton
+                mode="contained"
+                onPress={() => router.push('/add-log')}
+                buttonColor={colors.primary}
+                textColor={colors.onPrimary}
+                style={styles.emptyActionButton}
+              >
+                Add Entry
+              </CustomButton>
+            </View>
+          ) : (
+            <CustomButton
+              mode="contained"
+              onPress={() => router.push('/add-log')}
+              buttonColor={colors.primary}
+              textColor={colors.onPrimary}
+              style={styles.emptyButton}
+            >
+              Add Entry
+            </CustomButton>
+          )}
         </AppCard>
       </Reanimated.View>
     );
@@ -2112,20 +2148,62 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   emptyCard: {
-    padding: Spacing.xl,
+    padding: Spacing.lg,
     marginTop: Spacing.sm,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    shadowOpacity: 0.11,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+    gap: Spacing.md,
+  },
+  emptyTopRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
   },
+  emptyCopyBlock: {
+    flex: 1,
+    gap: Spacing.xs,
+    minWidth: 0,
+  },
+  emptyTitle: {
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    lineHeight: 20,
+  },
   emptyIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: Radius.full,
+    width: 50,
+    height: 50,
+    borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  emptyHintCard: {
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  emptyHintText: {
+    flex: 1,
+  },
+  emptyActionsRow: {
+    flexDirection: 'row',
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  emptyActionButton: {
+    flex: 1,
+  },
   emptyButton: {
     width: '100%',
-    marginTop: Spacing.xs,
+    marginTop: Spacing.sm,
   },
 });
