@@ -11,6 +11,7 @@ interface SyncQueueRow {
   table_name: string;
   operation: SyncQueueOperation;
   payload: string;
+  user_id: string | null;
   created_at: string;
 }
 
@@ -96,6 +97,34 @@ function getPayloadId(payloadRecord: Record<string, unknown>) {
   const nestedId = rowRecord?.id ?? dataRecord?.id;
 
   return typeof nestedId === 'string' && nestedId.length > 0 ? nestedId : null;
+}
+
+function getPayloadUserId(payload: unknown) {
+  const payloadRecord = getPayloadRecord(payload);
+
+  if (!payloadRecord) {
+    return null;
+  }
+
+  const directUserId = payloadRecord.user_id;
+
+  if (typeof directUserId === 'string' && directUserId.length > 0) {
+    return directUserId;
+  }
+
+  const rowRecord = getPayloadRecord(payloadRecord.row);
+
+  if (rowRecord && typeof rowRecord.user_id === 'string' && rowRecord.user_id.length > 0) {
+    return rowRecord.user_id;
+  }
+
+  const dataRecord = getPayloadRecord(payloadRecord.data);
+
+  if (dataRecord && typeof dataRecord.user_id === 'string' && dataRecord.user_id.length > 0) {
+    return dataRecord.user_id;
+  }
+
+  return null;
 }
 
 function assignPayloadId(payloadRecord: Record<string, unknown>, nextId: string) {
@@ -399,6 +428,34 @@ function migrateStressLevelsWithoutNone() {
   migrateStressQueuePayloadLevels();
 }
 
+function backfillSyncQueueUserIds() {
+  const queueRows = db.getAllSync<{ id: string; payload: string }>(
+    `
+      SELECT id, payload
+      FROM sync_queue
+      WHERE user_id IS NULL;
+    `,
+  );
+
+  for (const queueRow of queueRows) {
+    let parsedPayload: unknown;
+
+    try {
+      parsedPayload = JSON.parse(queueRow.payload);
+    } catch {
+      continue;
+    }
+
+    const payloadUserId = getPayloadUserId(parsedPayload);
+
+    if (!payloadUserId) {
+      continue;
+    }
+
+    db.runSync('UPDATE sync_queue SET user_id = ? WHERE id = ?;', [payloadUserId, queueRow.id]);
+  }
+}
+
 function applySchemaMigrations() {
   ensureColumn('medicine_logs', 'item_display_name', 'TEXT');
   ensureColumn('medicine_logs', 'item_name', 'TEXT');
@@ -408,9 +465,11 @@ function applySchemaMigrations() {
   ensureColumn('food_logs', 'item_name', 'TEXT');
   ensureColumn('food_logs', 'item_quantity', 'REAL');
   ensureColumn('food_logs', 'item_unit', 'TEXT');
+  ensureColumn('sync_queue', 'user_id', 'TEXT');
 
   db.execSync(`
     CREATE INDEX IF NOT EXISTS idx_sync_queue_created_at ON sync_queue(created_at);
+    CREATE INDEX IF NOT EXISTS idx_sync_queue_user_id ON sync_queue(user_id);
     CREATE INDEX IF NOT EXISTS idx_user_medicines_user_id ON user_medicines(user_id);
     CREATE INDEX IF NOT EXISTS idx_user_foods_user_id ON user_foods(user_id);
     CREATE INDEX IF NOT EXISTS idx_pain_logs_user_logged_at ON pain_logs(user_id, logged_at);
@@ -419,6 +478,7 @@ function applySchemaMigrations() {
     CREATE INDEX IF NOT EXISTS idx_food_logs_user_logged_at ON food_logs(user_id, logged_at);
   `);
 
+  backfillSyncQueueUserIds();
   migrateStressLevelsWithoutNone();
   backfillLogItemDisplayNames();
 }
@@ -493,6 +553,7 @@ export function initLocalDB() {
       table_name TEXT NOT NULL,
       operation TEXT NOT NULL CHECK (operation IN ('INSERT', 'UPDATE', 'DELETE')),
       payload TEXT NOT NULL,
+      user_id TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -518,24 +579,41 @@ export function addToSyncQueue(
   tableName: string,
   operation: SyncQueueOperation,
   payload: unknown,
+  options?: {
+    userId?: string | null;
+  },
 ) {
   const id = createQueueId();
+  const payloadUserId = getPayloadUserId(payload);
+  const queueUserId = options?.userId ?? payloadUserId ?? null;
 
   db.runSync(
     `
-      INSERT INTO sync_queue (id, table_name, operation, payload, created_at)
-      VALUES (?, ?, ?, ?, ?);
+      INSERT INTO sync_queue (id, table_name, operation, payload, user_id, created_at)
+      VALUES (?, ?, ?, ?, ?, ?);
     `,
-    [id, tableName, operation, JSON.stringify(payload), new Date().toISOString()],
+    [id, tableName, operation, JSON.stringify(payload), queueUserId, new Date().toISOString()],
   );
 
   return id;
 }
 
-export function getSyncQueue() {
+export function getSyncQueue(userId?: string | null) {
+  if (userId) {
+    return db.getAllSync<SyncQueueRow>(
+      `
+        SELECT id, table_name, operation, payload, user_id, created_at
+        FROM sync_queue
+        WHERE user_id = ?
+        ORDER BY created_at ASC;
+      `,
+      [userId],
+    );
+  }
+
   return db.getAllSync<SyncQueueRow>(
     `
-      SELECT id, table_name, operation, payload, created_at
+      SELECT id, table_name, operation, payload, user_id, created_at
       FROM sync_queue
       ORDER BY created_at ASC;
     `,
@@ -546,17 +624,21 @@ export function removeFromSyncQueue(id: string) {
   db.runSync('DELETE FROM sync_queue WHERE id = ?;', [id]);
 }
 
-export function getPendingSyncCount() {
-  const row = db.getFirstSync<{ count: number }>('SELECT COUNT(1) AS count FROM sync_queue;', []);
+export function getPendingSyncCount(userId?: string | null) {
+  const row = userId
+    ? db.getFirstSync<{ count: number }>('SELECT COUNT(1) AS count FROM sync_queue WHERE user_id = ?;', [userId])
+    : db.getFirstSync<{ count: number }>('SELECT COUNT(1) AS count FROM sync_queue;', []);
 
   return Number(row?.count ?? 0);
 }
 
-export function getPendingSyncCountForTable(tableName: string) {
-  const row = db.getFirstSync<{ count: number }>(
-    'SELECT COUNT(1) AS count FROM sync_queue WHERE table_name = ?;',
-    [tableName],
-  );
+export function getPendingSyncCountForTable(tableName: string, userId?: string | null) {
+  const row = userId
+    ? db.getFirstSync<{ count: number }>(
+        'SELECT COUNT(1) AS count FROM sync_queue WHERE table_name = ? AND user_id = ?;',
+        [tableName, userId],
+      )
+    : db.getFirstSync<{ count: number }>('SELECT COUNT(1) AS count FROM sync_queue WHERE table_name = ?;', [tableName]);
 
   return Number(row?.count ?? 0);
 }

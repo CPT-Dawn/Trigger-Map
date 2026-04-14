@@ -120,6 +120,7 @@ Domain tables:
 Sync/system tables:
 
 - `sync_queue`: queued mutations (`INSERT | UPDATE | DELETE` + JSON payload)
+- `sync_queue.user_id`: queue ownership field used to process only the active user's queued mutations
 - `sync_meta`: sync diagnostics (`last_sync_at`, `last_sync_error`)
 - `user_settings`: local profile cache (`display_name`)
 
@@ -153,6 +154,7 @@ Queue payload conventions:
 - `UPDATE`: payload includes `id` and changed fields under `data`
 - `DELETE`: payload includes `id`
 - special non-table channel: `auth_profile` for profile metadata update via Supabase Auth API
+- queue rows are tagged with `user_id`, and sync push reads only rows for the currently authenticated user
 
 ### 7.4 Sync Engine (`lib/syncEngine.ts`)
 
@@ -161,6 +163,11 @@ Primary functions:
 - `pushLocalChanges()`: flush queue to Supabase
 - `pullRemoteChanges()`: refresh local master items and recent logs (last 7 days)
 - `runSync()`: serialized orchestrator (push then pull)
+
+User scoping behavior:
+
+- push phase processes only queue rows owned by the active authenticated user
+- pull phase fetches remote records with `eq('user_id', activeUser.id)` filters
 
 Background and connectivity:
 

@@ -358,7 +358,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
             [item.id, user.id],
           );
 
-          addToSyncQueue(tableName, 'DELETE', { id: item.id });
+          addToSyncQueue(tableName, 'DELETE', { id: item.id, user_id: user.id }, { userId: user.id });
 
           db.execSync('COMMIT;');
         } catch (error) {
@@ -486,8 +486,9 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
           addToSyncQueue(tableName, 'UPDATE', {
             id: activeForm.itemId,
+            user_id: user.id,
             data: basePayload,
-          });
+          }, { userId: user.id });
 
           db.execSync('COMMIT;');
         } catch (error) {
@@ -527,7 +528,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
             id: itemId,
             user_id: user.id,
             ...basePayload,
-          });
+          }, { userId: user.id });
 
           db.execSync('COMMIT;');
         } catch (error) {

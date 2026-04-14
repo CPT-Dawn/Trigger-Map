@@ -121,11 +121,11 @@ export default function SettingsScreen() {
 
       try {
         upsertLocalDisplayName(user.id, trimmedDisplayName);
-        db.runSync('DELETE FROM sync_queue WHERE table_name = ? AND operation = ?;', ['auth_profile', 'UPDATE']);
+        db.runSync('DELETE FROM sync_queue WHERE table_name = ? AND operation = ? AND user_id = ?;', ['auth_profile', 'UPDATE', user.id]);
         addToSyncQueue('auth_profile', 'UPDATE', {
           user_id: user.id,
           display_name: trimmedDisplayName,
-        });
+        }, { userId: user.id });
         db.execSync('COMMIT;');
       } catch (error) {
         db.execSync('ROLLBACK;');

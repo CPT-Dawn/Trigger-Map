@@ -366,7 +366,7 @@ interface ExpandableLogCardProps {
   onDelete: (entry: TimelineEntry) => void;
 }
 
-function ExpandableLogCard({
+const ExpandableLogCard = React.memo(function ExpandableLogCard({
   entry,
   config,
   colors,
@@ -516,7 +516,7 @@ function ExpandableLogCard({
       </Reanimated.View>
     </Reanimated.View>
   );
-}
+});
 
 export default function LogsScreen() {
   const colors = useAppColors();
@@ -552,16 +552,16 @@ export default function LogsScreen() {
     setSnackbarVisible(true);
   }, []);
 
-  const closeEditor = () => {
+  const closeEditor = useCallback(() => {
     setEditingEntry(null);
     setEditSelectorVisible(false);
     setEditSelectedItem(null);
     setPendingDeleteEntry(null);
     setIsDeletingEntry(false);
     setExpandedEntryId(null);
-  };
+  }, []);
 
-  const openEditor = (entry: TimelineEntry) => {
+  const openEditor = useCallback((entry: TimelineEntry) => {
     setExpandedEntryId(entry.id);
     setEditingEntry(entry);
     setEditSelectorVisible(false);
@@ -587,27 +587,31 @@ export default function LogsScreen() {
         ? { id: entry.payload.item.id, name: entry.payload.item.display_name ?? entry.payload.item.name ?? entry.title }
         : null,
     );
-  };
+  }, []);
 
-  const openEditItemSelector = (type: EditItemType) => {
+  const openEditItemSelector = useCallback((type: EditItemType) => {
     setEditSelectorType(type);
     setEditSelectorVisible(true);
-  };
+  }, []);
 
-  const openDeleteConfirm = (entry: TimelineEntry) => {
+  const handleEditItemSelect = useCallback((id: string, displayName: string) => {
+    setEditSelectedItem({ id, name: displayName });
+  }, []);
+
+  const openDeleteConfirm = useCallback((entry: TimelineEntry) => {
     setEditingEntry(null);
     setEditSelectorVisible(false);
     setEditSelectedItem(null);
     setPendingDeleteEntry(entry);
     setIsDeletingEntry(false);
     setExpandedEntryId(entry.id);
-  };
+  }, []);
 
-  const closeDeleteConfirm = () => {
+  const closeDeleteConfirm = useCallback(() => {
     setPendingDeleteEntry(null);
     setIsDeletingEntry(false);
     setExpandedEntryId(null);
-  };
+  }, []);
 
   const insertPayloadRow = async (entry: TimelineEntry) => {
     if (!user) {
@@ -642,7 +646,7 @@ export default function LogsScreen() {
         ],
       );
 
-      addToSyncQueue('pain_logs', 'INSERT', payload);
+      addToSyncQueue('pain_logs', 'INSERT', payload, { userId: user.id });
       return;
     }
 
@@ -664,7 +668,7 @@ export default function LogsScreen() {
         [payload.id, payload.user_id, payload.logged_at, payload.log_date, payload.level],
       );
 
-      addToSyncQueue('stress_logs', 'INSERT', payload);
+      addToSyncQueue('stress_logs', 'INSERT', payload, { userId: user.id });
       return;
     }
 
@@ -707,7 +711,7 @@ export default function LogsScreen() {
         medicine_id: payload.medicine_id,
         logged_at: payload.logged_at,
         log_date: payload.log_date,
-      });
+      }, { userId: user.id });
       return;
     }
 
@@ -749,7 +753,7 @@ export default function LogsScreen() {
       food_id: payload.food_id,
       logged_at: payload.logged_at,
       log_date: payload.log_date,
-    });
+    }, { userId: user.id });
   };
 
   const deleteLogEntry = async (entry: TimelineEntry) => {
@@ -761,16 +765,16 @@ export default function LogsScreen() {
     try {
       if (entry.payload.kind === 'pain') {
         db.runSync('DELETE FROM pain_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
-        addToSyncQueue('pain_logs', 'DELETE', { id: entry.payload.row.id });
+        addToSyncQueue('pain_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
       } else if (entry.payload.kind === 'stress') {
         db.runSync('DELETE FROM stress_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
-        addToSyncQueue('stress_logs', 'DELETE', { id: entry.payload.row.id });
+        addToSyncQueue('stress_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
       } else if (entry.payload.kind === 'medicine') {
         db.runSync('DELETE FROM medicine_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
-        addToSyncQueue('medicine_logs', 'DELETE', { id: entry.payload.row.id });
+        addToSyncQueue('medicine_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
       } else {
         db.runSync('DELETE FROM food_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
-        addToSyncQueue('food_logs', 'DELETE', { id: entry.payload.row.id });
+        addToSyncQueue('food_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
       }
 
     } catch (error: any) {
@@ -857,8 +861,9 @@ export default function LogsScreen() {
 
         addToSyncQueue('pain_logs', 'UPDATE', {
           id: editingEntry.payload.row.id,
+          user_id: user.id,
           data: updateData,
-        });
+        }, { userId: user.id });
       } else if (editingEntry.payload.kind === 'stress') {
         const normalizedLevel = normalizeStressLevel(editStressLevel);
 
@@ -873,8 +878,9 @@ export default function LogsScreen() {
 
         addToSyncQueue('stress_logs', 'UPDATE', {
           id: editingEntry.payload.row.id,
+          user_id: user.id,
           data: { level: normalizedLevel },
-        });
+        }, { userId: user.id });
       } else if (editingEntry.payload.kind === 'medicine') {
         if (!editSelectedItem) {
           showError('Select a medicine before saving.');
@@ -914,8 +920,9 @@ export default function LogsScreen() {
 
         addToSyncQueue('medicine_logs', 'UPDATE', {
           id: editingEntry.payload.row.id,
+          user_id: user.id,
           data: { medicine_id: editSelectedItem.id },
-        });
+        }, { userId: user.id });
       } else {
         if (!editSelectedItem) {
           showError('Select a food item before saving.');
@@ -955,8 +962,9 @@ export default function LogsScreen() {
 
         addToSyncQueue('food_logs', 'UPDATE', {
           id: editingEntry.payload.row.id,
+          user_id: user.id,
           data: { food_id: editSelectedItem.id },
-        });
+        }, { userId: user.id });
       }
 
       void runSync();
@@ -1136,50 +1144,56 @@ export default function LogsScreen() {
   );
   const visibleSections = useMemo(() => groupEntriesByDate(visibleEntries), [visibleEntries]);
 
-  const typeConfig: Record<LogType, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; container: string; iconColor: string }> = {
-    pain: {
-      label: 'Pain',
-      icon: 'thermometer-lines',
-      container: colors.errorContainer,
-      iconColor: colors.onErrorContainer,
-    },
-    stress: {
-      label: 'Stress',
-      icon: 'brain',
-      container: colors.tertiaryContainer,
-      iconColor: colors.onTertiaryContainer,
-    },
-    medicine: {
-      label: 'Medicine',
-      icon: 'pill',
-      container: colors.primaryContainer,
-      iconColor: colors.onPrimaryContainer,
-    },
-    food: {
-      label: 'Food',
-      icon: 'food-apple',
-      container: colors.secondaryContainer,
-      iconColor: colors.onSecondaryContainer,
-    },
-  };
+  const typeConfig = useMemo<Record<LogType, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; container: string; iconColor: string }>>(
+    () => ({
+      pain: {
+        label: 'Pain',
+        icon: 'thermometer-lines',
+        container: colors.errorContainer,
+        iconColor: colors.onErrorContainer,
+      },
+      stress: {
+        label: 'Stress',
+        icon: 'brain',
+        container: colors.tertiaryContainer,
+        iconColor: colors.onTertiaryContainer,
+      },
+      medicine: {
+        label: 'Medicine',
+        icon: 'pill',
+        container: colors.primaryContainer,
+        iconColor: colors.onPrimaryContainer,
+      },
+      food: {
+        label: 'Food',
+        icon: 'food-apple',
+        container: colors.secondaryContainer,
+        iconColor: colors.onSecondaryContainer,
+      },
+    }),
+    [colors],
+  );
 
   const editingConfig = editingEntry ? typeConfig[editingEntry.type] : null;
   const pendingDeleteConfig = pendingDeleteEntry ? typeConfig[pendingDeleteEntry.type] : null;
   const deleteModalScrimColor = appliedTheme === 'dark' ? colors.background : colors.text;
 
-  const filterOptions: Array<{ value: LogFilter; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = [
-    { value: 'all', label: 'All', icon: 'timeline-text' },
-    { value: 'food', label: 'Food', icon: 'food-apple' },
-    { value: 'pain', label: 'Pain', icon: 'thermometer-lines' },
-    { value: 'medicine', label: 'Medicine', icon: 'pill' },
-    { value: 'stress', label: 'Stress', icon: 'brain' },
-  ];
+  const filterOptions = useMemo<Array<{ value: LogFilter; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }>>(
+    () => [
+      { value: 'all', label: 'All', icon: 'timeline-text' },
+      { value: 'food', label: 'Food', icon: 'food-apple' },
+      { value: 'pain', label: 'Pain', icon: 'thermometer-lines' },
+      { value: 'medicine', label: 'Medicine', icon: 'pill' },
+      { value: 'stress', label: 'Stress', icon: 'brain' },
+    ],
+    [],
+  );
 
-  const toggleEntryActions = (entry: TimelineEntry) => {
+  const toggleEntryActions = useCallback((entry: TimelineEntry) => {
     setExpandedEntryId((currentId) => (currentId === entry.id ? null : entry.id));
-  };
+  }, []);
 
-  const renderEntry = ({ item, index }: { item: TimelineEntry; index: number }) => {
+  const renderEntry = useCallback(({ item, index }: { item: TimelineEntry; index: number }) => {
     const config = typeConfig[item.type];
 
     return (
@@ -1194,7 +1208,55 @@ export default function LogsScreen() {
         onDelete={openDeleteConfirm}
       />
     );
-  };
+  }, [colors, expandedEntryId, openDeleteConfirm, openEditor, toggleEntryActions, typeConfig]);
+
+  const renderSectionHeader = useCallback(({ section }: { section: LogSection }) => (
+    <View
+      style={[
+        styles.sectionHeaderCard,
+        {
+          backgroundColor: colors.surfaceContainerHighest,
+          borderColor: colors.ghostBorder,
+          shadowColor: colors.shadowAmbient,
+        },
+      ]}
+    >
+      <View style={styles.sectionHeaderTitleRow}>
+        <MaterialCommunityIcons name="calendar-blank-outline" size={16} color={colors.textMuted} />
+        <Text variant="titleSmall" style={[styles.sectionHeaderTitle, { color: colors.text }]}> 
+          {section.title}
+        </Text>
+      </View>
+
+      <View style={[styles.sectionHeaderCountPill]}>
+        <Text variant="labelMedium" style={[styles.sectionHeaderCountText, { color: colors.onPrimaryContainer }]}> 
+          {section.data.length} {section.data.length === 1 ? 'entry' : 'entries'}
+        </Text>
+      </View>
+    </View>
+  ), [colors]);
+
+  const handleRefresh = useCallback(() => {
+    void (async () => {
+      try {
+        await runSync();
+      } finally {
+        await loadLogs('refresh');
+      }
+    })();
+  }, [loadLogs]);
+
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+        tintColor={colors.primary}
+        colors={[colors.primary]}
+      />
+    ),
+    [colors.primary, handleRefresh, refreshing],
+  );
 
   const renderListHeader = () => {
     if (loading && entries.length === 0) {
@@ -1309,31 +1371,7 @@ export default function LogsScreen() {
           sections={visibleSections}
           keyExtractor={(item) => item.id}
           renderItem={renderEntry}
-          renderSectionHeader={({ section }) => (
-              <View
-                style={[
-                  styles.sectionHeaderCard,
-                  {
-                    backgroundColor: colors.surfaceContainerHighest,
-                    borderColor: colors.ghostBorder,
-                    shadowColor: colors.shadowAmbient,
-                  },
-                ]}
-              >
-                <View style={styles.sectionHeaderTitleRow}>
-                  <MaterialCommunityIcons name="calendar-blank-outline" size={16} color={colors.textMuted} />
-                  <Text variant="titleSmall" style={[styles.sectionHeaderTitle, { color: colors.text }]}>
-                    {section.title}
-                  </Text>
-                </View>
-
-                <View style={[styles.sectionHeaderCountPill]}>
-                  <Text variant="labelMedium" style={[styles.sectionHeaderCountText, { color: colors.onPrimaryContainer }]}>
-                    {section.data.length} {section.data.length === 1 ? 'entry' : 'entries'}
-                  </Text>
-                </View>
-              </View>
-          )}
+          renderSectionHeader={renderSectionHeader}
           ListHeaderComponent={renderListHeader()}
           ListEmptyComponent={renderEmptyState()}
           contentContainerStyle={styles.listContent}
@@ -1341,22 +1379,7 @@ export default function LogsScreen() {
           stickySectionHeadersEnabled
           removeClippedSubviews={false}
           initialNumToRender={12}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                void (async () => {
-                  try {
-                    await runSync();
-                  } finally {
-                    await loadLogs('refresh');
-                  }
-                })();
-              }}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          }
+          refreshControl={refreshControl}
         />
       </View>
 
@@ -1668,9 +1691,7 @@ export default function LogsScreen() {
         type={editSelectorType}
         visible={editSelectorVisible}
         onClose={() => setEditSelectorVisible(false)}
-        onSelect={(id, displayName) => {
-          setEditSelectedItem({ id, name: displayName });
-        }}
+        onSelect={handleEditItemSelect}
       />
 
       <AppSnackbar

@@ -41,6 +41,7 @@ You are an expert mobile app developer for Trigger-Map, a React Native Expo app 
 Queue and sync specifics:
 
 - Queue table supports `INSERT | UPDATE | DELETE` payloads.
+- Queue rows are user-scoped (`user_id`) and push sync should process only the active authenticated user's queue rows.
 - `auth_profile` is a special queue channel handled through `supabase.auth.updateUser`.
 - Sync engine (`lib/syncEngine.ts`) pushes queue first, then pulls remote data.
 - Pull sync refreshes master items and recent logs (last 7 days).

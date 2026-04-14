@@ -20,7 +20,14 @@ interface QueueRow {
   table_name: string;
   operation: QueueOperation;
   payload: string;
+  user_id: string | null;
   created_at: string;
+}
+
+interface ActiveSyncUser {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown> | null;
 }
 
 interface UserItemRow {
@@ -120,10 +127,17 @@ function recordSyncError(error: unknown) {
   });
 }
 
-function refreshSyncStatusSnapshot() {
+function refreshSyncStatusSnapshot(activeUserId?: string | null) {
   try {
+    const pendingCount =
+      activeUserId === undefined
+        ? getPendingSyncCount()
+        : activeUserId
+          ? getPendingSyncCount(activeUserId)
+          : 0;
+
     updateSyncStatus({
-      pendingCount: getPendingSyncCount(),
+      pendingCount,
       lastSyncAt: getSyncMeta('last_sync_at'),
       lastError: getSyncMeta('last_sync_error'),
     });
@@ -254,6 +268,27 @@ function resolveRemoteDisplayName(user: { email?: string | null; user_metadata?:
   return emailPrefix.length > 0 ? emailPrefix : null;
 }
 
+async function getActiveSyncUser() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    email: user.email ?? null,
+    user_metadata: user.user_metadata ?? null,
+  } as ActiveSyncUser;
+}
+
 async function runQueueOperation(row: QueueRow) {
   const payload = parseQueuePayload(row.payload);
 
@@ -328,7 +363,7 @@ async function runQueueOperation(row: QueueRow) {
   }
 }
 
-async function pushLocalChanges() {
+async function pushLocalChanges(activeUserId: string) {
   let hadError = false;
 
   try {
@@ -338,7 +373,7 @@ async function pushLocalChanges() {
       return false;
     }
 
-    const queue = getSyncQueue() as QueueRow[];
+    const queue = getSyncQueue(activeUserId) as QueueRow[];
 
     for (const row of queue) {
       try {
@@ -366,7 +401,7 @@ async function pushLocalChanges() {
       }
     }
 
-    refreshSyncStatusSnapshot();
+    refreshSyncStatusSnapshot(activeUserId);
   } catch (error) {
     console.warn('[sync] Failed while pushing local changes', error);
     recordSyncError(error);
@@ -620,7 +655,7 @@ async function fetchRecentLogsFromSupabase(userId: string) {
   };
 }
 
-async function pullRemoteChanges() {
+async function pullRemoteChanges(activeUser: ActiveSyncUser) {
   try {
     const networkState = await NetInfo.fetch();
 
@@ -628,33 +663,20 @@ async function pullRemoteChanges() {
       return false;
     }
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError) {
-      throw userError;
-    }
-
-    if (!user) {
-      return false;
-    }
-
-    if (getPendingSyncCountForTable('auth_profile') === 0) {
-      upsertLocalDisplayName(user.id, resolveRemoteDisplayName(user));
+    if (getPendingSyncCountForTable('auth_profile', activeUser.id) === 0) {
+      upsertLocalDisplayName(activeUser.id, resolveRemoteDisplayName(activeUser));
     }
 
     const [medicinesResult, foodsResult, recentLogs] = await Promise.all([
       supabase
         .from('user_medicines')
         .select('id, user_id, name, quantity, unit, display_name')
-        .eq('user_id', user.id),
+        .eq('user_id', activeUser.id),
       supabase
         .from('user_foods')
         .select('id, user_id, name, quantity, unit, display_name')
-        .eq('user_id', user.id),
-      fetchRecentLogsFromSupabase(user.id),
+        .eq('user_id', activeUser.id),
+      fetchRecentLogsFromSupabase(activeUser.id),
     ]);
 
     if (medicinesResult.error) {
@@ -674,7 +696,7 @@ async function pullRemoteChanges() {
       upsertStressLogs(recentLogs.stressLogs);
       upsertMedicineLogs(recentLogs.medicineLogs);
       upsertFoodLogs(recentLogs.foodLogs);
-      backfillRecentLogSnapshots(user.id);
+      backfillRecentLogSnapshots(activeUser.id);
       db.execSync('COMMIT;');
     } catch (error) {
       db.execSync('ROLLBACK;');
@@ -690,8 +712,6 @@ async function pullRemoteChanges() {
 }
 
 export async function runSync() {
-  refreshSyncStatusSnapshot();
-
   if (syncInFlight) {
     return syncInFlight;
   }
@@ -699,9 +719,21 @@ export async function runSync() {
   updateSyncStatus({ isSyncing: true });
 
   syncInFlight = (async () => {
+    let activeUserId: string | null = null;
+
     try {
-      const pushSucceeded = await pushLocalChanges();
-      const pullSucceeded = await pullRemoteChanges();
+      const activeUser = await getActiveSyncUser();
+
+      if (!activeUser) {
+        refreshSyncStatusSnapshot(null);
+        return;
+      }
+
+      activeUserId = activeUser.id;
+      refreshSyncStatusSnapshot(activeUserId);
+
+      const pushSucceeded = await pushLocalChanges(activeUserId);
+      const pullSucceeded = await pullRemoteChanges(activeUser);
 
       if (pushSucceeded && pullSucceeded) {
         const syncedAt = new Date().toISOString();
@@ -718,9 +750,12 @@ export async function runSync() {
           lastError: null,
         });
       }
+    } catch (error) {
+      console.warn('[sync] Failed while running sync', error);
+      recordSyncError(error);
     } finally {
       syncInFlight = null;
-      refreshSyncStatusSnapshot();
+      refreshSyncStatusSnapshot(activeUserId);
       updateSyncStatus({ isSyncing: false });
     }
   })();

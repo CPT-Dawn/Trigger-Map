@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Platform,
   ScrollView,
@@ -103,7 +103,7 @@ interface LogSectionCardProps {
   children: React.ReactNode;
 }
 
-function LogSectionCard({
+const LogSectionCard = React.memo(function LogSectionCard({
   delay,
   icon,
   title,
@@ -151,17 +151,18 @@ function LogSectionCard({
       </AppCard>
     </Animated.View>
   );
-}
+});
 
 interface SelectionChipProps {
+  itemId: string;
   label: string;
   accentColor: string;
   colors: AddLogColors;
-  onEdit?: () => void;
-  onRemove: () => void;
+  onEditItem?: (itemId: string) => void;
+  onRemoveItem: (itemId: string) => void;
 }
 
-function SelectionChip({ label, accentColor, colors, onEdit, onRemove }: SelectionChipProps) {
+const SelectionChip = React.memo(function SelectionChip({ itemId, label, accentColor, colors, onEditItem, onRemoveItem }: SelectionChipProps) {
   return (
     <Animated.View layout={Layout.springify().damping(22).stiffness(205)}>
       <View style={[styles.selectionEntryRow, { borderBottomColor: colors.ghostBorder }]}>
@@ -171,13 +172,13 @@ function SelectionChip({ label, accentColor, colors, onEdit, onRemove }: Selecti
         </Text>
 
         <View style={styles.selectionEntryActions}>
-          {onEdit ? (
+          {onEditItem ? (
             <IconButton
               icon="pencil-outline"
               iconColor={accentColor}
               size={20}
               style={styles.selectionEntryButton}
-              onPress={onEdit}
+              onPress={() => onEditItem(itemId)}
             />
           ) : null}
           <IconButton
@@ -185,13 +186,13 @@ function SelectionChip({ label, accentColor, colors, onEdit, onRemove }: Selecti
             iconColor={colors.error}
             size={20}
             style={styles.selectionEntryButton}
-            onPress={onRemove}
+            onPress={() => onRemoveItem(itemId)}
           />
         </View>
       </View>
     </Animated.View>
   );
-}
+});
 
 interface PainEntryCardProps {
   entry: PainEntry;
@@ -201,7 +202,7 @@ interface PainEntryCardProps {
   onRemove: (entryId: string) => void;
 }
 
-function PainEntryCard({ entry, index, colors, onChange, onRemove }: PainEntryCardProps) {
+const PainEntryCard = React.memo(function PainEntryCard({ entry, index, colors, onChange, onRemove }: PainEntryCardProps) {
   const [livePainLevel, setLivePainLevel] = useState(entry.pain_level);
   const painAccentColor = colors.onErrorContainer;
 
@@ -269,7 +270,7 @@ function PainEntryCard({ entry, index, colors, onChange, onRemove }: PainEntryCa
       </View>
     </Animated.View>
   );
-}
+});
 
 interface SelectionSectionProps {
   delay: number;
@@ -285,7 +286,7 @@ interface SelectionSectionProps {
   onRemove: (id: string) => void;
 }
 
-function SelectionSection({
+const SelectionSection = React.memo(function SelectionSection({
   delay,
   title,
   icon,
@@ -327,18 +328,19 @@ function SelectionSection({
           {selectedItems.map((item) => (
             <SelectionChip
               key={item.id}
+              itemId={item.id}
               label={item.name}
               accentColor={accentColor}
               colors={colors}
-              onEdit={onEditItem ? () => onEditItem(item.id) : undefined}
-              onRemove={() => onRemove(item.id)}
+              onEditItem={onEditItem}
+              onRemoveItem={onRemove}
             />
           ))}
         </View>
       )}
     </LogSectionCard>
   );
-}
+});
 
 export default function AddLogScreen() {
   const router = useRouter();
@@ -360,6 +362,18 @@ export default function AddLogScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+
+  const openDatePicker = useCallback(() => {
+    setShowDatePicker(true);
+  }, []);
+
+  const openTimePicker = useCallback(() => {
+    setShowTimePicker(true);
+  }, []);
+
+  const clearStressLevel = useCallback(() => {
+    setStressLevel(null);
+  }, []);
 
   const resetAddLogForm = useCallback(() => {
     setLogDate(new Date());
@@ -543,7 +557,7 @@ export default function AddLogScreen() {
               ],
             );
 
-            addToSyncQueue('pain_logs', 'INSERT', payload);
+            addToSyncQueue('pain_logs', 'INSERT', payload, { userId: user.id });
           }
         }
 
@@ -567,7 +581,7 @@ export default function AddLogScreen() {
             [payload.id, payload.user_id, payload.logged_at, payload.log_date, payload.level],
           );
 
-          addToSyncQueue('stress_logs', 'INSERT', payload);
+          addToSyncQueue('stress_logs', 'INSERT', payload, { userId: user.id });
         }
 
         if (selectedMedicines.length > 0) {
@@ -622,7 +636,7 @@ export default function AddLogScreen() {
               ],
             );
 
-            addToSyncQueue('medicine_logs', 'INSERT', queuePayload);
+            addToSyncQueue('medicine_logs', 'INSERT', queuePayload, { userId: user.id });
           }
         }
 
@@ -678,7 +692,7 @@ export default function AddLogScreen() {
               ],
             );
 
-            addToSyncQueue('food_logs', 'INSERT', queuePayload);
+            addToSyncQueue('food_logs', 'INSERT', queuePayload, { userId: user.id });
           }
         }
 
@@ -732,8 +746,63 @@ export default function AddLogScreen() {
     setSelectedFoods((currentItems) => currentItems.filter((currentItem) => currentItem.id !== itemId));
   }, []);
 
-  const totalLogEntries =
-    painEntries.length + selectedFoods.length + selectedMedicines.length + (stressLevel !== null ? 1 : 0);
+  const resolveMasterItemLabel = useCallback(
+    (tableName: 'user_medicines' | 'user_foods', id: string, fallbackDisplayName: string) => {
+      const snapshot =
+        user
+          ? db.getFirstSync<ItemSnapshotRow>(
+              `
+                SELECT name, quantity, unit, display_name
+                FROM ${tableName}
+                WHERE id = ? AND user_id = ?;
+              `,
+              [id, user.id],
+            )
+          : null;
+
+      return formatSelectedItemLabel(snapshot, fallbackDisplayName);
+    },
+    [user],
+  );
+
+  const handleMedicineSelect = useCallback(
+    (id: string, displayName: string) => {
+      const resolvedName = resolveMasterItemLabel('user_medicines', id, displayName);
+
+      setSelectedMedicines((currentItems) =>
+        currentItems.some((medicine) => medicine.id === id)
+          ? currentItems
+          : [...currentItems, { id, name: resolvedName }],
+      );
+    },
+    [resolveMasterItemLabel],
+  );
+
+  const handleFoodSelect = useCallback(
+    (id: string, displayName: string) => {
+      const resolvedName = resolveMasterItemLabel('user_foods', id, displayName);
+
+      setSelectedFoods((currentItems) =>
+        currentItems.some((food) => food.id === id) ? currentItems : [...currentItems, { id, name: resolvedName }],
+      );
+    },
+    [resolveMasterItemLabel],
+  );
+
+  const formattedDateLabel = useMemo(
+    () => logDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+    [logDate],
+  );
+
+  const formattedTimeLabel = useMemo(
+    () => logDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }).replace(/\s?(AM|PM)$/i, (match) => match.toLowerCase()),
+    [logDate],
+  );
+
+  const totalLogEntries = useMemo(
+    () => painEntries.length + selectedFoods.length + selectedMedicines.length + (stressLevel !== null ? 1 : 0),
+    [painEntries.length, selectedFoods.length, selectedMedicines.length, stressLevel],
+  );
 
   return (
     <ScreenWrapper>
@@ -756,23 +825,23 @@ export default function AddLogScreen() {
               mode="outlined"
               icon="calendar-month"
               compact
-              onPress={() => setShowDatePicker(true)}
+              onPress={openDatePicker}
               style={styles.dateButton}
               contentStyle={styles.compactHeaderButtonContent}
               labelStyle={styles.compactHeaderButtonLabel}
             >
-              {logDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              {formattedDateLabel}
             </CustomButton>
             <CustomButton
               mode="outlined"
               icon="clock-outline"
               compact
-              onPress={() => setShowTimePicker(true)}
+              onPress={openTimePicker}
               style={styles.dateButton}
               contentStyle={styles.compactHeaderButtonContent}
               labelStyle={styles.compactHeaderButtonLabel}
             >
-              {logDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }).replace(/\s?(AM|PM)$/i, (match) => match.toLowerCase())}
+              {formattedTimeLabel}
             </CustomButton>
           </View>
         </LogSectionCard>
@@ -846,7 +915,7 @@ export default function AddLogScreen() {
               {stressLevel !== null ? (
                 <CustomButton
                   mode="text"
-                  onPress={() => setStressLevel(null)}
+                  onPress={clearStressLevel}
                   compact
                   style={styles.clearButton}
                   contentStyle={styles.clearButtonContent}
@@ -987,26 +1056,7 @@ export default function AddLogScreen() {
       <ItemSelector
         ref={medicineSelectorRef}
         type="medicine"
-        onSelect={(id, displayName) => {
-          const snapshot =
-            user
-              ? db.getFirstSync<ItemSnapshotRow>(
-                  `
-                    SELECT name, quantity, unit, display_name
-                    FROM user_medicines
-                    WHERE id = ? AND user_id = ?;
-                  `,
-                  [id, user.id],
-                )
-              : null;
-          const resolvedName = formatSelectedItemLabel(snapshot, displayName);
-
-          setSelectedMedicines((currentItems) =>
-            currentItems.some((medicine) => medicine.id === id)
-              ? currentItems
-              : [...currentItems, { id, name: resolvedName }],
-          );
-        }}
+        onSelect={handleMedicineSelect}
         onMasterItemChange={handleMedicineItemChange}
         onMasterItemDelete={handleMedicineItemDelete}
       />
@@ -1014,24 +1064,7 @@ export default function AddLogScreen() {
       <ItemSelector
         ref={foodSelectorRef}
         type="food"
-        onSelect={(id, displayName) => {
-          const snapshot =
-            user
-              ? db.getFirstSync<ItemSnapshotRow>(
-                  `
-                    SELECT name, quantity, unit, display_name
-                    FROM user_foods
-                    WHERE id = ? AND user_id = ?;
-                  `,
-                  [id, user.id],
-                )
-              : null;
-          const resolvedName = formatSelectedItemLabel(snapshot, displayName);
-
-          setSelectedFoods((currentItems) =>
-            currentItems.some((food) => food.id === id) ? currentItems : [...currentItems, { id, name: resolvedName }],
-          );
-        }}
+        onSelect={handleFoodSelect}
         onMasterItemChange={handleFoodItemChange}
         onMasterItemDelete={handleFoodItemDelete}
       />
