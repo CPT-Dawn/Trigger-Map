@@ -271,6 +271,18 @@ function normalizeStressLevel(value: StressLevelValue | string | null | undefine
   return 'low';
 }
 
+function runLocalTransaction(callback: () => void) {
+  db.execSync('BEGIN TRANSACTION;');
+
+  try {
+    callback();
+    db.execSync('COMMIT;');
+  } catch (error) {
+    db.execSync('ROLLBACK;');
+    throw error;
+  }
+}
+
 const listReveal = (delay: number) => FadeInDown.delay(delay).duration(300);
 
 function buildDisplayName(item?: UserItemRow | null) {
@@ -722,24 +734,26 @@ export default function LogsScreen() {
         swelling: entry.payload.row.swelling,
       };
 
-      db.runSync(
-        `
-          INSERT OR REPLACE INTO pain_logs
-          (id, user_id, logged_at, log_date, body_part, pain_level, swelling)
-          VALUES (?, ?, ?, ?, ?, ?, ?);
-        `,
-        [
-          payload.id,
-          payload.user_id,
-          payload.logged_at,
-          payload.log_date,
-          payload.body_part,
-          payload.pain_level,
-          payload.swelling === null ? null : payload.swelling ? 1 : 0,
-        ],
-      );
+      runLocalTransaction(() => {
+        db.runSync(
+          `
+            INSERT OR REPLACE INTO pain_logs
+            (id, user_id, logged_at, log_date, body_part, pain_level, swelling)
+            VALUES (?, ?, ?, ?, ?, ?, ?);
+          `,
+          [
+            payload.id,
+            payload.user_id,
+            payload.logged_at,
+            payload.log_date,
+            payload.body_part,
+            payload.pain_level,
+            payload.swelling === null ? null : payload.swelling ? 1 : 0,
+          ],
+        );
 
-      addToSyncQueue('pain_logs', 'INSERT', payload, { userId: user.id });
+        addToSyncQueue('pain_logs', 'INSERT', payload, { userId: user.id });
+      });
       return;
     }
 
@@ -752,16 +766,18 @@ export default function LogsScreen() {
         level: normalizeStressLevel(entry.payload.row.level),
       };
 
-      db.runSync(
-        `
-          INSERT OR REPLACE INTO stress_logs
-          (id, user_id, logged_at, log_date, level)
-          VALUES (?, ?, ?, ?, ?);
-        `,
-        [payload.id, payload.user_id, payload.logged_at, payload.log_date, payload.level],
-      );
+      runLocalTransaction(() => {
+        db.runSync(
+          `
+            INSERT OR REPLACE INTO stress_logs
+            (id, user_id, logged_at, log_date, level)
+            VALUES (?, ?, ?, ?, ?);
+          `,
+          [payload.id, payload.user_id, payload.logged_at, payload.log_date, payload.level],
+        );
 
-      addToSyncQueue('stress_logs', 'INSERT', payload, { userId: user.id });
+        addToSyncQueue('stress_logs', 'INSERT', payload, { userId: user.id });
+      });
       return;
     }
 
@@ -779,32 +795,34 @@ export default function LogsScreen() {
         log_date: entry.logDate,
       };
 
-      db.runSync(
-        `
-          INSERT OR REPLACE INTO medicine_logs
-          (id, user_id, medicine_id, item_display_name, item_name, item_quantity, item_unit, logged_at, log_date)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
-        `,
-        [
-          payload.id,
-          payload.user_id,
-          payload.medicine_id,
-          payload.item_display_name,
-          payload.item_name,
-          payload.item_quantity,
-          payload.item_unit,
-          payload.logged_at,
-          payload.log_date,
-        ],
-      );
+      runLocalTransaction(() => {
+        db.runSync(
+          `
+            INSERT OR REPLACE INTO medicine_logs
+            (id, user_id, medicine_id, item_display_name, item_name, item_quantity, item_unit, logged_at, log_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+          `,
+          [
+            payload.id,
+            payload.user_id,
+            payload.medicine_id,
+            payload.item_display_name,
+            payload.item_name,
+            payload.item_quantity,
+            payload.item_unit,
+            payload.logged_at,
+            payload.log_date,
+          ],
+        );
 
-      addToSyncQueue('medicine_logs', 'INSERT', {
-        id: payload.id,
-        user_id: payload.user_id,
-        medicine_id: payload.medicine_id,
-        logged_at: payload.logged_at,
-        log_date: payload.log_date,
-      }, { userId: user.id });
+        addToSyncQueue('medicine_logs', 'INSERT', {
+          id: payload.id,
+          user_id: payload.user_id,
+          medicine_id: payload.medicine_id,
+          logged_at: payload.logged_at,
+          log_date: payload.log_date,
+        }, { userId: user.id });
+      });
       return;
     }
 
@@ -821,32 +839,34 @@ export default function LogsScreen() {
       log_date: entry.logDate,
     };
 
-    db.runSync(
-      `
-        INSERT OR REPLACE INTO food_logs
-        (id, user_id, food_id, item_display_name, item_name, item_quantity, item_unit, logged_at, log_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
-      `,
-      [
-        payload.id,
-        payload.user_id,
-        payload.food_id,
-        payload.item_display_name,
-        payload.item_name,
-        payload.item_quantity,
-        payload.item_unit,
-        payload.logged_at,
-        payload.log_date,
-      ],
-    );
+    runLocalTransaction(() => {
+      db.runSync(
+        `
+          INSERT OR REPLACE INTO food_logs
+          (id, user_id, food_id, item_display_name, item_name, item_quantity, item_unit, logged_at, log_date)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+        `,
+        [
+          payload.id,
+          payload.user_id,
+          payload.food_id,
+          payload.item_display_name,
+          payload.item_name,
+          payload.item_quantity,
+          payload.item_unit,
+          payload.logged_at,
+          payload.log_date,
+        ],
+      );
 
-    addToSyncQueue('food_logs', 'INSERT', {
-      id: payload.id,
-      user_id: payload.user_id,
-      food_id: payload.food_id,
-      logged_at: payload.logged_at,
-      log_date: payload.log_date,
-    }, { userId: user.id });
+      addToSyncQueue('food_logs', 'INSERT', {
+        id: payload.id,
+        user_id: payload.user_id,
+        food_id: payload.food_id,
+        logged_at: payload.logged_at,
+        log_date: payload.log_date,
+      }, { userId: user.id });
+    });
   };
 
   const deleteLogEntry = async (entry: TimelineEntry) => {
@@ -856,19 +876,21 @@ export default function LogsScreen() {
     }
 
     try {
-      if (entry.payload.kind === 'pain') {
-        db.runSync('DELETE FROM pain_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
-        addToSyncQueue('pain_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
-      } else if (entry.payload.kind === 'stress') {
-        db.runSync('DELETE FROM stress_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
-        addToSyncQueue('stress_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
-      } else if (entry.payload.kind === 'medicine') {
-        db.runSync('DELETE FROM medicine_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
-        addToSyncQueue('medicine_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
-      } else {
-        db.runSync('DELETE FROM food_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
-        addToSyncQueue('food_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
-      }
+      runLocalTransaction(() => {
+        if (entry.payload.kind === 'pain') {
+          db.runSync('DELETE FROM pain_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
+          addToSyncQueue('pain_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
+        } else if (entry.payload.kind === 'stress') {
+          db.runSync('DELETE FROM stress_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
+          addToSyncQueue('stress_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
+        } else if (entry.payload.kind === 'medicine') {
+          db.runSync('DELETE FROM medicine_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
+          addToSyncQueue('medicine_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
+        } else {
+          db.runSync('DELETE FROM food_logs WHERE id = ? AND user_id = ?;', [entry.payload.row.id, user.id]);
+          addToSyncQueue('food_logs', 'DELETE', { id: entry.payload.row.id, user_id: user.id }, { userId: user.id });
+        }
+      });
 
     } catch (error: any) {
       showError(error?.message || 'Unable to delete this log.');
@@ -938,43 +960,47 @@ export default function LogsScreen() {
           swelling: editPainSwelling,
         };
 
-        db.runSync(
-          `
-            UPDATE pain_logs
-            SET body_part = ?, pain_level = ?, swelling = ?
-            WHERE id = ? AND user_id = ?;
-          `,
-          [
-            updateData.body_part,
-            updateData.pain_level,
-            updateData.swelling ? 1 : 0,
-            editingEntry.payload.row.id,
-            user.id,
-          ],
-        );
+        runLocalTransaction(() => {
+          db.runSync(
+            `
+              UPDATE pain_logs
+              SET body_part = ?, pain_level = ?, swelling = ?
+              WHERE id = ? AND user_id = ?;
+            `,
+            [
+              updateData.body_part,
+              updateData.pain_level,
+              updateData.swelling ? 1 : 0,
+              editingEntry.payload.row.id,
+              user.id,
+            ],
+          );
 
-        addToSyncQueue('pain_logs', 'UPDATE', {
-          id: editingEntry.payload.row.id,
-          user_id: user.id,
-          data: updateData,
-        }, { userId: user.id });
+          addToSyncQueue('pain_logs', 'UPDATE', {
+            id: editingEntry.payload.row.id,
+            user_id: user.id,
+            data: updateData,
+          }, { userId: user.id });
+        });
       } else if (editingEntry.payload.kind === 'stress') {
         const normalizedLevel = normalizeStressLevel(editStressLevel);
 
-        db.runSync(
-          `
-            UPDATE stress_logs
-            SET level = ?
-            WHERE id = ? AND user_id = ?;
-          `,
-          [normalizedLevel, editingEntry.payload.row.id, user.id],
-        );
+        runLocalTransaction(() => {
+          db.runSync(
+            `
+              UPDATE stress_logs
+              SET level = ?
+              WHERE id = ? AND user_id = ?;
+            `,
+            [normalizedLevel, editingEntry.payload.row.id, user.id],
+          );
 
-        addToSyncQueue('stress_logs', 'UPDATE', {
-          id: editingEntry.payload.row.id,
-          user_id: user.id,
-          data: { level: normalizedLevel },
-        }, { userId: user.id });
+          addToSyncQueue('stress_logs', 'UPDATE', {
+            id: editingEntry.payload.row.id,
+            user_id: user.id,
+            data: { level: normalizedLevel },
+          }, { userId: user.id });
+        });
       } else if (editingEntry.payload.kind === 'medicine') {
         if (!editSelectedItem) {
           showError('Select a medicine before saving.');
@@ -995,28 +1021,30 @@ export default function LogsScreen() {
         const nextItemUnit = snapshotRow?.unit?.trim() || null;
         const nextItemDisplayName = snapshotRow?.display_name?.trim() || editSelectedItem.name;
 
-        db.runSync(
-          `
-            UPDATE medicine_logs
-            SET medicine_id = ?, item_display_name = ?, item_name = ?, item_quantity = ?, item_unit = ?
-            WHERE id = ? AND user_id = ?;
-          `,
-          [
-            editSelectedItem.id,
-            nextItemDisplayName,
-            nextItemName,
-            nextItemQuantity,
-            nextItemUnit,
-            editingEntry.payload.row.id,
-            user.id,
-          ],
-        );
+        runLocalTransaction(() => {
+          db.runSync(
+            `
+              UPDATE medicine_logs
+              SET medicine_id = ?, item_display_name = ?, item_name = ?, item_quantity = ?, item_unit = ?
+              WHERE id = ? AND user_id = ?;
+            `,
+            [
+              editSelectedItem.id,
+              nextItemDisplayName,
+              nextItemName,
+              nextItemQuantity,
+              nextItemUnit,
+              editingEntry.payload.row.id,
+              user.id,
+            ],
+          );
 
-        addToSyncQueue('medicine_logs', 'UPDATE', {
-          id: editingEntry.payload.row.id,
-          user_id: user.id,
-          data: { medicine_id: editSelectedItem.id },
-        }, { userId: user.id });
+          addToSyncQueue('medicine_logs', 'UPDATE', {
+            id: editingEntry.payload.row.id,
+            user_id: user.id,
+            data: { medicine_id: editSelectedItem.id },
+          }, { userId: user.id });
+        });
       } else {
         if (!editSelectedItem) {
           showError('Select a food item before saving.');
@@ -1037,28 +1065,30 @@ export default function LogsScreen() {
         const nextItemUnit = snapshotRow?.unit?.trim() || null;
         const nextItemDisplayName = snapshotRow?.display_name?.trim() || editSelectedItem.name;
 
-        db.runSync(
-          `
-            UPDATE food_logs
-            SET food_id = ?, item_display_name = ?, item_name = ?, item_quantity = ?, item_unit = ?
-            WHERE id = ? AND user_id = ?;
-          `,
-          [
-            editSelectedItem.id,
-            nextItemDisplayName,
-            nextItemName,
-            nextItemQuantity,
-            nextItemUnit,
-            editingEntry.payload.row.id,
-            user.id,
-          ],
-        );
+        runLocalTransaction(() => {
+          db.runSync(
+            `
+              UPDATE food_logs
+              SET food_id = ?, item_display_name = ?, item_name = ?, item_quantity = ?, item_unit = ?
+              WHERE id = ? AND user_id = ?;
+            `,
+            [
+              editSelectedItem.id,
+              nextItemDisplayName,
+              nextItemName,
+              nextItemQuantity,
+              nextItemUnit,
+              editingEntry.payload.row.id,
+              user.id,
+            ],
+          );
 
-        addToSyncQueue('food_logs', 'UPDATE', {
-          id: editingEntry.payload.row.id,
-          user_id: user.id,
-          data: { food_id: editSelectedItem.id },
-        }, { userId: user.id });
+          addToSyncQueue('food_logs', 'UPDATE', {
+            id: editingEntry.payload.row.id,
+            user_id: user.id,
+            data: { food_id: editSelectedItem.id },
+          }, { userId: user.id });
+        });
       }
 
       void runSync();

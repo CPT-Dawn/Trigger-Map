@@ -26,7 +26,20 @@ interface TableColumnInfoRow {
   name: string;
 }
 
+type UserItemTableName = 'user_medicines' | 'user_foods';
+
+interface UserItemBackfillRow {
+  id: string;
+  name: string | null;
+  quantity: number | null;
+  unit: string | null;
+  display_name: string | null;
+}
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DEFAULT_USER_ITEM_NAME = 'Saved item';
+const DEFAULT_USER_ITEM_QUANTITY = 1;
+const DEFAULT_USER_ITEM_UNIT = 'unit';
 
 function isLogTableName(tableName: string): tableName is LogTableName {
   return (
@@ -83,6 +96,24 @@ function getPayloadRecord(payload: unknown) {
   }
 
   return null;
+}
+
+function getWritePayload(payload: unknown) {
+  const payloadRecord = getPayloadRecord(payload);
+
+  if (!payloadRecord) {
+    return payload;
+  }
+
+  if (payloadRecord.data !== undefined) {
+    return payloadRecord.data;
+  }
+
+  if (payloadRecord.row !== undefined) {
+    return payloadRecord.row;
+  }
+
+  return payloadRecord;
 }
 
 function getPayloadId(payloadRecord: Record<string, unknown>) {
@@ -450,6 +481,216 @@ function normalizeStressLevelWithoutNone(value: unknown): 'low' | 'moderate' | '
   return null;
 }
 
+function normalizeUserItemName(value: unknown, fallbackName = DEFAULT_USER_ITEM_NAME) {
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+
+    if (trimmedValue.length > 0) {
+      return trimmedValue;
+    }
+  }
+
+  const trimmedFallbackName = fallbackName.trim();
+
+  return trimmedFallbackName.length > 0 ? trimmedFallbackName : DEFAULT_USER_ITEM_NAME;
+}
+
+function normalizeUserItemQuantity(value: unknown, fallbackQuantity = DEFAULT_USER_ITEM_QUANTITY) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsedValue = Number(value.trim());
+
+    if (Number.isFinite(parsedValue)) {
+      return parsedValue;
+    }
+  }
+
+  return fallbackQuantity;
+}
+
+function normalizeUserItemUnit(value: unknown, fallbackUnit = DEFAULT_USER_ITEM_UNIT) {
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+
+    if (trimmedValue.length > 0) {
+      return trimmedValue;
+    }
+  }
+
+  const trimmedFallbackUnit = fallbackUnit.trim();
+
+  return trimmedFallbackUnit.length > 0 ? trimmedFallbackUnit : DEFAULT_USER_ITEM_UNIT;
+}
+
+function parseUserItemDisplayName(displayName: string | null | undefined) {
+  const trimmedDisplayName = displayName?.trim() ?? '';
+
+  if (trimmedDisplayName.length === 0) {
+    return {
+      inferredName: null,
+      inferredQuantity: null,
+      inferredUnit: null,
+    };
+  }
+
+  const [nameSegment, trailingSegmentRaw] = trimmedDisplayName.split('•');
+  const inferredName = nameSegment?.trim() || null;
+  const trailingSegment = trailingSegmentRaw?.trim() || null;
+
+  if (!trailingSegment) {
+    return {
+      inferredName,
+      inferredQuantity: null,
+      inferredUnit: null,
+    };
+  }
+
+  const quantityAndUnitMatch = trailingSegment.match(/^(-?\d+(?:\.\d+)?)\s*(.*)$/);
+
+  if (!quantityAndUnitMatch) {
+    return {
+      inferredName,
+      inferredQuantity: null,
+      inferredUnit: trailingSegment,
+    };
+  }
+
+  const parsedQuantity = Number(quantityAndUnitMatch[1]);
+  const inferredUnit = quantityAndUnitMatch[2]?.trim() || null;
+
+  return {
+    inferredName,
+    inferredQuantity: Number.isFinite(parsedQuantity) ? parsedQuantity : null,
+    inferredUnit,
+  };
+}
+
+function backfillMasterItemRequiredFieldsForTable(tableName: UserItemTableName) {
+  const rows = db.getAllSync<UserItemBackfillRow>(
+    `
+      SELECT id, name, quantity, unit, display_name
+      FROM ${tableName}
+      WHERE
+        name IS NULL OR TRIM(name) = '' OR
+        quantity IS NULL OR
+        unit IS NULL OR TRIM(unit) = '';
+    `,
+  );
+
+  for (const row of rows) {
+    const parsedDisplayName = parseUserItemDisplayName(row.display_name);
+    const nextName = normalizeUserItemName(row.name, parsedDisplayName.inferredName ?? DEFAULT_USER_ITEM_NAME);
+    const nextQuantity = normalizeUserItemQuantity(
+      row.quantity,
+      parsedDisplayName.inferredQuantity ?? DEFAULT_USER_ITEM_QUANTITY,
+    );
+    const nextUnit = normalizeUserItemUnit(row.unit, parsedDisplayName.inferredUnit ?? DEFAULT_USER_ITEM_UNIT);
+
+    if (row.name === nextName && row.quantity === nextQuantity && row.unit === nextUnit) {
+      continue;
+    }
+
+    db.runSync(
+      `
+        UPDATE ${tableName}
+        SET name = ?, quantity = ?, unit = ?
+        WHERE id = ?;
+      `,
+      [nextName, nextQuantity, nextUnit, row.id],
+    );
+  }
+}
+
+function backfillMasterItemRequiredFields() {
+  backfillMasterItemRequiredFieldsForTable('user_medicines');
+  backfillMasterItemRequiredFieldsForTable('user_foods');
+}
+
+function migrateUserItemQueuePayloadRequiredFields() {
+  const queueRows = db.getAllSync<QueueRowForMigration>(
+    `
+      SELECT id, table_name, operation, payload
+      FROM sync_queue
+      WHERE table_name IN ('user_medicines', 'user_foods') AND operation IN ('INSERT', 'UPDATE');
+    `,
+  );
+
+  for (const queueRow of queueRows) {
+    let parsedPayload: unknown;
+
+    try {
+      parsedPayload = JSON.parse(queueRow.payload);
+    } catch {
+      continue;
+    }
+
+    const payloadRecord = getPayloadRecord(parsedPayload);
+
+    if (!payloadRecord) {
+      continue;
+    }
+
+    const writePayload = getPayloadRecord(getWritePayload(payloadRecord));
+
+    if (!writePayload) {
+      continue;
+    }
+
+    const parsedDisplayName = parseUserItemDisplayName(
+      (typeof payloadRecord.display_name === 'string' ? payloadRecord.display_name : null) ??
+        (typeof writePayload.display_name === 'string' ? writePayload.display_name : null),
+    );
+    const hasNameKey = Object.prototype.hasOwnProperty.call(writePayload, 'name');
+    const hasQuantityKey = Object.prototype.hasOwnProperty.call(writePayload, 'quantity');
+    const hasUnitKey = Object.prototype.hasOwnProperty.call(writePayload, 'unit');
+
+    if (queueRow.operation !== 'INSERT' && !hasNameKey && !hasQuantityKey && !hasUnitKey) {
+      continue;
+    }
+
+    let didChange = false;
+
+    if (queueRow.operation === 'INSERT' || hasNameKey) {
+      const normalizedName = normalizeUserItemName(writePayload.name, parsedDisplayName.inferredName ?? DEFAULT_USER_ITEM_NAME);
+
+      if (writePayload.name !== normalizedName) {
+        writePayload.name = normalizedName;
+        didChange = true;
+      }
+    }
+
+    if (queueRow.operation === 'INSERT' || hasQuantityKey) {
+      const normalizedQuantity = normalizeUserItemQuantity(
+        writePayload.quantity,
+        parsedDisplayName.inferredQuantity ?? DEFAULT_USER_ITEM_QUANTITY,
+      );
+
+      if (writePayload.quantity !== normalizedQuantity) {
+        writePayload.quantity = normalizedQuantity;
+        didChange = true;
+      }
+    }
+
+    if (queueRow.operation === 'INSERT' || hasUnitKey) {
+      const normalizedUnit = normalizeUserItemUnit(writePayload.unit, parsedDisplayName.inferredUnit ?? DEFAULT_USER_ITEM_UNIT);
+
+      if (writePayload.unit !== normalizedUnit) {
+        writePayload.unit = normalizedUnit;
+        didChange = true;
+      }
+    }
+
+    if (!didChange) {
+      continue;
+    }
+
+    db.runSync('UPDATE sync_queue SET payload = ? WHERE id = ?;', [JSON.stringify(parsedPayload), queueRow.id]);
+  }
+}
+
 function migrateStressQueuePayloadLevels() {
   const queueRows = db.getAllSync<QueueRowForMigration>(
     `
@@ -569,6 +810,8 @@ function applySchemaMigrations() {
 
   backfillSyncQueueUserIds();
   migrateStressLevelsWithoutNone();
+  backfillMasterItemRequiredFields();
+  migrateUserItemQueuePayloadRequiredFields();
   backfillLogItemDisplayNames();
   backfillUserBodyPartsFromPainLogs();
 }

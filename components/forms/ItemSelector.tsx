@@ -656,14 +656,31 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     }
 
     const trimmedUnit = draftUnit.trim();
-    const parsedQuantity = draftQuantity.trim().length > 0 ? Number(draftQuantity) : null;
+    const trimmedQuantity = draftQuantity.trim();
 
-    if (parsedQuantity !== null && !Number.isFinite(parsedQuantity)) {
+    if (trimmedUnit.length === 0) {
+      showError('Unit is required.');
+      return;
+    }
+
+    if (trimmedQuantity.length === 0) {
+      showError('Quantity is required.');
+      return;
+    }
+
+    const parsedQuantity = Number(trimmedQuantity);
+
+    if (!Number.isFinite(parsedQuantity)) {
       showError('Quantity must be a valid number.');
       return;
     }
 
-    const normalizedUnit = trimmedUnit.length > 0 ? trimmedUnit : null;
+    if (parsedQuantity <= 0) {
+      showError('Quantity must be greater than 0.');
+      return;
+    }
+
+    const normalizedUnit = trimmedUnit;
     const basePayload = {
       name: trimmedName,
       quantity: parsedQuantity,

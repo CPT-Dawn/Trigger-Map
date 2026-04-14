@@ -99,6 +99,9 @@ interface LogDependencyReference {
 }
 
 const BACKGROUND_SYNC_TASK = 'BACKGROUND_SYNC_TASK';
+const DEFAULT_USER_ITEM_NAME = 'Saved item';
+const DEFAULT_USER_ITEM_QUANTITY = 1;
+const DEFAULT_USER_ITEM_UNIT = 'unit';
 
 interface SyncStatusSnapshot {
   isSyncing: boolean;
@@ -240,14 +243,58 @@ function isDependentLogTableName(tableName: string): tableName is DependentLogTa
   return tableName === 'medicine_logs' || tableName === 'food_logs';
 }
 
-function sanitizeUserItemWritePayload(payload: unknown, operation: QueueOperation) {
+function normalizeUserItemQuantity(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsedValue = Number(value.trim());
+
+    if (Number.isFinite(parsedValue)) {
+      return parsedValue;
+    }
+  }
+
+  return DEFAULT_USER_ITEM_QUANTITY;
+}
+
+function normalizeUserItemName(value: unknown, fallbackName = DEFAULT_USER_ITEM_NAME) {
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+
+    if (trimmedValue.length > 0) {
+      return trimmedValue;
+    }
+  }
+
+  const trimmedFallbackName = fallbackName.trim();
+
+  return trimmedFallbackName.length > 0 ? trimmedFallbackName : DEFAULT_USER_ITEM_NAME;
+}
+
+function normalizeUserItemUnit(value: unknown, fallbackUnit = DEFAULT_USER_ITEM_UNIT) {
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+
+    if (trimmedValue.length > 0) {
+      return trimmedValue;
+    }
+  }
+
+  const trimmedFallbackUnit = fallbackUnit.trim();
+
+  return trimmedFallbackUnit.length > 0 ? trimmedFallbackUnit : DEFAULT_USER_ITEM_UNIT;
+}
+
+function sanitizeUserItemWritePayload(payload: unknown, row: QueueRow) {
   const payloadRecord = getPayloadRecord(payload);
 
   if (!payloadRecord) {
     return payload;
   }
 
-  const allowedKeys = operation === 'INSERT'
+  const allowedKeys = row.operation === 'INSERT'
     ? (['id', 'user_id', 'name', 'quantity', 'unit'] as const)
     : (['name', 'quantity', 'unit'] as const);
   const sanitizedPayload: Record<string, unknown> = {};
@@ -256,6 +303,29 @@ function sanitizeUserItemWritePayload(payload: unknown, operation: QueueOperatio
     if (payloadRecord[key] !== undefined) {
       sanitizedPayload[key] = payloadRecord[key];
     }
+  }
+
+  if (row.operation === 'INSERT') {
+    if (typeof sanitizedPayload.user_id !== 'string' || sanitizedPayload.user_id.length === 0) {
+      sanitizedPayload.user_id = row.user_id;
+    }
+
+    sanitizedPayload.name = normalizeUserItemName(sanitizedPayload.name);
+    sanitizedPayload.quantity = normalizeUserItemQuantity(sanitizedPayload.quantity);
+    sanitizedPayload.unit = normalizeUserItemUnit(sanitizedPayload.unit);
+    return sanitizedPayload;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(sanitizedPayload, 'name')) {
+    sanitizedPayload.name = normalizeUserItemName(sanitizedPayload.name);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(sanitizedPayload, 'quantity')) {
+    sanitizedPayload.quantity = normalizeUserItemQuantity(sanitizedPayload.quantity);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(sanitizedPayload, 'unit')) {
+    sanitizedPayload.unit = normalizeUserItemUnit(sanitizedPayload.unit);
   }
 
   return sanitizedPayload;
@@ -269,7 +339,7 @@ function getNormalizedWritePayload(row: QueueRow, payload: unknown) {
   }
 
   if (isUserItemTableName(row.table_name)) {
-    writePayload = sanitizeUserItemWritePayload(writePayload, row.operation);
+    writePayload = sanitizeUserItemWritePayload(writePayload, row);
   }
 
   return writePayload;
@@ -375,7 +445,15 @@ function getFallbackMasterRow(reference: LogDependencyReference): LocalMasterRow
   );
 
   if (existingMasterRow) {
-    return existingMasterRow;
+    return {
+      ...existingMasterRow,
+      name: normalizeUserItemName(
+        existingMasterRow.name,
+        reference.parentTable === 'user_medicines' ? 'Recovered medicine' : 'Recovered food',
+      ),
+      quantity: normalizeUserItemQuantity(existingMasterRow.quantity),
+      unit: normalizeUserItemUnit(existingMasterRow.unit),
+    };
   }
 
   const sourceLogTable = reference.parentTable === 'user_medicines' ? 'medicine_logs' : 'food_logs';
@@ -395,9 +473,12 @@ function getFallbackMasterRow(reference: LogDependencyReference): LocalMasterRow
   return {
     id: reference.parentId,
     user_id: reference.userId,
-    name: snapshotName || (reference.parentTable === 'user_medicines' ? 'Recovered medicine' : 'Recovered food'),
-    quantity: sourceLogSnapshot?.item_quantity ?? null,
-    unit: sourceLogSnapshot?.item_unit?.trim() || null,
+    name: normalizeUserItemName(
+      snapshotName,
+      reference.parentTable === 'user_medicines' ? 'Recovered medicine' : 'Recovered food',
+    ),
+    quantity: normalizeUserItemQuantity(sourceLogSnapshot?.item_quantity),
+    unit: normalizeUserItemUnit(sourceLogSnapshot?.item_unit),
   };
 }
 
