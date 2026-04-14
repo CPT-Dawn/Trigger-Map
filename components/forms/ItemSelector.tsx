@@ -1,11 +1,13 @@
 import React, {
   forwardRef,
   useCallback,
+  useDeferredValue,
   useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
+  useTransition,
 } from 'react';
 import { Alert, Pressable, StyleSheet, View, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { ActivityIndicator, IconButton, Text } from 'react-native-paper';
@@ -18,7 +20,7 @@ import {
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import { useHeaderHeight } from '@react-navigation/elements';
-import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Radius, Spacing } from '../../constants/theme';
 import { addToSyncQueue, createUuid, db } from '../../lib/localDb';
 import { runSync } from '../../lib/syncEngine';
@@ -147,9 +149,8 @@ function normalizeItemPiece(value: string | null | undefined) {
   return value?.trim().toLowerCase() ?? '';
 }
 
-function buildDuplicateKey(name: string | null | undefined, quantity: number | null, unit: string | null) {
-  const quantityPiece = quantity !== null && Number.isFinite(quantity) ? String(quantity) : '';
-  return `${normalizeItemPiece(name)}|${quantityPiece}|${normalizeItemPiece(unit)}`;
+function normalizeItemName(name: string | null | undefined) {
+  return normalizeItemPiece(name);
 }
 
 function sortMasterItems(items: ItemRecord[]) {
@@ -158,8 +159,35 @@ function sortMasterItems(items: ItemRecord[]) {
 
 const sheetReveal = (delay: number) => FadeInDown.delay(delay).duration(300);
 
-const MEDICINE_UNIT_SUGGESTIONS = ['mg', 'ml', 'tablet', 'capsule'] as const;
-const FOOD_UNIT_SUGGESTIONS = ['g', 'ml', 'piece', 'cup'] as const;
+const MEDICINE_UNIT_SUGGESTIONS = [
+  'mg',         // Milligrams (The universal standard for dosage)
+  'tablet',     // Physical pill
+  'capsule',    // Physical pill
+  'ml',         // Milliliters (Liquid medications)
+  'drops',      // Eye drops, liquid vitamins
+  'puff',       // Inhalers (Asthma is a major trigger tracked in apps)
+  'tsp',        // Teaspoon (Common for liquid suspensions, 5ml)
+  'cap',       // Tablespoon (15ml)
+  'mcg',        // Micrograms (Common for Vitamin D, B12, Thyroid meds)
+  'g',          // Grams (Large supplements)
+  'patch',      // Pain patches, birth control, nicotine
+  'spray',      // Nasal sprays (Allergy triggers)
+  'unit',       // Insulin, specialized injections
+  'application',// Topical creams, ointments (Eczema/Skin triggers)
+] as const;
+const FOOD_UNIT_SUGGESTIONS = [
+  'serving',    // The ultimate catch-all (e.g., "Lasagna 1 serving")
+  'cup',        // Universal for solids/liquids (Coffee, rice, veggies)
+  'piece',      // Fruit, sushi, chicken
+  'slice',      // Bread, pizza, cheese
+  'g',          // Grams (For users who track strictly)
+  'ml',         // Milliliters (Drinks)
+  'bowl',       // Soup, cereal, pasta (Highly intuitive)
+  'glass',      // Water, juice, alcohol
+  'handful',    // Nuts, chips, berries (Low-friction tracking)
+  'bottle',     // Water, soda, beer
+  'can',        // Soda, energy drinks
+] as const;
 
 interface SheetTextFieldProps extends React.ComponentProps<typeof BottomSheetTextInput> {
   label?: string;
@@ -203,8 +231,12 @@ function SheetTextField({ label, icon, trailing, colors, containerStyle, surface
 interface ItemRowProps {
   item: ItemRecord;
   index: number;
+  animateRows: boolean;
   accentColor: string;
-  colors: ReturnType<typeof useAppColors>;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+  errorColor: string;
   onSelect: (item: ItemRecord) => void;
   onEdit: (item: ItemRecord) => void;
   onDelete: (item: ItemRecord) => void;
@@ -213,8 +245,12 @@ interface ItemRowProps {
 const ItemRow = React.memo(function ItemRow({
   item,
   index,
+  animateRows,
   accentColor,
-  colors,
+  backgroundColor,
+  borderColor,
+  textColor,
+  errorColor,
   onSelect,
   onEdit,
   onDelete,
@@ -222,16 +258,16 @@ const ItemRow = React.memo(function ItemRow({
   const itemName = getMasterItemName(item);
   const quantityLabel = getMasterItemQuantityLabel(item);
   const inlineLabel = quantityLabel.length > 0 ? `${itemName} • ${quantityLabel}` : itemName;
-  const revealAnimation = index < 10 ? sheetReveal(index * 34) : undefined;
+  const revealAnimation = animateRows && index < 10 ? sheetReveal(index * 34) : undefined;
 
   return (
-    <Animated.View entering={revealAnimation} layout={Layout.springify().damping(22).stiffness(220)}>
+    <Animated.View entering={revealAnimation}>
       <AppCard
         style={[
           styles.itemCard,
           {
-            backgroundColor: colors.surfaceContainerLowest,
-            borderColor: colors.ghostBorder,
+            backgroundColor,
+            borderColor,
           },
         ]}
         variant="subtle"
@@ -245,7 +281,7 @@ const ItemRow = React.memo(function ItemRow({
           >
             <Text variant="titleSmall" style={[styles.itemMarker, { color: accentColor }]}>{'>'}</Text>
             <View style={styles.itemTextBlock}>
-              <Text variant="titleSmall" style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
+              <Text variant="titleSmall" style={[styles.itemTitle, { color: textColor }]} numberOfLines={1}>
                 {inlineLabel}
               </Text>
             </View>
@@ -262,7 +298,7 @@ const ItemRow = React.memo(function ItemRow({
             />
             <IconButton
               icon="trash-can-outline"
-              iconColor={colors.error}
+              iconColor={errorColor}
               size={20}
               style={styles.itemActionButton}
               onPress={() => onDelete(item)}
@@ -286,7 +322,9 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
   const [items, setItems] = useState<ItemRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchInputValue, setSearchInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [, startSearchTransition] = useTransition();
   const [activeForm, setActiveForm] = useState<{ mode: 'create' | 'edit'; itemId?: string } | null>(null);
   const [draftName, setDraftName] = useState('');
   const [draftQuantity, setDraftQuantity] = useState('');
@@ -304,11 +342,25 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
   const accentContainerColor = type === 'medicine' ? colors.primaryContainer : colors.secondaryContainer;
   const createLabel = `Create New ${displayType}`;
   const unitSuggestions = type === 'medicine' ? MEDICINE_UNIT_SUGGESTIONS : FOOD_UNIT_SUGGESTIONS;
-  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const normalizedSearch = deferredSearchQuery.trim().toLowerCase();
+  const hasSearchQuery = searchInputValue.trim().length > 0;
 
   const showError = useCallback((message: string) => {
     setSnackbarMessage(message);
     setSnackbarVisible(true);
+  }, []);
+
+  const handleSearchQueryChange = useCallback((value: string) => {
+    setSearchInputValue(value);
+    startSearchTransition(() => {
+      setSearchQuery(value);
+    });
+  }, [startSearchTransition]);
+
+  const clearSearchQuery = useCallback(() => {
+    setSearchInputValue('');
+    setSearchQuery('');
   }, []);
 
   const resetForm = useCallback(() => {
@@ -347,7 +399,9 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
           setDraftName(targetItem.name?.trim() || getMasterItemDisplayName(targetItem));
           setDraftQuantity(targetItem.quantity !== null ? String(targetItem.quantity) : '');
           setDraftUnit(targetItem.unit?.trim() || '');
-          setSearchQuery(getMasterItemDisplayName(targetItem));
+          const targetLabel = getMasterItemDisplayName(targetItem);
+          setSearchInputValue(targetLabel);
+          setSearchQuery(targetLabel);
         }
       }
     } catch (error: any) {
@@ -409,10 +463,10 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
   const handleOpenCreateForm = useCallback(() => {
     setActiveForm({ mode: 'create' });
-    setDraftName(searchQuery.trim());
+    setDraftName(searchInputValue.trim());
     setDraftQuantity('');
     setDraftUnit('');
-  }, [searchQuery]);
+  }, [searchInputValue]);
 
   const handleEditMasterItem = useCallback((item: ItemRecord) => {
     setActiveForm({ mode: 'edit', itemId: item.id });
@@ -421,22 +475,21 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     setDraftUnit(item.unit?.trim() || '');
   }, []);
 
-  const findDuplicateItem = useCallback(
-    (
-      name: string,
-      quantity: number | null,
-      unit: string | null,
-      excludeId?: string,
-    ) => {
-      const duplicateKey = buildDuplicateKey(name, quantity, unit);
+  const findItemByName = useCallback(
+    (name: string, excludeId?: string) => {
+      const normalizedName = normalizeItemName(name);
+
+      if (normalizedName.length === 0) {
+        return null;
+      }
 
       return items.find((item) => {
         if (excludeId && item.id === excludeId) {
           return false;
         }
 
-        const itemName = item.name?.trim() || item.display_name?.trim() || '';
-        return buildDuplicateKey(itemName, item.quantity, item.unit?.trim() || null) === duplicateKey;
+        const itemName = item.name?.trim() || getMasterItemName(item);
+        return normalizeItemName(itemName) === normalizedName;
       }) ?? null;
     },
     [items],
@@ -554,26 +607,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
       quantity: parsedQuantity,
       unit: normalizedUnit,
     };
-    const duplicateItem = findDuplicateItem(
-      trimmedName,
-      parsedQuantity,
-      normalizedUnit,
-      activeForm?.mode === 'edit' ? activeForm.itemId : undefined,
-    );
-
-    if (duplicateItem) {
-      if (activeForm?.mode === 'edit') {
-        showError(`Another ${displayType.toLowerCase()} already has these details.`);
-      } else {
-        onSelect(duplicateItem.id, getMasterItemDisplayName(duplicateItem));
-        closeSheet();
-        resetForm();
-        showError(`Selected existing ${displayType.toLowerCase()} item.`);
-      }
-
-      return;
-    }
-
     const resolvedDisplayName = buildMasterItemDisplayName(
       trimmedName,
       parsedQuantity,
@@ -583,10 +616,69 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
       ...basePayload,
       display_name: resolvedDisplayName,
     };
+    const existingItemWithName = findItemByName(
+      trimmedName,
+      activeForm?.mode === 'edit' ? activeForm.itemId : undefined,
+    );
+
+    if (existingItemWithName && activeForm?.mode === 'edit') {
+      showError(`Another ${displayType.toLowerCase()} already uses this name.`);
+      return;
+    }
 
     setIsSaving(true);
 
     try {
+      if (existingItemWithName && activeForm?.mode !== 'edit') {
+        const resolvedItem: ItemRecord = {
+          id: existingItemWithName.id,
+          display_name: resolvedDisplayName,
+          ...basePayload,
+        };
+
+        db.execSync('BEGIN TRANSACTION;');
+
+        try {
+          db.runSync(
+            `
+              UPDATE ${tableName}
+              SET name = ?, quantity = ?, unit = ?, display_name = ?
+              WHERE id = ? AND user_id = ?;
+            `,
+            [
+              basePayload.name,
+              basePayload.quantity,
+              basePayload.unit,
+              resolvedItem.display_name,
+              existingItemWithName.id,
+              user.id,
+            ],
+          );
+
+          addToSyncQueue(tableName, 'UPDATE', {
+            id: existingItemWithName.id,
+            user_id: user.id,
+            data: syncPayload,
+          }, { userId: user.id });
+
+          db.execSync('COMMIT;');
+        } catch (error) {
+          db.execSync('ROLLBACK;');
+          throw error;
+        }
+
+        setItems((currentItems) =>
+          sortMasterItems(currentItems.map((currentItem) => (currentItem.id === resolvedItem.id ? resolvedItem : currentItem))),
+        );
+        onMasterItemChange?.(resolvedItem);
+        onSelect(resolvedItem.id, getMasterItemDisplayName(resolvedItem));
+        closeSheet();
+        resetForm();
+        showError(`${displayType} updated and selected.`);
+        void runSync();
+        return;
+      }
+
       if (activeForm?.mode === 'edit' && activeForm.itemId) {
         const resolvedItem: ItemRecord = {
           id: activeForm.itemId,
@@ -629,7 +721,9 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
           sortMasterItems(currentItems.map((currentItem) => (currentItem.id === resolvedItem.id ? resolvedItem : currentItem))),
         );
         onMasterItemChange?.(resolvedItem);
-        setSearchQuery(getMasterItemDisplayName(resolvedItem));
+        const updatedLabel = getMasterItemDisplayName(resolvedItem);
+        setSearchInputValue(updatedLabel);
+        setSearchQuery(updatedLabel);
 
         resetForm();
         showError(`${displayType} updated.`);
@@ -678,9 +772,10 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     } finally {
       setIsSaving(false);
     }
-  }, [activeForm, closeSheet, displayType, draftName, draftQuantity, draftUnit, findDuplicateItem, onMasterItemChange, onSelect, resetForm, showError, tableName, user]);
+  }, [activeForm, closeSheet, displayType, draftName, draftQuantity, draftUnit, findItemByName, onMasterItemChange, onSelect, resetForm, showError, tableName, user]);
 
   const handleDismiss = useCallback(() => {
+    setSearchInputValue('');
     setSearchQuery('');
     setItems([]);
     resetForm();
@@ -688,7 +783,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
   }, [onClose, resetForm]);
 
   const snapPoints = useMemo(() => (activeForm ? ['100%'] : ['74%', '92%']), [activeForm]);
-  const keyboardBehavior = activeForm ? 'fillParent' : 'extend';
+  const keyboardBehavior: 'extend' = 'extend';
   const sheetTopInset = headerHeight + Spacing.xs;
 
   const renderBackdrop = useCallback(
@@ -698,80 +793,127 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     [],
   );
 
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <View style={styles.headerRow}>
-        <View style={styles.headerCopy}>
-          <View style={[styles.headerIconShell, { backgroundColor: accentContainerColor }]}> 
-            <MaterialCommunityIcons name={iconName} size={20} color={accentColor} />
+  const headerContent = useMemo(
+    () => (
+      <View style={styles.headerContainer}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerCopy}>
+            <View style={[styles.headerIconShell, { backgroundColor: accentContainerColor }]}> 
+              <MaterialCommunityIcons name={iconName} size={20} color={accentColor} />
+            </View>
+            <View style={styles.headerTextBlock}>
+              <Text variant="titleLarge" style={[styles.sheetTitle, { color: colors.text }]}>
+                {activeForm ? (activeForm.mode === 'edit' ? `Edit ${displayType}` : createLabel) : `Select ${displayType}`}
+              </Text>
+              <Text variant="bodySmall" style={[styles.sheetSubtitle, { color: colors.textMuted }]}> 
+                {activeForm ? 'Enter item details below.' : `Choose a saved ${displayType.toLowerCase()} or create a new one.`}
+              </Text>
+            </View>
           </View>
-          <View style={styles.headerTextBlock}>
-            <Text variant="titleLarge" style={[styles.sheetTitle, { color: colors.text }]}>
-              {activeForm ? (activeForm.mode === 'edit' ? `Edit ${displayType}` : createLabel) : `Select ${displayType}`}
-            </Text>
-            <Text variant="bodySmall" style={[styles.sheetSubtitle, { color: colors.textMuted }]}> 
-              {activeForm ? 'Enter item details below.' : `Choose a saved ${displayType.toLowerCase()} or create a new one.`}
-            </Text>
-          </View>
+          <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeSheet} />
         </View>
-        <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeSheet} />
-      </View>
 
-      {!activeForm && (
-        <>
-          <SheetTextField
-            colors={colors}
-            containerStyle={styles.searchFieldBlock}
-            surfaceStyle={styles.searchFieldSurface}
-            icon="magnify"
-            placeholder={`Search ${displayType.toLowerCase()}...`}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            trailing={
-              searchQuery.length > 0 ? (
-                <Pressable accessibilityRole="button" onPress={() => setSearchQuery('')} hitSlop={Spacing.sm}>
-                  <MaterialCommunityIcons name="close-circle" size={18} color={colors.textMuted} />
+        {!activeForm && (
+          <>
+            <SheetTextField
+              colors={colors}
+              containerStyle={styles.searchFieldBlock}
+              surfaceStyle={styles.searchFieldSurface}
+              icon="magnify"
+              placeholder={`Search ${displayType.toLowerCase()}...`}
+              value={searchInputValue}
+              onChangeText={handleSearchQueryChange}
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+              autoComplete="off"
+              returnKeyType="search"
+              trailing={
+                searchInputValue.length > 0 ? (
+                  <Pressable accessibilityRole="button" onPress={clearSearchQuery} hitSlop={Spacing.sm}>
+                    <MaterialCommunityIcons name="close-circle" size={18} color={colors.textMuted} />
+                  </Pressable>
+                ) : null
+              }
+            />
+
+            <View style={styles.headerMetaRow}>
+              {hasSearchQuery && !hasExactMatch ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Create ${displayType} ${searchInputValue.trim()}`}
+                  onPress={handleOpenCreateForm}
+                  style={({ pressed }) => [
+                    styles.quickCreateInline,
+                    {
+                      backgroundColor: colors.surfaceContainerLow,
+                      borderColor: colors.ghostBorder,
+                    },
+                    pressed && styles.quickCreateInlinePressed,
+                  ]}
+                >
+                  <MaterialCommunityIcons name="plus-circle-outline" size={16} color={accentColor} />
+                  <Text variant="labelMedium" style={{ color: colors.text }} numberOfLines={1}>
+                    Create "{searchInputValue.trim()}"
+                  </Text>
                 </Pressable>
-              ) : null
-            }
-          />
+              ) : null}
+            </View>
+          </>
+        )}
 
-          <View style={styles.headerMetaRow}>
-
-            {normalizedSearch.length > 0 && !hasExactMatch ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Create ${displayType} ${searchQuery.trim()}`}
-                onPress={handleOpenCreateForm}
-                style={({ pressed }) => [
-                  styles.quickCreateInline,
-                  {
-                    backgroundColor: colors.surfaceContainerLow,
-                    borderColor: colors.ghostBorder,
-                  },
-                  pressed && styles.quickCreateInlinePressed,
-                ]}
-              >
-                <MaterialCommunityIcons name="plus-circle-outline" size={16} color={accentColor} />
-                <Text variant="labelMedium" style={{ color: colors.text }} numberOfLines={1}>
-                  Create "{searchQuery.trim()}"
-                </Text>
-              </Pressable>
-            ) : null}
+        {loading && !activeForm && (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={colors.primary} />
+            <Text variant="bodySmall" style={[styles.loadingText, { color: colors.textMuted }]}>Refreshing saved items...</Text>
           </View>
-        </>
-      )}
+        )}
+      </View>
+    ),
+    [
+      accentColor,
+      accentContainerColor,
+      activeForm,
+      clearSearchQuery,
+      closeSheet,
+      colors,
+      createLabel,
+      displayType,
+      handleOpenCreateForm,
+      handleSearchQueryChange,
+      hasExactMatch,
+      hasSearchQuery,
+      iconName,
+      loading,
+      searchInputValue,
+    ],
+  );
 
-      {loading && !activeForm && (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator color={colors.primary} />
-          <Text variant="bodySmall" style={[styles.loadingText, { color: colors.textMuted }]}>Refreshing saved items...</Text>
-        </View>
-      )}
-    </View>
+  const unitSuggestionChips = useMemo(
+    () =>
+      unitSuggestions.map((unitOption) => {
+        const isSelected = draftUnit.trim().toLowerCase() === unitOption;
+
+        return (
+          <Pressable
+            key={unitOption}
+            onPress={() => setDraftUnit(unitOption)}
+            style={({ pressed }) => [
+              styles.unitSuggestionChip,
+              {
+                backgroundColor: isSelected ? accentContainerColor : colors.surfaceContainerLow,
+                borderColor: colors.ghostBorder,
+              },
+              pressed && styles.unitSuggestionChipPressed,
+            ]}
+          >
+            <Text variant="labelMedium" style={{ color: isSelected ? accentColor : colors.textMuted }}>
+              {unitOption}
+            </Text>
+          </Pressable>
+        );
+      }),
+    [accentColor, accentContainerColor, colors.ghostBorder, colors.surfaceContainerLow, colors.textMuted, draftUnit, unitSuggestions],
   );
 
   const renderForm = () => {
@@ -801,6 +943,9 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
             value={draftName}
             onChangeText={setDraftName}
             autoCapitalize="words"
+            autoCorrect={false}
+            spellCheck={false}
+            autoComplete="off"
             autoFocus={Platform.OS === 'android'}
           />
 
@@ -813,6 +958,9 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
                 value={draftQuantity}
                 onChangeText={setDraftQuantity}
                 keyboardType="decimal-pad"
+                autoCorrect={false}
+                spellCheck={false}
+                autoComplete="off"
                 returnKeyType="next"
               />
             </View>
@@ -825,34 +973,16 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
                 value={draftUnit}
                 onChangeText={setDraftUnit}
                 autoCapitalize="words"
+                autoCorrect={false}
+                spellCheck={false}
+                autoComplete="off"
                 returnKeyType="done"
               />
             </View>
           </View>
 
           <View style={styles.unitSuggestionRow}>
-            {unitSuggestions.map((unitOption) => {
-              const isSelected = draftUnit.trim().toLowerCase() === unitOption;
-
-              return (
-                <Pressable
-                  key={unitOption}
-                  onPress={() => setDraftUnit(unitOption)}
-                  style={({ pressed }) => [
-                    styles.unitSuggestionChip,
-                    {
-                      backgroundColor: isSelected ? accentContainerColor : colors.surfaceContainerLow,
-                      borderColor: colors.ghostBorder,
-                    },
-                    pressed && styles.unitSuggestionChipPressed,
-                  ]}
-                >
-                  <Text variant="labelMedium" style={{ color: isSelected ? accentColor : colors.textMuted }}>
-                    {unitOption}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {unitSuggestionChips}
           </View>
 
           <View
@@ -892,8 +1022,52 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     );
   };
 
-  const renderFooter = () => {
-    if (activeForm || hasExactMatch) {
+  const shouldAnimateRows = !hasSearchQuery;
+
+  const keyExtractor = useCallback((item: ItemRecord) => item.id, []);
+
+  const renderListItem = useCallback(
+    ({ item, index }: { item: ItemRecord; index: number }) => (
+      <ItemRow
+        item={item}
+        index={index}
+        animateRows={shouldAnimateRows}
+        accentColor={accentColor}
+        backgroundColor={colors.surfaceContainerLowest}
+        borderColor={colors.ghostBorder}
+        textColor={colors.text}
+        errorColor={colors.error}
+        onSelect={handleSelectItem}
+        onEdit={handleEditMasterItem}
+        onDelete={handleDeleteMasterItem}
+      />
+    ),
+    [
+      accentColor,
+      colors.error,
+      colors.ghostBorder,
+      colors.surfaceContainerLowest,
+      colors.text,
+      handleDeleteMasterItem,
+      handleEditMasterItem,
+      handleSelectItem,
+      shouldAnimateRows,
+    ],
+  );
+
+  const listEmptyContent = useMemo(
+    () =>
+      loading ? null : (
+        <View style={styles.emptyState}>
+          <MaterialCommunityIcons name="magnify" size={32} color={colors.textMuted} />
+          <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.textMuted }]}>No matching saved items.</Text>
+        </View>
+      ),
+    [colors.textMuted, loading],
+  );
+
+  const listFooterContent = useMemo(() => {
+    if (activeForm || hasExactMatch || hasSearchQuery) {
       return null;
     }
 
@@ -910,13 +1084,14 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
         </CustomButton>
       </View>
     );
-  };
+  }, [accentColor, accentContainerColor, activeForm, createLabel, handleOpenCreateForm, hasExactMatch, hasSearchQuery]);
 
   return (
     <BottomSheetModal
       ref={sheetRef}
       index={0}
       snapPoints={snapPoints}
+      enableDynamicSizing={false}
       enablePanDownToClose
       enableDismissOnClose
       backgroundStyle={[styles.sheetBackground, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}
@@ -930,51 +1105,25 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
       topInset={sheetTopInset}
     >
       <View style={styles.sheetContent}>
+        {headerContent}
+
         {activeForm ? (
           <BottomSheetScrollView
+            style={styles.formScroll}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             contentContainerStyle={styles.formScrollContent}
           >
-            {renderHeader()}
             {renderForm()}
           </BottomSheetScrollView>
         ) : (
           <BottomSheetFlatList
+            style={styles.list}
             data={filteredItems}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
-              <ItemRow
-                item={item}
-                index={index}
-                accentColor={accentColor}
-                colors={colors}
-                onSelect={handleSelectItem}
-                onEdit={handleEditMasterItem}
-                onDelete={handleDeleteMasterItem}
-              />
-            )}
-            ListHeaderComponent={renderHeader}
-            ListEmptyComponent={
-              loading ? null : (
-                <View style={styles.emptyState}>
-                  <MaterialCommunityIcons name="magnify" size={32} color={colors.textMuted} />
-                  <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.textMuted }]}>No matching saved items.</Text>
-                  {!hasExactMatch && normalizedSearch.length > 0 ? (
-                    <CustomButton
-                      mode="contained"
-                      icon="plus"
-                      onPress={handleOpenCreateForm}
-                      buttonColor={accentContainerColor}
-                      textColor={accentColor}
-                    >
-                      Create "{searchQuery.trim()}"
-                    </CustomButton>
-                  ) : null}
-                </View>
-              )
-            }
-            ListFooterComponent={renderFooter}
+            keyExtractor={keyExtractor}
+            renderItem={renderListItem}
+            ListEmptyComponent={listEmptyContent}
+            ListFooterComponent={listFooterContent}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -1006,6 +1155,12 @@ const styles = StyleSheet.create({
     height: 5,
   },
   sheetContent: {
+    flex: 1,
+  },
+  list: {
+    flex: 1,
+  },
+  formScroll: {
     flex: 1,
   },
   headerContainer: {
