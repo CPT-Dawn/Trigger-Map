@@ -166,27 +166,26 @@ const MEDICINE_UNIT_SUGGESTIONS = [
   'mg',        
   'ml',        
   'tsp',     
+  'Cap',      
   'Drops',     
-  'Puff',       
-  'cap',      
-  'mcg',       
+  'Puff',              
   'Patch',     
   'Spray',      
   'Unit',       
   'Application',
 ] as const;
 const FOOD_UNIT_SUGGESTIONS = [
-  'serving',    // The ultimate catch-all (e.g., "Lasagna 1 serving")
-  'cup',        // Universal for solids/liquids (Coffee, rice, veggies)
-  'piece',      // Fruit, sushi, chicken
-  'slice',      // Bread, pizza, cheese
-  'g',          // Grams (For users who track strictly)
-  'ml',         // Milliliters (Drinks)
-  'bowl',       // Soup, cereal, pasta (Highly intuitive)
-  'glass',      // Water, juice, alcohol
-  'handful',    // Nuts, chips, berries (Low-friction tracking)
-  'bottle',     // Water, soda, beer
-  'can',        // Soda, energy drinks
+  'Piece',     
+  'Slice',   
+  'Serving',  
+  'g',   
+  'ml',       
+  'Cup',       
+  'Glass',      
+  'Can',        
+  'Bowl',       
+  'Bottle',    
+  'Handful',    
 ] as const;
 
 interface SheetTextFieldProps extends React.ComponentProps<typeof BottomSheetTextInput> {
