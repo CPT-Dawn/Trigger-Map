@@ -2,7 +2,7 @@ import * as SQLite from 'expo-sqlite';
 
 export const db = SQLite.openDatabaseSync('triggermap.db');
 
-export type SyncQueueOperation = 'INSERT' | 'UPDATE' | 'DELETE';
+type SyncQueueOperation = 'INSERT' | 'UPDATE' | 'DELETE';
 
 type LogTableName = 'pain_logs' | 'stress_logs' | 'medicine_logs' | 'food_logs';
 

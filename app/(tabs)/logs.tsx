@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -545,11 +545,12 @@ export default function LogsScreen() {
   const [undoVisible, setUndoVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const hasFocusedLoadRef = useRef(false);
 
-  const showError = (message: string) => {
+  const showError = useCallback((message: string) => {
     setSnackbarMessage(message);
     setSnackbarVisible(true);
-  };
+  }, []);
 
   const closeEditor = () => {
     setEditingEntry(null);
@@ -968,7 +969,7 @@ export default function LogsScreen() {
     }
   };
 
-  const loadLogs = async (mode: 'initial' | 'refresh' = 'refresh', selectedDate: string | null = null) => {
+  const loadLogs = useCallback(async (mode: 'initial' | 'refresh' = 'refresh') => {
     if (!user) {
       setEntries([]);
       setLoading(false);
@@ -983,44 +984,41 @@ export default function LogsScreen() {
     }
 
     try {
-      const dateClause = selectedDate ? ' AND log_date = ?' : '';
-      const dateArgs = selectedDate ? [selectedDate] : [];
-
       const painRows = db.getAllSync<PainLogSqlRow>(
         `
           SELECT id, logged_at, log_date, body_part, pain_level, swelling
           FROM pain_logs
-          WHERE user_id = ?${dateClause}
+          WHERE user_id = ?
           ORDER BY logged_at DESC;
         `,
-        [user.id, ...dateArgs],
+        [user.id],
       );
       const stressRows = db.getAllSync<StressLogRow>(
         `
           SELECT id, logged_at, log_date, level
           FROM stress_logs
-          WHERE user_id = ?${dateClause}
+          WHERE user_id = ?
           ORDER BY logged_at DESC;
         `,
-        [user.id, ...dateArgs],
+        [user.id],
       );
       const medicineRows = db.getAllSync<MedicineLogRow>(
         `
           SELECT id, logged_at, log_date, medicine_id, item_display_name, item_name, item_quantity, item_unit
           FROM medicine_logs
-          WHERE user_id = ?${dateClause}
+          WHERE user_id = ?
           ORDER BY logged_at DESC;
         `,
-        [user.id, ...dateArgs],
+        [user.id],
       );
       const foodRows = db.getAllSync<FoodLogRow>(
         `
           SELECT id, logged_at, log_date, food_id, item_display_name, item_name, item_quantity, item_unit
           FROM food_logs
-          WHERE user_id = ?${dateClause}
+          WHERE user_id = ?
           ORDER BY logged_at DESC;
         `,
-        [user.id, ...dateArgs],
+        [user.id],
       );
       const medicineItemRows = db.getAllSync<UserItemRow>(
         `
@@ -1116,16 +1114,21 @@ export default function LogsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [showError, user]);
+
+  useEffect(() => {
+    hasFocusedLoadRef.current = false;
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isFocused) {
       return;
     }
 
-    void loadLogs(entries.length === 0 ? 'initial' : 'refresh');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFocused, user?.id]);
+    const nextMode: 'initial' | 'refresh' = hasFocusedLoadRef.current ? 'refresh' : 'initial';
+    hasFocusedLoadRef.current = true;
+    void loadLogs(nextMode);
+  }, [isFocused, loadLogs]);
 
   const visibleEntries = useMemo(
     () => entries.filter((entry) => filter === 'all' || entry.type === filter),

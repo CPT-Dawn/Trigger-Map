@@ -66,9 +66,9 @@ interface FoodLogRow {
   log_date: string;
 }
 
-export const BACKGROUND_SYNC_TASK = 'BACKGROUND_SYNC_TASK';
+const BACKGROUND_SYNC_TASK = 'BACKGROUND_SYNC_TASK';
 
-export interface SyncStatusSnapshot {
+interface SyncStatusSnapshot {
   isSyncing: boolean;
   pendingCount: number;
   lastSyncAt: string | null;
@@ -82,8 +82,6 @@ let syncStatus: SyncStatusSnapshot = {
   lastSyncAt: null,
   lastError: null,
 };
-
-const syncStatusListeners = new Set<(status: SyncStatusSnapshot) => void>();
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -101,21 +99,11 @@ function getErrorMessage(error: unknown) {
   }
 }
 
-function notifySyncStatusListeners() {
-  const snapshot = { ...syncStatus };
-
-  for (const listener of syncStatusListeners) {
-    listener(snapshot);
-  }
-}
-
 function updateSyncStatus(partial: Partial<SyncStatusSnapshot>) {
   syncStatus = {
     ...syncStatus,
     ...partial,
   };
-
-  notifySyncStatusListeners();
 }
 
 function recordSyncError(error: unknown) {
@@ -132,20 +120,7 @@ function recordSyncError(error: unknown) {
   });
 }
 
-export function getSyncStatusSnapshot() {
-  return { ...syncStatus };
-}
-
-export function subscribeSyncStatus(listener: (status: SyncStatusSnapshot) => void) {
-  syncStatusListeners.add(listener);
-  listener({ ...syncStatus });
-
-  return () => {
-    syncStatusListeners.delete(listener);
-  };
-}
-
-export function refreshSyncStatusSnapshot() {
+function refreshSyncStatusSnapshot() {
   try {
     updateSyncStatus({
       pendingCount: getPendingSyncCount(),
@@ -156,7 +131,7 @@ export function refreshSyncStatusSnapshot() {
     // If local DB isn't initialized yet, keep existing in-memory status.
   }
 
-  return getSyncStatusSnapshot();
+  return { ...syncStatus };
 }
 
 function isOnline(state: NetInfoState) {
@@ -353,7 +328,7 @@ async function runQueueOperation(row: QueueRow) {
   }
 }
 
-export async function pushLocalChanges() {
+async function pushLocalChanges() {
   let hadError = false;
 
   try {
@@ -645,7 +620,7 @@ async function fetchRecentLogsFromSupabase(userId: string) {
   };
 }
 
-export async function pullRemoteChanges() {
+async function pullRemoteChanges() {
   try {
     const networkState = await NetInfo.fetch();
 

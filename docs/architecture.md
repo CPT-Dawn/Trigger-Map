@@ -244,4 +244,4 @@ Visibility model:
 
 - Home tab is still a placeholder (`TBD`).
 - `daily_context` remote schema is not yet integrated into app flows.
-- Sync status API exists internally in `syncEngine`, but no user-facing sync UI by design.
+- Sync status tracking is kept internal to `syncEngine`, and no user-facing sync UI is exposed by design.
