@@ -343,6 +343,84 @@ function backfillLogItemDisplayNames() {
   `);
 }
 
+function sanitizeBodyPartNameForStorage(value: string | null | undefined) {
+  return value?.trim().replace(/\s+/g, ' ') ?? '';
+}
+
+function normalizeBodyPartNameForStorage(value: string | null | undefined) {
+  return sanitizeBodyPartNameForStorage(value).toLowerCase();
+}
+
+function backfillUserBodyPartsFromPainLogs() {
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS user_body_parts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_body_parts_user_updated ON user_body_parts(user_id, updated_at DESC);
+  `);
+
+  const existingRows = db.getAllSync<{ user_id: string; name: string | null }>(
+    `
+      SELECT user_id, name
+      FROM user_body_parts
+      WHERE name IS NOT NULL AND TRIM(name) <> '';
+    `,
+  );
+
+  const existingKeys = new Set<string>();
+
+  for (const existingRow of existingRows) {
+    const normalizedName = normalizeBodyPartNameForStorage(existingRow.name);
+
+    if (!normalizedName) {
+      continue;
+    }
+
+    existingKeys.add(`${existingRow.user_id}:${normalizedName}`);
+  }
+
+  const painRows = db.getAllSync<{ user_id: string; body_part: string | null; logged_at: string | null }>(
+    `
+      SELECT user_id, body_part, logged_at
+      FROM pain_logs
+      WHERE body_part IS NOT NULL AND TRIM(body_part) <> ''
+      ORDER BY logged_at DESC;
+    `,
+  );
+
+  for (const painRow of painRows) {
+    const sanitizedName = sanitizeBodyPartNameForStorage(painRow.body_part);
+    const normalizedName = normalizeBodyPartNameForStorage(sanitizedName);
+
+    if (!sanitizedName || !normalizedName) {
+      continue;
+    }
+
+    const dedupeKey = `${painRow.user_id}:${normalizedName}`;
+
+    if (existingKeys.has(dedupeKey)) {
+      continue;
+    }
+
+    const timestamp = painRow.logged_at ?? new Date().toISOString();
+
+    db.runSync(
+      `
+        INSERT INTO user_body_parts (id, user_id, name, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?);
+      `,
+      [createUuid(), painRow.user_id, sanitizedName, timestamp, timestamp],
+    );
+
+    existingKeys.add(dedupeKey);
+  }
+}
+
 function normalizeStressLevelWithoutNone(value: unknown): 'low' | 'moderate' | 'high' | null {
   if (typeof value === 'string') {
     const lowered = value.trim().toLowerCase();
@@ -457,6 +535,16 @@ function backfillSyncQueueUserIds() {
 }
 
 function applySchemaMigrations() {
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS user_body_parts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
   ensureColumn('medicine_logs', 'item_display_name', 'TEXT');
   ensureColumn('medicine_logs', 'item_name', 'TEXT');
   ensureColumn('medicine_logs', 'item_quantity', 'REAL');
@@ -472,6 +560,7 @@ function applySchemaMigrations() {
     CREATE INDEX IF NOT EXISTS idx_sync_queue_user_id ON sync_queue(user_id);
     CREATE INDEX IF NOT EXISTS idx_user_medicines_user_id ON user_medicines(user_id);
     CREATE INDEX IF NOT EXISTS idx_user_foods_user_id ON user_foods(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_body_parts_user_updated ON user_body_parts(user_id, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_pain_logs_user_logged_at ON pain_logs(user_id, logged_at);
     CREATE INDEX IF NOT EXISTS idx_stress_logs_user_logged_at ON stress_logs(user_id, logged_at);
     CREATE INDEX IF NOT EXISTS idx_medicine_logs_user_logged_at ON medicine_logs(user_id, logged_at);
@@ -481,6 +570,7 @@ function applySchemaMigrations() {
   backfillSyncQueueUserIds();
   migrateStressLevelsWithoutNone();
   backfillLogItemDisplayNames();
+  backfillUserBodyPartsFromPainLogs();
 }
 
 export function initLocalDB() {
@@ -503,6 +593,14 @@ export function initLocalDB() {
       quantity REAL,
       unit TEXT,
       display_name TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS user_body_parts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS pain_logs (

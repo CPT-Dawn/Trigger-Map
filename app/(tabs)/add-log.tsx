@@ -1,17 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Platform,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import { IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
+import { ActivityIndicator, IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
   BottomSheetTextInput,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -49,6 +51,11 @@ interface PainEntry {
   swelling: boolean;
 }
 
+interface SavedBodyPart {
+  id: string;
+  name: string;
+}
+
 const stressOptions: Array<{ value: StressLevel; label: string }> = [
   { value: 'low', label: 'Low' },
   { value: 'Mid', label: 'Mid' },
@@ -59,6 +66,54 @@ const cardReveal = (delay: number) => FadeInDown.delay(delay).duration(340);
 
 function createPainEntryId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function sanitizeBodyPartName(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function normalizeBodyPartName(value: string) {
+  return sanitizeBodyPartName(value).toLowerCase();
+}
+
+function upsertSavedBodyPartForUser(userId: string, bodyPartName: string, timestamp: string) {
+  const sanitizedName = sanitizeBodyPartName(bodyPartName);
+  const normalizedName = normalizeBodyPartName(sanitizedName);
+
+  if (!normalizedName) {
+    return;
+  }
+
+  const existingRow = db.getFirstSync<{ id: string }>(
+    `
+      SELECT id
+      FROM user_body_parts
+      WHERE user_id = ? AND LOWER(TRIM(name)) = ?
+      LIMIT 1;
+    `,
+    [userId, normalizedName],
+  );
+
+  if (existingRow) {
+    db.runSync(
+      `
+        UPDATE user_body_parts
+        SET name = ?, updated_at = ?
+        WHERE id = ? AND user_id = ?;
+      `,
+      [sanitizedName, timestamp, existingRow.id, userId],
+    );
+
+    return;
+  }
+
+  db.runSync(
+    `
+      INSERT INTO user_body_parts (id, user_id, name, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?);
+    `,
+    [createUuid(), userId, sanitizedName, timestamp, timestamp],
+  );
 }
 
 function normalizeStressLevel(level: StressLevel) {
@@ -345,6 +400,7 @@ const SelectionSection = React.memo(function SelectionSection({
 export default function AddLogScreen() {
   const router = useRouter();
   const colors = useAppColors();
+  const headerHeight = useHeaderHeight();
   const { user } = useAuth();
 
   const medicineSelectorRef = useRef<ItemSelectorHandle>(null);
@@ -357,6 +413,8 @@ export default function AddLogScreen() {
   const [painEntries, setPainEntries] = useState<PainEntry[]>([]);
   const [bodyPartDraft, setBodyPartDraft] = useState('');
   const bodyPartSheetRef = useRef<BottomSheetModal>(null);
+  const [savedBodyParts, setSavedBodyParts] = useState<SavedBodyPart[]>([]);
+  const [isBodyPartLoading, setIsBodyPartLoading] = useState(false);
   const [selectedMedicines, setSelectedMedicines] = useState<SelectedItem[]>([]);
   const [selectedFoods, setSelectedFoods] = useState<SelectedItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -397,6 +455,50 @@ export default function AddLogScreen() {
     setSnackbarVisible(true);
   }, []);
 
+  const loadSavedBodyParts = useCallback(() => {
+    if (!user) {
+      setSavedBodyParts([]);
+      setIsBodyPartLoading(false);
+      return;
+    }
+
+    setIsBodyPartLoading(true);
+
+    try {
+      const rows = db.getAllSync<SavedBodyPart>(
+        `
+          SELECT id, name
+          FROM user_body_parts
+          WHERE user_id = ? AND name IS NOT NULL AND TRIM(name) <> ''
+          ORDER BY datetime(updated_at) DESC, name COLLATE NOCASE ASC;
+        `,
+        [user.id],
+      );
+
+      setSavedBodyParts(
+        rows
+          .map((row) => ({
+            id: row.id,
+            name: sanitizeBodyPartName(row.name),
+          }))
+          .filter((row) => row.name.length > 0),
+      );
+    } catch (error: any) {
+      openSnackbar(error?.message ?? 'Unable to load saved body parts.');
+    } finally {
+      setIsBodyPartLoading(false);
+    }
+  }, [openSnackbar, user]);
+
+  useEffect(() => {
+    if (user) {
+      return;
+    }
+
+    setSavedBodyParts([]);
+    setIsBodyPartLoading(false);
+  }, [user]);
+
   const handleDateChange = useCallback(
     (_event: DateTimePickerEvent, selectedDate?: Date) => {
       setShowDatePicker(false);
@@ -425,34 +527,103 @@ export default function AddLogScreen() {
 
   const openBodyPartModal = useCallback(() => {
     setBodyPartDraft('');
+    loadSavedBodyParts();
     bodyPartSheetRef.current?.present();
-  }, []);
+  }, [loadSavedBodyParts]);
 
   const closeBodyPartModal = useCallback(() => {
     bodyPartSheetRef.current?.dismiss();
     setBodyPartDraft('');
   }, []);
 
+  const addPainEntryForBodyPart = useCallback((bodyPartName: string) => {
+    setPainEntries((currentEntries) => [
+      ...currentEntries,
+      {
+        id: createPainEntryId(),
+        body_part: bodyPartName,
+        pain_level: 1,
+        swelling: false,
+      },
+    ]);
+  }, []);
+
   const handleAddBodyPart = useCallback(() => {
-    const trimmedBodyPart = bodyPartDraft.trim();
+    const trimmedBodyPart = sanitizeBodyPartName(bodyPartDraft);
 
     if (!trimmedBodyPart) {
       openSnackbar('Body part is required.');
       return;
     }
 
-    setPainEntries((currentEntries) => [
-      ...currentEntries,
-      {
-        id: createPainEntryId(),
-        body_part: trimmedBodyPart,
-        pain_level: 1,
-        swelling: false,
-      },
-    ]);
+    addPainEntryForBodyPart(trimmedBodyPart);
 
     closeBodyPartModal();
-  }, [bodyPartDraft, closeBodyPartModal, openSnackbar]);
+  }, [addPainEntryForBodyPart, bodyPartDraft, closeBodyPartModal, openSnackbar]);
+
+  const handleSelectSavedBodyPart = useCallback(
+    (bodyPartName: string) => {
+      const normalizedName = sanitizeBodyPartName(bodyPartName);
+
+      if (!normalizedName) {
+        return;
+      }
+
+      addPainEntryForBodyPart(normalizedName);
+      closeBodyPartModal();
+    },
+    [addPainEntryForBodyPart, closeBodyPartModal],
+  );
+
+  const removeSavedBodyPart = useCallback(
+    (bodyPart: SavedBodyPart) => {
+      if (!user) {
+        openSnackbar('You must be logged in to update saved body parts.');
+        return;
+      }
+
+      try {
+        db.runSync(
+          `
+            DELETE FROM user_body_parts
+            WHERE id = ? AND user_id = ?;
+          `,
+          [bodyPart.id, user.id],
+        );
+
+        setSavedBodyParts((currentBodyParts) =>
+          currentBodyParts.filter((currentBodyPart) => currentBodyPart.id !== bodyPart.id),
+        );
+        openSnackbar('Body part removed from quick list.');
+      } catch (error: any) {
+        openSnackbar(error?.message ?? 'Unable to remove this body part.');
+      }
+    },
+    [openSnackbar, user],
+  );
+
+  const handleDeleteSavedBodyPart = useCallback(
+    (bodyPart: SavedBodyPart) => {
+      Alert.alert(
+        'Delete saved body part?',
+        'This removes it from future quick selection. Existing pain logs will be kept.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              removeSavedBodyPart(bodyPart);
+            },
+          },
+        ],
+      );
+    },
+    [removeSavedBodyPart],
+  );
 
   const updatePainEntry = useCallback((entryId: string, updates: Partial<Omit<PainEntry, 'id'>>) => {
     setPainEntries((currentEntries) =>
@@ -528,6 +699,8 @@ export default function AddLogScreen() {
 
       try {
         if (painEntries.length > 0) {
+          const seenBodyPartNames = new Set<string>();
+
           for (const entry of painEntries) {
             const id = createUuid();
             const payload = {
@@ -558,6 +731,13 @@ export default function AddLogScreen() {
             );
 
             addToSyncQueue('pain_logs', 'INSERT', payload, { userId: user.id });
+
+            const normalizedBodyPart = normalizeBodyPartName(entry.body_part);
+
+            if (normalizedBodyPart.length > 0 && !seenBodyPartNames.has(normalizedBodyPart)) {
+              upsertSavedBodyPartForUser(user.id, entry.body_part, loggedAt);
+              seenBodyPartNames.add(normalizedBodyPart);
+            }
           }
         }
 
@@ -794,6 +974,36 @@ export default function AddLogScreen() {
     [logDate],
   );
 
+  const normalizedBodyPartDraft = useMemo(() => normalizeBodyPartName(bodyPartDraft), [bodyPartDraft]);
+
+  const filteredSavedBodyParts = useMemo(() => {
+    if (normalizedBodyPartDraft.length === 0) {
+      return savedBodyParts;
+    }
+
+    return savedBodyParts.filter((bodyPart) =>
+      normalizeBodyPartName(bodyPart.name).includes(normalizedBodyPartDraft),
+    );
+  }, [normalizedBodyPartDraft, savedBodyParts]);
+
+  const hasExactSavedBodyPartMatch = useMemo(() => {
+    if (normalizedBodyPartDraft.length === 0) {
+      return false;
+    }
+
+    return savedBodyParts.some((bodyPart) => normalizeBodyPartName(bodyPart.name) === normalizedBodyPartDraft);
+  }, [normalizedBodyPartDraft, savedBodyParts]);
+
+  const bodyPartCreateLabel = useMemo(() => {
+    const sanitizedDraft = sanitizeBodyPartName(bodyPartDraft);
+
+    if (sanitizedDraft.length > 0 && !hasExactSavedBodyPartMatch) {
+      return `Add "${sanitizedDraft}"`;
+    }
+
+    return 'Add';
+  }, [bodyPartDraft, hasExactSavedBodyPartMatch]);
+
   const formattedTimeLabel = useMemo(
     () => logDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }).replace(/\s?(AM|PM)$/i, (match) => match.toLowerCase()),
     [logDate],
@@ -803,6 +1013,9 @@ export default function AddLogScreen() {
     () => painEntries.length + selectedFoods.length + selectedMedicines.length + (stressLevel !== null ? 1 : 0),
     [painEntries.length, selectedFoods.length, selectedMedicines.length, stressLevel],
   );
+
+  const bodyPartSnapPoints = useMemo(() => ['100%'], []);
+  const bodyPartSheetTopInset = headerHeight + Spacing.xs;
 
   return (
     <ScreenWrapper>
@@ -975,7 +1188,8 @@ export default function AddLogScreen() {
       <BottomSheetModal
         ref={bodyPartSheetRef}
         index={0}
-        snapPoints={['50%', '85%']}
+        snapPoints={bodyPartSnapPoints}
+        enableDynamicSizing={false}
         enablePanDownToClose
         enableDismissOnClose
         backgroundStyle={[styles.sheetBackground, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}
@@ -983,10 +1197,11 @@ export default function AddLogScreen() {
         backdropComponent={(props) => (
           <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.55} />
         )}
-        keyboardBehavior="fillParent"
+        keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
         enableBlurKeyboardOnGesture
         android_keyboardInputMode="adjustResize"
+        topInset={bodyPartSheetTopInset}
         onDismiss={() => setBodyPartDraft('')}
       >
         <BottomSheetScrollView
@@ -1022,10 +1237,74 @@ export default function AddLogScreen() {
                   value={bodyPartDraft}
                   onChangeText={setBodyPartDraft}
                   autoCapitalize="words"
+                  autoCorrect={false}
+                  spellCheck={false}
+                  autoComplete="off"
+                  selectTextOnFocus
                   autoFocus={Platform.OS === 'ios'}
                 />
               </View>
             </View>
+
+            <View style={styles.savedBodyPartSectionHeader}>
+              <Text variant="titleSmall" style={[styles.savedBodyPartSectionTitle, { color: colors.text }]}>Saved Body Parts</Text>
+              {isBodyPartLoading ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <Text variant="bodySmall" style={[styles.savedBodyPartCount, { color: colors.textMuted }]}>
+                  {filteredSavedBodyParts.length}
+                </Text>
+              )}
+            </View>
+
+            {filteredSavedBodyParts.length > 0 ? (
+              <View style={styles.savedBodyPartList}>
+                {filteredSavedBodyParts.map((savedBodyPart) => (
+                  <View
+                    key={savedBodyPart.id}
+                    style={[styles.savedBodyPartRow, { borderBottomColor: colors.ghostBorder }]}
+                  >
+                    <View style={styles.savedBodyPartSelectBlock}>
+                      <CustomButton
+                        mode="text"
+                        onPress={() => handleSelectSavedBodyPart(savedBodyPart.name)}
+                        style={styles.savedBodyPartSelectButton}
+                        contentStyle={styles.savedBodyPartSelectContent}
+                        labelStyle={[styles.savedBodyPartSelectLabel, { color: colors.text }]}
+                      >
+                        {savedBodyPart.name}
+                      </CustomButton>
+                    </View>
+
+                    <IconButton
+                      icon="trash-can-outline"
+                      iconColor={colors.error}
+                      size={20}
+                      style={styles.savedBodyPartDeleteButton}
+                      onPress={() => handleDeleteSavedBodyPart(savedBodyPart)}
+                      accessibilityLabel={`Delete saved body part ${savedBodyPart.name}`}
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.savedBodyPartEmptyState,
+                  {
+                    backgroundColor: colors.surfaceContainerLow,
+                    borderColor: colors.ghostBorder,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons name="arm-flex-outline" size={22} color={colors.textMuted} />
+                <Text variant="bodySmall" style={[styles.savedBodyPartEmptyText, { color: colors.textMuted }]}>
+                  {normalizedBodyPartDraft.length > 0
+                    ? 'No saved body part matches this search.'
+                    : 'Saved body parts from previous pain logs will appear here.'}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.modalActions}>
               <CustomButton mode="text" onPress={closeBodyPartModal} style={styles.modalActionButton}>
@@ -1038,7 +1317,7 @@ export default function AddLogScreen() {
                 textColor={colors.onPrimary}
                 style={styles.modalActionButton}
               >
-                Add
+                {bodyPartCreateLabel}
               </CustomButton>
             </View>
           </View>
@@ -1391,5 +1670,61 @@ const styles = StyleSheet.create({
   },
   modalActionButton: {
     flex: 1,
+  },
+  savedBodyPartSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  savedBodyPartSectionTitle: {
+    fontWeight: '700',
+  },
+  savedBodyPartCount: {
+    fontWeight: '600',
+  },
+  savedBodyPartList: {
+    gap: 0,
+  },
+  savedBodyPartRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 48,
+    borderBottomWidth: 1,
+  },
+  savedBodyPartSelectBlock: {
+    flex: 1,
+  },
+  savedBodyPartSelectButton: {
+    marginHorizontal: 0,
+    justifyContent: 'center',
+  },
+  savedBodyPartSelectContent: {
+    minHeight: 48,
+    justifyContent: 'flex-start',
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.xxs,
+  },
+  savedBodyPartSelectLabel: {
+    fontWeight: '600',
+    textAlign: 'left',
+    marginHorizontal: 0,
+  },
+  savedBodyPartDeleteButton: {
+    margin: 0,
+    width: 48,
+    height: 48,
+  },
+  savedBodyPartEmptyState: {
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.lg,
+  },
+  savedBodyPartEmptyText: {
+    textAlign: 'center',
   },
 });

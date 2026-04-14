@@ -7,9 +7,8 @@ import React, {
   useMemo,
   useRef,
   useState,
-  useTransition,
 } from 'react';
-import { Alert, Pressable, StyleSheet, View, Platform, type StyleProp, type ViewStyle } from 'react-native';
+import { Alert, Pressable, StyleSheet, View, Platform, InteractionManager, type StyleProp, type ViewStyle } from 'react-native';
 import { ActivityIndicator, IconButton, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
@@ -174,6 +173,13 @@ const MEDICINE_UNIT_SUGGESTIONS = [
   'Unit',       
   'Application',
 ] as const;
+
+interface ItemSearchIndexEntry {
+  item: ItemRecord;
+  searchText: string;
+  normalizedDisplayName: string;
+}
+
 const FOOD_UNIT_SUGGESTIONS = [
   'Piece',     
   'Slice',   
@@ -322,8 +328,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
   const [items, setItems] = useState<ItemRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchInputValue, setSearchInputValue] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [, startSearchTransition] = useTransition();
+  const [searchIndex, setSearchIndex] = useState<ItemSearchIndexEntry[]>([]);
   const [activeForm, setActiveForm] = useState<{ mode: 'create' | 'edit'; itemId?: string } | null>(null);
   const [draftName, setDraftName] = useState('');
   const [draftQuantity, setDraftQuantity] = useState('');
@@ -341,8 +346,9 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
   const accentContainerColor = type === 'medicine' ? colors.primaryContainer : colors.secondaryContainer;
   const createLabel = `Create New ${displayType}`;
   const unitSuggestions = type === 'medicine' ? MEDICINE_UNIT_SUGGESTIONS : FOOD_UNIT_SUGGESTIONS;
-  const deferredSearchQuery = useDeferredValue(searchQuery);
-  const normalizedSearch = deferredSearchQuery.trim().toLowerCase();
+  const deferredSearchInputValue = useDeferredValue(searchInputValue);
+  const normalizedSearch = deferredSearchInputValue.trim().toLowerCase();
+  const normalizedSearchInput = searchInputValue.trim().toLowerCase();
   const hasSearchQuery = searchInputValue.trim().length > 0;
 
   const showError = useCallback((message: string) => {
@@ -352,14 +358,34 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
   const handleSearchQueryChange = useCallback((value: string) => {
     setSearchInputValue(value);
-    startSearchTransition(() => {
-      setSearchQuery(value);
+  }, []);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const interactionHandle = InteractionManager.runAfterInteractions(() => {
+      if (isCancelled) {
+        return;
+      }
+
+      setSearchIndex(
+        items.map((item) => ({
+          item,
+          searchText: getMasterItemSearchText(item),
+          normalizedDisplayName: getMasterItemDisplayName(item).toLowerCase(),
+        })),
+      );
     });
-  }, [startSearchTransition]);
+
+    return () => {
+      isCancelled = true;
+      interactionHandle.cancel();
+    };
+  }, [items]);
+
+  const isSearchIndexReady = searchIndex.length === items.length;
 
   const clearSearchQuery = useCallback(() => {
     setSearchInputValue('');
-    setSearchQuery('');
   }, []);
 
   const resetForm = useCallback(() => {
@@ -400,7 +426,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
           setDraftUnit(targetItem.unit?.trim() || '');
           const targetLabel = getMasterItemDisplayName(targetItem);
           setSearchInputValue(targetLabel);
-          setSearchQuery(targetLabel);
         }
       }
     } catch (error: any) {
@@ -439,18 +464,31 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     }
   }, [closeSheet, openSheet, visible]);
 
-  const filteredItems = useMemo(
-    () => items.filter((item) => getMasterItemSearchText(item).includes(normalizedSearch)),
-    [items, normalizedSearch],
-  );
+  const filteredItems = useMemo(() => {
+    if (normalizedSearch.length === 0) {
+      return items;
+    }
+
+    if (!isSearchIndexReady) {
+      return items.filter((item) => getMasterItemSearchText(item).includes(normalizedSearch));
+    }
+
+    return searchIndex
+      .filter((entry) => entry.searchText.includes(normalizedSearch))
+      .map((entry) => entry.item);
+  }, [isSearchIndexReady, items, normalizedSearch, searchIndex]);
 
   const hasExactMatch = useMemo(() => {
-    if (normalizedSearch.length === 0) {
+    if (normalizedSearchInput.length === 0) {
       return false;
     }
 
-    return items.some((item) => getMasterItemDisplayName(item).toLowerCase() === normalizedSearch);
-  }, [items, normalizedSearch]);
+    if (!isSearchIndexReady) {
+      return items.some((item) => getMasterItemDisplayName(item).toLowerCase() === normalizedSearchInput);
+    }
+
+    return searchIndex.some((entry) => entry.normalizedDisplayName === normalizedSearchInput);
+  }, [isSearchIndexReady, items, normalizedSearchInput, searchIndex]);
 
   const handleSelectItem = useCallback(
     (item: ItemRecord) => {
@@ -722,7 +760,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
         onMasterItemChange?.(resolvedItem);
         const updatedLabel = getMasterItemDisplayName(resolvedItem);
         setSearchInputValue(updatedLabel);
-        setSearchQuery(updatedLabel);
 
         resetForm();
         showError(`${displayType} updated.`);
@@ -775,7 +812,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
   const handleDismiss = useCallback(() => {
     setSearchInputValue('');
-    setSearchQuery('');
+    setSearchIndex([]);
     setItems([]);
     resetForm();
     onClose?.();
@@ -832,6 +869,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
               autoCorrect={false}
               spellCheck={false}
               autoComplete="off"
+              selectTextOnFocus
               returnKeyType="search"
               trailing={
                 searchInputValue.length > 0 ? (
@@ -925,6 +963,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
             autoCorrect={false}
             spellCheck={false}
             autoComplete="off"
+            selectTextOnFocus
             autoFocus={Platform.OS === 'android'}
           />
 
@@ -940,6 +979,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
                 autoCorrect={false}
                 spellCheck={false}
                 autoComplete="off"
+                selectTextOnFocus
                 returnKeyType="next"
               />
             </View>
@@ -955,6 +995,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
                 autoCorrect={false}
                 spellCheck={false}
                 autoComplete="off"
+                selectTextOnFocus
                 returnKeyType="done"
               />
             </View>

@@ -188,8 +188,8 @@ export function BottomNavBar({ state, navigation, onAddPress }: BottomNavBarProp
 const styles = StyleSheet.create({
   shell: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: 15,
+    right: 15,
     bottom: 0,
     zIndex: 50,
     elevation: 16,
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.18,
     shadowRadius: 20,
-    minHeight: 76,
+    minHeight: 70,
   },
   row: {
     flexDirection: 'row',
