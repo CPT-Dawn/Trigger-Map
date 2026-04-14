@@ -24,6 +24,9 @@ interface QueueRow {
   created_at: string;
 }
 
+type UserItemTableName = 'user_medicines' | 'user_foods';
+type DependentLogTableName = 'medicine_logs' | 'food_logs';
+
 interface ActiveSyncUser {
   id: string;
   email?: string | null;
@@ -71,6 +74,28 @@ interface FoodLogRow {
   food_id: string;
   logged_at: string;
   log_date: string;
+}
+
+interface LocalMasterRow {
+  id: string;
+  user_id: string;
+  name: string | null;
+  quantity: number | null;
+  unit: string | null;
+}
+
+interface LocalLogSnapshotRow {
+  item_name: string | null;
+  item_quantity: number | null;
+  item_unit: string | null;
+  item_display_name: string | null;
+}
+
+interface LogDependencyReference {
+  parentTable: UserItemTableName;
+  parentId: string;
+  userId: string;
+  logId: string | null;
 }
 
 const BACKGROUND_SYNC_TASK = 'BACKGROUND_SYNC_TASK';
@@ -207,6 +232,194 @@ function getWritePayload(payload: unknown) {
   return payloadRecord;
 }
 
+function isUserItemTableName(tableName: string): tableName is UserItemTableName {
+  return tableName === 'user_medicines' || tableName === 'user_foods';
+}
+
+function isDependentLogTableName(tableName: string): tableName is DependentLogTableName {
+  return tableName === 'medicine_logs' || tableName === 'food_logs';
+}
+
+function sanitizeUserItemWritePayload(payload: unknown, operation: QueueOperation) {
+  const payloadRecord = getPayloadRecord(payload);
+
+  if (!payloadRecord) {
+    return payload;
+  }
+
+  const allowedKeys = operation === 'INSERT'
+    ? (['id', 'user_id', 'name', 'quantity', 'unit'] as const)
+    : (['name', 'quantity', 'unit'] as const);
+  const sanitizedPayload: Record<string, unknown> = {};
+
+  for (const key of allowedKeys) {
+    if (payloadRecord[key] !== undefined) {
+      sanitizedPayload[key] = payloadRecord[key];
+    }
+  }
+
+  return sanitizedPayload;
+}
+
+function getNormalizedWritePayload(row: QueueRow, payload: unknown) {
+  let writePayload = getWritePayload(payload);
+
+  if (row.table_name === 'stress_logs') {
+    writePayload = normalizeStressWritePayload(writePayload);
+  }
+
+  if (isUserItemTableName(row.table_name)) {
+    writePayload = sanitizeUserItemWritePayload(writePayload, row.operation);
+  }
+
+  return writePayload;
+}
+
+function hasWritableKeys(payload: unknown) {
+  const payloadRecord = getPayloadRecord(payload);
+
+  if (!payloadRecord) {
+    return true;
+  }
+
+  return Object.keys(payloadRecord).length > 0;
+}
+
+function getQueueProcessingPriority(row: QueueRow) {
+  if (isUserItemTableName(row.table_name)) {
+    return row.operation === 'DELETE' ? 3 : 0;
+  }
+
+  if (isDependentLogTableName(row.table_name)) {
+    return row.operation === 'DELETE' ? 2 : 1;
+  }
+
+  return 2;
+}
+
+function sortQueueForProcessing(queue: QueueRow[]) {
+  return [...queue].sort((leftRow, rightRow) => {
+    const priorityDifference = getQueueProcessingPriority(leftRow) - getQueueProcessingPriority(rightRow);
+
+    if (priorityDifference !== 0) {
+      return priorityDifference;
+    }
+
+    const createdAtDifference = leftRow.created_at.localeCompare(rightRow.created_at);
+
+    if (createdAtDifference !== 0) {
+      return createdAtDifference;
+    }
+
+    return leftRow.id.localeCompare(rightRow.id);
+  });
+}
+
+function inferNameFromDisplayName(displayName: string | null) {
+  if (!displayName) {
+    return null;
+  }
+
+  const trimmedDisplayName = displayName.trim();
+
+  if (trimmedDisplayName.length === 0) {
+    return null;
+  }
+
+  const [leadingName] = trimmedDisplayName.split('•');
+  const normalizedName = leadingName?.trim();
+
+  return normalizedName && normalizedName.length > 0 ? normalizedName : trimmedDisplayName;
+}
+
+function getLogDependencyReference(row: QueueRow, payload: unknown) {
+  if (!isDependentLogTableName(row.table_name)) {
+    return null;
+  }
+
+  const writePayloadRecord = getPayloadRecord(getWritePayload(payload));
+
+  if (!writePayloadRecord) {
+    return null;
+  }
+
+  const parentIdKey = row.table_name === 'medicine_logs' ? 'medicine_id' : 'food_id';
+  const parentId = typeof writePayloadRecord[parentIdKey] === 'string' ? writePayloadRecord[parentIdKey] : null;
+  const userIdFromPayload = typeof writePayloadRecord.user_id === 'string' ? writePayloadRecord.user_id : null;
+  const userId = row.user_id ?? userIdFromPayload;
+
+  if (!parentId || !userId) {
+    return null;
+  }
+
+  const explicitLogId = typeof writePayloadRecord.id === 'string' ? writePayloadRecord.id : null;
+  const fallbackLogId = getPayloadRowId(payload);
+
+  return {
+    parentTable: row.table_name === 'medicine_logs' ? 'user_medicines' : 'user_foods',
+    parentId,
+    userId,
+    logId: explicitLogId ?? fallbackLogId,
+  } as LogDependencyReference;
+}
+
+function getFallbackMasterRow(reference: LogDependencyReference): LocalMasterRow {
+  const existingMasterRow = db.getFirstSync<LocalMasterRow>(
+    `
+      SELECT id, user_id, name, quantity, unit
+      FROM ${reference.parentTable}
+      WHERE id = ? AND user_id = ?
+      LIMIT 1;
+    `,
+    [reference.parentId, reference.userId],
+  );
+
+  if (existingMasterRow) {
+    return existingMasterRow;
+  }
+
+  const sourceLogTable = reference.parentTable === 'user_medicines' ? 'medicine_logs' : 'food_logs';
+  const sourceLogSnapshot = reference.logId
+    ? db.getFirstSync<LocalLogSnapshotRow>(
+        `
+          SELECT item_name, item_quantity, item_unit, item_display_name
+          FROM ${sourceLogTable}
+          WHERE id = ? AND user_id = ?
+          LIMIT 1;
+        `,
+        [reference.logId, reference.userId],
+      )
+    : null;
+  const snapshotName = sourceLogSnapshot?.item_name?.trim() || inferNameFromDisplayName(sourceLogSnapshot?.item_display_name ?? null);
+
+  return {
+    id: reference.parentId,
+    user_id: reference.userId,
+    name: snapshotName || (reference.parentTable === 'user_medicines' ? 'Recovered medicine' : 'Recovered food'),
+    quantity: sourceLogSnapshot?.item_quantity ?? null,
+    unit: sourceLogSnapshot?.item_unit?.trim() || null,
+  };
+}
+
+async function ensureRemoteParentExistsForDependentLog(row: QueueRow, payload: unknown) {
+  const dependencyReference = getLogDependencyReference(row, payload);
+
+  if (!dependencyReference) {
+    return false;
+  }
+
+  const fallbackMasterRow = getFallbackMasterRow(dependencyReference);
+  const { error } = await supabase
+    .from(dependencyReference.parentTable)
+    .upsert(fallbackMasterRow as never, { onConflict: 'id' });
+
+  if (error) {
+    throw error;
+  }
+
+  return true;
+}
+
 function normalizeStressLevel(level: StressLogRow['level']) {
   if (typeof level === 'string') {
     const lowered = level.trim().toLowerCase();
@@ -317,9 +530,11 @@ async function runQueueOperation(row: QueueRow) {
     return;
   }
 
-  const writePayload = getWritePayload(payload);
-  const normalizedWritePayload =
-    row.table_name === 'stress_logs' ? normalizeStressWritePayload(writePayload) : writePayload;
+  const normalizedWritePayload = getNormalizedWritePayload(row, payload);
+
+  if ((row.operation === 'INSERT' || row.operation === 'UPDATE') && !hasWritableKeys(normalizedWritePayload)) {
+    return;
+  }
 
   if (row.operation === 'INSERT') {
     const { error } = await supabase.from(row.table_name).insert(normalizedWritePayload as never);
@@ -373,7 +588,7 @@ async function pushLocalChanges(activeUserId: string) {
       return false;
     }
 
-    const queue = getSyncQueue(activeUserId) as QueueRow[];
+    const queue = sortQueueForProcessing(getSyncQueue(activeUserId) as QueueRow[]);
 
     for (const row of queue) {
       try {
@@ -387,6 +602,28 @@ async function pushLocalChanges(activeUserId: string) {
         removeFromSyncQueue(row.id);
         updateSyncStatus({ pendingCount: Math.max(0, syncStatus.pendingCount - 1) });
       } catch (error: any) {
+        if (error?.code === '23503' && isDependentLogTableName(row.table_name)) {
+          const payload = parseQueuePayload(row.payload);
+
+          if (payload !== null) {
+            try {
+              const resolvedDependency = await ensureRemoteParentExistsForDependentLog(row, payload);
+
+              if (resolvedDependency) {
+                await runQueueOperation(row);
+                removeFromSyncQueue(row.id);
+                updateSyncStatus({ pendingCount: Math.max(0, syncStatus.pendingCount - 1) });
+                continue;
+              }
+            } catch (dependencyError) {
+              console.warn('[sync] Failed to recover missing parent row for dependent log', {
+                rowId: row.id,
+                error: dependencyError,
+              });
+            }
+          }
+        }
+
         if (error?.code === '22P02') {
           // Malformed UUID payloads can never sync to Supabase UUID columns.
           removeFromSyncQueue(row.id);

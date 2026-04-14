@@ -8,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert, Pressable, StyleSheet, View, Platform, InteractionManager, type StyleProp, type ViewStyle } from 'react-native';
+import { Alert, Pressable, StyleSheet, View, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { ActivityIndicator, IconButton, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
@@ -194,6 +194,31 @@ const FOOD_UNIT_SUGGESTIONS = [
   'Handful',    
 ] as const;
 
+function scheduleIdleWork(task: () => void) {
+  const globalScope = globalThis as typeof globalThis & {
+    requestIdleCallback?: (callback: () => void) => number;
+    cancelIdleCallback?: (id: number) => void;
+  };
+
+  if (typeof globalScope.requestIdleCallback === 'function') {
+    const requestId = globalScope.requestIdleCallback(() => {
+      task();
+    });
+
+    return () => {
+      if (typeof globalScope.cancelIdleCallback === 'function') {
+        globalScope.cancelIdleCallback(requestId);
+      }
+    };
+  }
+
+  const timeoutId = setTimeout(task, 0);
+
+  return () => {
+    clearTimeout(timeoutId);
+  };
+}
+
 interface SheetTextFieldProps extends React.ComponentProps<typeof BottomSheetTextInput> {
   label?: string;
   icon?: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -362,7 +387,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
   useEffect(() => {
     let isCancelled = false;
-    const interactionHandle = InteractionManager.runAfterInteractions(() => {
+    const cancelIdleWork = scheduleIdleWork(() => {
       if (isCancelled) {
         return;
       }
@@ -378,7 +403,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
     return () => {
       isCancelled = true;
-      interactionHandle.cancel();
+      cancelIdleWork();
     };
   }, [items]);
 
@@ -651,7 +676,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     );
     const syncPayload = {
       ...basePayload,
-      display_name: resolvedDisplayName,
     };
     const existingItemWithName = findItemByName(
       trimmedName,
