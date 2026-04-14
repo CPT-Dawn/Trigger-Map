@@ -36,14 +36,11 @@ import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 import { CustomButton } from '../../components/ui/CustomButton';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
-import { ItemSelector } from '../../components/forms/ItemSelector';
 
 type LogFilter = 'all' | 'pain' | 'stress' | 'medicine' | 'food';
 type LogType = Exclude<LogFilter, 'all'>;
 type StressLevel = 'low' | 'moderate' | 'high';
 type StressLevelValue = number | 'none' | 'low' | 'moderate' | 'high';
-
-type EditItemType = 'medicine' | 'food';
 
 interface SelectedItem {
   id: string;
@@ -334,6 +331,41 @@ function formatSnapshotQuantityAndUnit(quantityValue: number | null | undefined,
   return '';
 }
 
+function getMasterItemLabel(item: UserItemRow) {
+  const explicitDisplay = item.display_name?.trim();
+
+  if (explicitDisplay && explicitDisplay.length > 0) {
+    return explicitDisplay;
+  }
+
+  const fallbackName = item.name?.trim();
+
+  if (fallbackName && fallbackName.length > 0) {
+    return fallbackName;
+  }
+
+  return 'Saved item';
+}
+
+function sortMasterItems(items: UserItemRow[]) {
+  return [...items].sort((left, right) =>
+    getMasterItemLabel(left).localeCompare(getMasterItemLabel(right), undefined, { sensitivity: 'base' }),
+  );
+}
+
+function buildMasterItemSearchText(item: UserItemRow) {
+  const quantityAndUnit = formatItemQuantityAndUnit(item);
+
+  return [
+    item.display_name,
+    item.name,
+    quantityAndUnit,
+  ]
+    .filter((value): value is string => Boolean(value && value.trim().length > 0))
+    .join(' ')
+    .toLowerCase();
+}
+
 function groupEntriesByDate(entries: TimelineEntry[]) {
   const grouped = new Map<string, TimelineEntry[]>();
 
@@ -476,7 +508,7 @@ const ExpandableLogCard = React.memo(function ExpandableLogCard({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Edit ${entry.title}`}
-                onPressIn={() => onEdit(entry)}
+                onPress={() => onEdit(entry)}
                 style={({ pressed }) => [
                   styles.entryActionButton,
                   {
@@ -496,7 +528,7 @@ const ExpandableLogCard = React.memo(function ExpandableLogCard({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Delete ${entry.title}`}
-                onPressIn={() => onDelete(entry)}
+                onPress={() => onDelete(entry)}
                 style={({ pressed }) => [
                   styles.entryActionButton,
                   {
@@ -537,8 +569,9 @@ export default function LogsScreen() {
   const [editPainSwelling, setEditPainSwelling] = useState(false);
   const [editStressLevel, setEditStressLevel] = useState<StressLevel>('low');
   const [editSelectedItem, setEditSelectedItem] = useState<SelectedItem | null>(null);
-  const [editSelectorVisible, setEditSelectorVisible] = useState(false);
-  const [editSelectorType, setEditSelectorType] = useState<EditItemType>('medicine');
+  const [editItemSearch, setEditItemSearch] = useState('');
+  const [medicineOptions, setMedicineOptions] = useState<UserItemRow[]>([]);
+  const [foodOptions, setFoodOptions] = useState<UserItemRow[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<TimelineEntry | null>(null);
   const [isDeletingEntry, setIsDeletingEntry] = useState(false);
@@ -577,8 +610,8 @@ export default function LogsScreen() {
 
   const closeEditor = useCallback(() => {
     setEditingEntry(null);
-    setEditSelectorVisible(false);
     setEditSelectedItem(null);
+    setEditItemSearch('');
     setPendingDeleteEntry(null);
     setIsDeletingEntry(false);
     setExpandedEntryId(null);
@@ -587,7 +620,7 @@ export default function LogsScreen() {
   const openEditor = useCallback((entry: TimelineEntry) => {
     setExpandedEntryId(entry.id);
     setEditingEntry(entry);
-    setEditSelectorVisible(false);
+    setEditItemSearch('');
     setPendingDeleteEntry(null);
     setIsDeletingEntry(false);
 
@@ -604,27 +637,38 @@ export default function LogsScreen() {
       setEditSelectedItem(null);
       return;
     }
+    if (entry.payload.kind === 'medicine') {
+      const fallbackName =
+        entry.payload.item?.display_name?.trim() ||
+        entry.payload.item?.name?.trim() ||
+        entry.payload.row.item_display_name?.trim() ||
+        entry.payload.row.item_name?.trim() ||
+        entry.title;
 
-    setEditSelectedItem(
-      entry.payload.item
-        ? { id: entry.payload.item.id, name: entry.payload.item.display_name ?? entry.payload.item.name ?? entry.title }
-        : null,
-    );
-  }, []);
+      setEditSelectedItem({
+        id: entry.payload.row.medicine_id,
+        name: fallbackName,
+      });
+      return;
+    }
 
-  const openEditItemSelector = useCallback((type: EditItemType) => {
-    setEditSelectorType(type);
-    setEditSelectorVisible(true);
-  }, []);
+    const fallbackName =
+      entry.payload.item?.display_name?.trim() ||
+      entry.payload.item?.name?.trim() ||
+      entry.payload.row.item_display_name?.trim() ||
+      entry.payload.row.item_name?.trim() ||
+      entry.title;
 
-  const handleEditItemSelect = useCallback((id: string, displayName: string) => {
-    setEditSelectedItem({ id, name: displayName });
+    setEditSelectedItem({
+      id: entry.payload.row.food_id,
+      name: fallbackName,
+    });
   }, []);
 
   const openDeleteConfirm = useCallback((entry: TimelineEntry) => {
     setEditingEntry(null);
-    setEditSelectorVisible(false);
     setEditSelectedItem(null);
+    setEditItemSearch('');
     setPendingDeleteEntry(entry);
     setIsDeletingEntry(false);
     setExpandedEntryId(entry.id);
@@ -635,6 +679,32 @@ export default function LogsScreen() {
     setIsDeletingEntry(false);
     setExpandedEntryId(null);
   }, []);
+
+  const normalizedEditItemSearch = editItemSearch.trim().toLowerCase();
+
+  const editItemOptions = useMemo(() => {
+    if (!editingEntry) {
+      return [];
+    }
+
+    if (editingEntry.payload.kind === 'medicine') {
+      return medicineOptions;
+    }
+
+    if (editingEntry.payload.kind === 'food') {
+      return foodOptions;
+    }
+
+    return [];
+  }, [editingEntry, foodOptions, medicineOptions]);
+
+  const filteredEditItemOptions = useMemo(() => {
+    if (normalizedEditItemSearch.length === 0) {
+      return editItemOptions;
+    }
+
+    return editItemOptions.filter((item) => buildMasterItemSearchText(item).includes(normalizedEditItemSearch));
+  }, [editItemOptions, normalizedEditItemSearch]);
 
   const insertPayloadRow = async (entry: TimelineEntry) => {
     if (!user) {
@@ -1005,6 +1075,8 @@ export default function LogsScreen() {
   const loadLogs = useCallback(async (mode: 'initial' | 'refresh' = 'refresh') => {
     if (!user) {
       setEntries([]);
+      setMedicineOptions([]);
+      setFoodOptions([]);
       setLoading(false);
       setRefreshing(false);
       return;
@@ -1072,6 +1144,9 @@ export default function LogsScreen() {
 
       const medicineItems = new Map<string, UserItemRow>(medicineItemRows.map((item) => [item.id, item]));
       const foodItems = new Map<string, UserItemRow>(foodItemRows.map((item) => [item.id, item]));
+
+      setMedicineOptions(sortMasterItems(medicineItemRows));
+      setFoodOptions(sortMasterItems(foodItemRows));
 
       const painEntries: TimelineEntry[] = painRows.map((row) => {
         const normalizedPainRow: PainLogRow = {
@@ -1605,27 +1680,137 @@ export default function LogsScreen() {
                         },
                       ]}
                     >
-                      <Text variant="bodyMedium" style={[styles.editSectionLabel, { color: colors.textMuted }]}>
-                        Current item
-                      </Text>
+                      <View style={styles.selectionHeaderRow}>
+                        <Text variant="bodyMedium" style={[styles.editSectionLabel, { color: colors.textMuted }]}> 
+                          Select {editingEntry.payload.kind === 'medicine' ? 'medicine' : 'food'}
+                        </Text>
+                        <Chip
+                          compact
+                          style={{ backgroundColor: editingConfig?.container ?? colors.surfaceContainerHighest }}
+                          textStyle={{ color: editingConfig?.iconColor ?? colors.text }}
+                        >
+                          {editItemOptions.length}
+                        </Chip>
+                      </View>
+
+                      <CustomTextInput
+                        label={`Search ${editingEntry.payload.kind === 'medicine' ? 'medicine' : 'food'}`}
+                        placeholder={`Type to filter ${editingEntry.payload.kind === 'medicine' ? 'medicines' : 'foods'}`}
+                        value={editItemSearch}
+                        onChangeText={setEditItemSearch}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        spellCheck={false}
+                        autoComplete="off"
+                      />
+
                       <View
                         style={[
-                          styles.selectedItemRow,
+                          styles.selectionCurrentRow,
                           { backgroundColor: colors.surfaceContainerHighest, borderColor: colors.ghostBorder },
                         ]}
                       >
-                        <Text variant="bodyMedium" style={[styles.selectedItemText, { color: colors.text }]}>
-                          {editSelectedItem?.name ?? editingEntry.title}
-                        </Text>
+                        <View
+                          style={[
+                            styles.selectionCurrentIcon,
+                            { backgroundColor: editingConfig?.container ?? colors.surfaceContainerLow },
+                          ]}
+                        >
+                          <MaterialCommunityIcons
+                            name={editingEntry.payload.kind === 'medicine' ? 'pill' : 'food-apple'}
+                            size={16}
+                            color={editingConfig?.iconColor ?? colors.textMuted}
+                          />
+                        </View>
+                        <View style={styles.selectionCurrentCopy}>
+                          <Text variant="labelSmall" style={{ color: colors.textMuted }}>
+                            Selected item
+                          </Text>
+                          <Text variant="bodyMedium" style={{ color: colors.text }} numberOfLines={1}>
+                            {editSelectedItem?.name ?? 'Choose one from the list below'}
+                          </Text>
+                        </View>
                       </View>
 
-                      <CustomButton
-                        mode="outlined"
-                        icon="swap-horizontal"
-                        onPress={() => openEditItemSelector(editingEntry.payload.kind === 'medicine' ? 'medicine' : 'food')}
+                      <ScrollView
+                        style={styles.itemPickerList}
+                        contentContainerStyle={styles.itemPickerListContent}
+                        keyboardShouldPersistTaps="handled"
+                        nestedScrollEnabled
                       >
-                        Change item
-                      </CustomButton>
+                        {filteredEditItemOptions.length > 0 ? (
+                          filteredEditItemOptions.map((item) => {
+                            const optionLabel = getMasterItemLabel(item);
+                            const optionMeta = formatItemQuantityAndUnit(item);
+                            const isSelected = editSelectedItem?.id === item.id;
+
+                            return (
+                              <Pressable
+                                key={item.id}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Select ${optionLabel}`}
+                                onPress={() => setEditSelectedItem({ id: item.id, name: optionLabel })}
+                                style={({ pressed }) => [
+                                  styles.itemOptionButton,
+                                  {
+                                    backgroundColor: isSelected ? colors.primaryContainer : colors.surfaceContainerHighest,
+                                    borderColor: isSelected ? colors.primary : colors.ghostBorder,
+                                  },
+                                  pressed && styles.itemOptionButtonPressed,
+                                ]}
+                              >
+                                <View style={styles.itemOptionLeading}>
+                                  <View
+                                    style={[
+                                      styles.itemOptionIconWrap,
+                                      {
+                                        backgroundColor: isSelected
+                                          ? colors.primary
+                                          : editingConfig?.container ?? colors.surfaceContainerLow,
+                                      },
+                                    ]}
+                                  >
+                                    <MaterialCommunityIcons
+                                      name={editingEntry.payload.kind === 'medicine' ? 'pill' : 'food-apple'}
+                                      size={16}
+                                      color={isSelected ? colors.onPrimary : editingConfig?.iconColor ?? colors.textMuted}
+                                    />
+                                  </View>
+
+                                  <View style={styles.itemOptionCopy}>
+                                    <Text variant="bodyMedium" style={{ color: colors.text }} numberOfLines={1}>
+                                      {optionLabel}
+                                    </Text>
+                                    {optionMeta ? (
+                                      <Text variant="labelSmall" style={{ color: colors.textMuted }} numberOfLines={1}>
+                                        {optionMeta}
+                                      </Text>
+                                    ) : null}
+                                  </View>
+                                </View>
+
+                                <MaterialCommunityIcons
+                                  name={isSelected ? 'check-circle' : 'circle-outline'}
+                                  size={20}
+                                  color={isSelected ? colors.primary : colors.textMuted}
+                                />
+                              </Pressable>
+                            );
+                          })
+                        ) : (
+                          <View
+                            style={[
+                              styles.itemPickerEmpty,
+                              { backgroundColor: colors.surfaceContainerHighest, borderColor: colors.ghostBorder },
+                            ]}
+                          >
+                            <MaterialCommunityIcons name="magnify" size={18} color={colors.textMuted} />
+                            <Text variant="bodySmall" style={{ color: colors.textMuted }}>
+                              No matching items found.
+                            </Text>
+                          </View>
+                        )}
+                      </ScrollView>
                     </View>
                   )}
                 </View>
@@ -1748,13 +1933,6 @@ export default function LogsScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
-
-      <ItemSelector
-        type={editSelectorType}
-        visible={editSelectorVisible}
-        onClose={() => setEditSelectorVisible(false)}
-        onSelect={handleEditItemSelect}
-      />
 
       <AppSnackbar
         visible={undoVisible && deletedEntry !== null}
@@ -2084,18 +2262,83 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderLeftWidth: 4,
   },
-  selectedItemRow: {
+  selectionHeaderRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  selectionCurrentRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.lg,
     borderWidth: 1,
+    gap: Spacing.sm,
   },
-  selectedItemText: {
+  selectionCurrentIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectionCurrentCopy: {
     flex: 1,
-    paddingRight: Spacing.sm,
+    gap: 2,
+    minWidth: 0,
+  },
+  itemPickerList: {
+    maxHeight: 240,
+  },
+  itemPickerListContent: {
+    gap: Spacing.xs,
+    paddingBottom: Spacing.xs,
+  },
+  itemOptionButton: {
+    minHeight: 52,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  itemOptionButtonPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.993 }],
+  },
+  itemOptionLeading: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    minWidth: 0,
+  },
+  itemOptionIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemOptionCopy: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  itemPickerEmpty: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
   },
   modalActions: {
     flexDirection: 'row',
