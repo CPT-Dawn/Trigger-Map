@@ -160,20 +160,20 @@ function sortMasterItems(items: ItemRecord[]) {
 const sheetReveal = (delay: number) => FadeInDown.delay(delay).duration(300);
 
 const MEDICINE_UNIT_SUGGESTIONS = [
-  'mg',         // Milligrams (The universal standard for dosage)
-  'tablet',     // Physical pill
-  'capsule',    // Physical pill
-  'ml',         // Milliliters (Liquid medications)
-  'drops',      // Eye drops, liquid vitamins
-  'puff',       // Inhalers (Asthma is a major trigger tracked in apps)
-  'tsp',        // Teaspoon (Common for liquid suspensions, 5ml)
-  'cap',       // Tablespoon (15ml)
-  'mcg',        // Micrograms (Common for Vitamin D, B12, Thyroid meds)
-  'g',          // Grams (Large supplements)
-  'patch',      // Pain patches, birth control, nicotine
-  'spray',      // Nasal sprays (Allergy triggers)
-  'unit',       // Insulin, specialized injections
-  'application',// Topical creams, ointments (Eczema/Skin triggers)
+  'Tablet',     
+  'Capsule',    
+  'g',          
+  'mg',        
+  'ml',        
+  'tsp',     
+  'Drops',     
+  'Puff',       
+  'cap',      
+  'mcg',       
+  'Patch',     
+  'Spray',      
+  'Unit',       
+  'Application',
 ] as const;
 const FOOD_UNIT_SUGGESTIONS = [
   'serving',    // The ultimate catch-all (e.g., "Lasagna 1 serving")
@@ -782,7 +782,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
     onClose?.();
   }, [onClose, resetForm]);
 
-  const snapPoints = useMemo(() => (activeForm ? ['100%'] : ['74%', '92%']), [activeForm]);
+  const snapPoints = useMemo(() => ['100%'], []);
   const keyboardBehavior: 'extend' = 'extend';
   const sheetTopInset = headerHeight + Spacing.xs;
 
@@ -810,7 +810,13 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
               </Text>
             </View>
           </View>
-          <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeSheet} />
+          <IconButton
+            icon="close"
+            iconColor={colors.text}
+            size={24}
+            onPress={closeSheet}
+            style={styles.headerCloseButton}
+          />
         </View>
 
         {!activeForm && (
@@ -836,29 +842,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
                 ) : null
               }
             />
-
-            <View style={styles.headerMetaRow}>
-              {hasSearchQuery && !hasExactMatch ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Create ${displayType} ${searchInputValue.trim()}`}
-                  onPress={handleOpenCreateForm}
-                  style={({ pressed }) => [
-                    styles.quickCreateInline,
-                    {
-                      backgroundColor: colors.surfaceContainerLow,
-                      borderColor: colors.ghostBorder,
-                    },
-                    pressed && styles.quickCreateInlinePressed,
-                  ]}
-                >
-                  <MaterialCommunityIcons name="plus-circle-outline" size={16} color={accentColor} />
-                  <Text variant="labelMedium" style={{ color: colors.text }} numberOfLines={1}>
-                    Create "{searchInputValue.trim()}"
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
           </>
         )}
 
@@ -879,10 +862,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
       colors,
       createLabel,
       displayType,
-      handleOpenCreateForm,
       handleSearchQueryChange,
-      hasExactMatch,
-      hasSearchQuery,
       iconName,
       loading,
       searchInputValue,
@@ -1015,7 +995,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
             buttonColor={accentContainerColor}
             textColor={accentColor}
           >
-            {activeForm?.mode === 'edit' ? 'Save Changes' : 'Create & Select'}
+            {activeForm?.mode === 'edit' ? 'Save Changes' : 'Add'}
           </CustomButton>
         </View>
       </AppCard>
@@ -1067,9 +1047,11 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
   );
 
   const listFooterContent = useMemo(() => {
-    if (activeForm || hasExactMatch || hasSearchQuery) {
+    if (activeForm || (hasSearchQuery && hasExactMatch)) {
       return null;
     }
+
+    const footerCreateLabel = hasSearchQuery ? `Create "${searchInputValue.trim()}"` : createLabel;
 
     return (
       <View style={styles.footerContainer}>
@@ -1080,11 +1062,11 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
           buttonColor={accentContainerColor}
           textColor={accentColor}
         >
-          {createLabel}
+          {footerCreateLabel}
         </CustomButton>
       </View>
     );
-  }, [accentColor, accentContainerColor, activeForm, createLabel, handleOpenCreateForm, hasExactMatch, hasSearchQuery]);
+  }, [accentColor, accentContainerColor, activeForm, createLabel, handleOpenCreateForm, hasExactMatch, hasSearchQuery, searchInputValue]);
 
   return (
     <BottomSheetModal
@@ -1164,20 +1146,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerContainer: {
-    paddingHorizontal: 0,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.md,
   },
   headerCopy: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: Spacing.md,
     flex: 1,
   },
@@ -1191,6 +1173,9 @@ const styles = StyleSheet.create({
   headerTextBlock: {
     flex: 1,
     gap: Spacing.xs,
+  },
+  headerCloseButton: {
+    margin: 0,
   },
   sheetTitle: {
     fontWeight: '700',
