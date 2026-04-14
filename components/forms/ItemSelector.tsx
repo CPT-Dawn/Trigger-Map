@@ -17,6 +17,7 @@ import {
   BottomSheetTextInput,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
+import { useHeaderHeight } from '@react-navigation/elements';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 import { Radius, Spacing } from '../../constants/theme';
 import { addToSyncQueue, createUuid, db } from '../../lib/localDb';
@@ -80,6 +81,46 @@ function formatQuantityAndUnit(quantity: number | null, unit: string | null) {
 
   if (unitPiece) {
     return unitPiece;
+  }
+
+  return '';
+}
+
+function getMasterItemName(item: Pick<ItemRecord, 'display_name' | 'name'>) {
+  const directName = item.name?.trim();
+
+  if (directName) {
+    return directName;
+  }
+
+  const displayName = item.display_name?.trim() || '';
+
+  if (displayName.length === 0) {
+    return 'Saved item';
+  }
+
+  const [leadingDisplayName] = displayName.split('•');
+  const fallbackName = leadingDisplayName?.trim();
+
+  return fallbackName && fallbackName.length > 0 ? fallbackName : displayName;
+}
+
+function getMasterItemQuantityLabel(item: Pick<ItemRecord, 'display_name' | 'quantity' | 'unit'>) {
+  const quantityLabel = formatQuantityAndUnit(item.quantity, item.unit);
+
+  if (quantityLabel.length > 0) {
+    return quantityLabel;
+  }
+
+  const displayName = item.display_name?.trim() || '';
+  const separatorIndex = displayName.indexOf('•');
+
+  if (separatorIndex >= 0) {
+    const trailingSegment = displayName.slice(separatorIndex + 1).trim();
+
+    if (trailingSegment.length > 0) {
+      return trailingSegment;
+    }
   }
 
   return '';
@@ -162,9 +203,7 @@ function SheetTextField({ label, icon, trailing, colors, containerStyle, surface
 interface ItemRowProps {
   item: ItemRecord;
   index: number;
-  iconName: keyof typeof MaterialCommunityIcons.glyphMap;
   accentColor: string;
-  accentContainerColor: string;
   colors: ReturnType<typeof useAppColors>;
   onSelect: (item: ItemRecord) => void;
   onEdit: (item: ItemRecord) => void;
@@ -174,19 +213,15 @@ interface ItemRowProps {
 const ItemRow = React.memo(function ItemRow({
   item,
   index,
-  iconName,
   accentColor,
-  accentContainerColor,
   colors,
   onSelect,
   onEdit,
   onDelete,
 }: ItemRowProps) {
-  const displayName = getMasterItemDisplayName(item);
-  const quantityAndUnit = formatQuantityAndUnit(item.quantity, item.unit);
-  const detailLine = quantityAndUnit.length > 0
-    ? quantityAndUnit
-    : item.name?.trim() || 'Saved item';
+  const itemName = getMasterItemName(item);
+  const quantityLabel = getMasterItemQuantityLabel(item);
+  const inlineLabel = quantityLabel.length > 0 ? `${itemName} • ${quantityLabel}` : itemName;
   const revealAnimation = index < 10 ? sheetReveal(index * 34) : undefined;
 
   return (
@@ -197,67 +232,42 @@ const ItemRow = React.memo(function ItemRow({
           {
             backgroundColor: colors.surfaceContainerLowest,
             borderColor: colors.ghostBorder,
-            borderLeftColor: accentColor,
-            shadowColor: colors.shadowAmbient,
           },
         ]}
-        variant="solid"
+        variant="subtle"
       >
         <View style={styles.itemRow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Select ${displayName}`}
+            accessibilityLabel={`Select ${itemName}`}
             onPress={() => onSelect(item)}
             style={({ pressed }) => [styles.itemSelectArea, pressed && styles.itemSelectPressed]}
           >
-            <View style={[styles.itemIconContainer, { backgroundColor: accentContainerColor }]}> 
-              <MaterialCommunityIcons name={iconName} size={18} color={accentColor} />
-            </View>
+            <Text variant="titleSmall" style={[styles.itemMarker, { color: accentColor }]}>{'>'}</Text>
             <View style={styles.itemTextBlock}>
-              <Text variant="titleMedium" style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
-                {displayName}
-              </Text>
-              <Text variant="bodySmall" style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                {detailLine}
+              <Text variant="titleSmall" style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
+                {inlineLabel}
               </Text>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textMuted} />
           </Pressable>
 
           <View style={styles.itemActionGroup}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Edit ${displayName}`}
-              hitSlop={Spacing.sm}
+            <IconButton
+              icon="pencil-outline"
+              iconColor={accentColor}
+              size={20}
+              style={styles.itemActionButton}
               onPress={() => onEdit(item)}
-              style={({ pressed }) => [
-                styles.itemActionButton,
-                {
-                  backgroundColor: colors.surfaceContainerHigh,
-                  borderColor: colors.ghostBorder,
-                },
-                pressed && styles.itemActionButtonPressed,
-              ]}
-            >
-              <MaterialCommunityIcons name="pencil-outline" size={18} color={colors.text} />
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Delete ${displayName}`}
-              hitSlop={Spacing.sm}
+              accessibilityLabel={`Edit ${itemName}`}
+            />
+            <IconButton
+              icon="trash-can-outline"
+              iconColor={colors.error}
+              size={20}
+              style={styles.itemActionButton}
               onPress={() => onDelete(item)}
-              style={({ pressed }) => [
-                styles.itemActionButton,
-                {
-                  backgroundColor: colors.surfaceContainerHigh,
-                  borderColor: colors.ghostBorder,
-                },
-                pressed && styles.itemActionButtonPressed,
-              ]}
-            >
-              <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.error} />
-            </Pressable>
+              accessibilityLabel={`Delete ${itemName}`}
+            />
           </View>
         </View>
       </AppCard>
@@ -270,6 +280,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
   ref,
 ) {
   const colors = useAppColors();
+  const headerHeight = useHeaderHeight();
   const { user } = useAuth();
   const sheetRef = useRef<BottomSheetModal>(null);
 
@@ -678,6 +689,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
   const snapPoints = useMemo(() => (activeForm ? ['100%'] : ['74%', '92%']), [activeForm]);
   const keyboardBehavior = activeForm ? 'fillParent' : 'extend';
+  const sheetTopInset = headerHeight + Spacing.xs;
 
   const renderBackdrop = useCallback(
     (backdropProps: React.ComponentProps<typeof BottomSheetBackdrop>) => (
@@ -915,6 +927,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
       keyboardBlurBehavior="restore"
       enableBlurKeyboardOnGesture
       android_keyboardInputMode="adjustResize"
+      topInset={sheetTopInset}
     >
       <View style={styles.sheetContent}>
         {activeForm ? (
@@ -934,9 +947,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
               <ItemRow
                 item={item}
                 index={index}
-                iconName={iconName}
                 accentColor={accentColor}
-                accentContainerColor={accentContainerColor}
                 colors={colors}
                 onSelect={handleSelectItem}
                 onEdit={handleEditMasterItem}
@@ -998,7 +1009,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerContainer: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 0,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
     gap: Spacing.md,
@@ -1167,69 +1178,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xxxl + Spacing.xl,
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   itemCard: {
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     borderWidth: 1,
-    borderLeftWidth: 4,
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.xxs,
   },
   itemRow: {
-    minHeight: 68,
+    minHeight: 48,
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.xxs,
   },
   itemSelectArea: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 56,
-    paddingVertical: Spacing.xs,
-    paddingRight: Spacing.xs,
-    gap: Spacing.md,
+    minHeight: 48,
+    paddingVertical: Spacing.xxs,
+    paddingRight: Spacing.xxs,
+    gap: Spacing.sm,
   },
   itemSelectPressed: {
     opacity: 0.86,
   },
-  itemIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
+  itemMarker: {
+    width: 14,
+    textAlign: 'center',
+    fontWeight: '800',
+    fontSize: 14,
   },
   itemTextBlock: {
     flex: 1,
   },
   itemTitle: {
-    fontWeight: '700',
-  },
-  itemMeta: {
-    marginTop: Spacing.xxs,
+    fontWeight: '600',
   },
   itemActionGroup: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingTop: Spacing.xs,
-    gap: Spacing.sm,
+    alignItems: 'center',
+    gap: Spacing.xxs,
   },
   itemActionButton: {
+    margin: 0,
     width: 48,
     height: 48,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  itemActionButtonPressed: {
-    opacity: 0.88,
   },
   emptyState: {
     paddingVertical: Spacing.xxl,
