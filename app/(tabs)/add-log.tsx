@@ -884,7 +884,13 @@ export default function AddLogScreen() {
 
       void runSync();
       resetAddLogForm();
-      router.replace('/(tabs)/logs');
+      router.replace({
+        pathname: '/(tabs)/logs',
+        params: {
+          toast: 'Log saved successfully.',
+          toastKey: String(Date.now()),
+        },
+      });
     } catch (error: any) {
       openSnackbar(error?.message || 'Something went wrong saving your log.');
     } finally {

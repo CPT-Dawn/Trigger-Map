@@ -24,7 +24,7 @@ import Reanimated, {
 import { ActivityIndicator, Chip, IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { Radius, Spacing } from '../../constants/theme';
 import { useAppColors, useThemePreference } from '../../providers/ThemeProvider';
@@ -523,6 +523,7 @@ export default function LogsScreen() {
   const { appliedTheme } = useThemePreference();
   const { user } = useAuth();
   const router = useRouter();
+  const { toast, toastKey } = useLocalSearchParams<{ toast?: string; toastKey?: string }>();
   const isFocused = useIsFocused();
 
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
@@ -546,11 +547,33 @@ export default function LogsScreen() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const hasFocusedLoadRef = useRef(false);
+  const consumedToastKeyRef = useRef<string | null>(null);
 
   const showError = useCallback((message: string) => {
     setSnackbarMessage(message);
     setSnackbarVisible(true);
   }, []);
+
+  useEffect(() => {
+    if (typeof toast !== 'string') {
+      return;
+    }
+
+    const nextMessage = toast.trim();
+
+    if (!nextMessage) {
+      return;
+    }
+
+    const nextToastKey = typeof toastKey === 'string' && toastKey.length > 0 ? toastKey : nextMessage;
+
+    if (consumedToastKeyRef.current === nextToastKey) {
+      return;
+    }
+
+    consumedToastKeyRef.current = nextToastKey;
+    showError(nextMessage);
+  }, [showError, toast, toastKey]);
 
   const closeEditor = useCallback(() => {
     setEditingEntry(null);
@@ -815,6 +838,7 @@ export default function LogsScreen() {
       setUndoVisible(false);
       setDeletedEntry(null);
       await loadLogs('refresh');
+      showError('Entry restored.');
     } catch (error: any) {
       setUndoVisible(false);
       setDeletedEntry(null);
@@ -970,6 +994,7 @@ export default function LogsScreen() {
       void runSync();
       closeEditor();
       await loadLogs('refresh');
+      showError('Log updated successfully.');
     } catch (error: any) {
       showError(error?.message || 'Unable to save your changes.');
     } finally {

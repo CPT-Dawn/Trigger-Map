@@ -826,6 +826,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
         void runSync();
 
         resetForm();
+        showError(`${displayType} saved and selected.`);
       }
     } catch (error: any) {
       showError(error?.message ?? `Unable to save this ${displayType.toLowerCase()}.`);
