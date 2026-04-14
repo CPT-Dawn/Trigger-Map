@@ -11,6 +11,8 @@ import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 import { Radius, Spacing } from '../../constants/theme';
 import { useAppColors } from '../../providers/ThemeProvider';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,8 +22,15 @@ export default function SignInScreen() {
   const colors = useAppColors();
 
   const handleSignIn = async () => {
-    if (!email || !password) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
       setErrorMsg('Please enter both email and password.');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      setErrorMsg('Please enter a valid email address.');
       return;
     }
 
@@ -29,7 +38,7 @@ export default function SignInScreen() {
     setErrorMsg('');
 
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     });
 

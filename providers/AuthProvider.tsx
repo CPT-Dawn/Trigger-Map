@@ -20,22 +20,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsInitialized(true);
-    });
+    let isMounted = true;
+
+    const initializeSession = async () => {
+      try {
+        const {
+          data: { session: nextSession },
+        } = await supabase.auth.getSession();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+
+        setSession(null);
+        setUser(null);
+      } finally {
+        if (isMounted) {
+          setIsInitialized(true);
+        }
+      }
+    };
+
+    void initializeSession();
 
     // Listen to changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        if (!isMounted) {
+          return;
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
       }
     );
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);

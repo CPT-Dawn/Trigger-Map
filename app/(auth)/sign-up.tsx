@@ -11,6 +11,9 @@ import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 import { Radius, Spacing } from '../../constants/theme';
 import { useAppColors } from '../../providers/ThemeProvider';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
+
 export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,8 +25,20 @@ export default function SignUpScreen() {
   const colors = useAppColors();
 
   const handleSignUp = async () => {
-    if (!email || !password || !confirmPassword) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password || !confirmPassword) {
       setErrorMsg('Please fill in all fields.');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setErrorMsg(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
 
@@ -37,7 +52,7 @@ export default function SignUpScreen() {
     setSuccessMsg('');
 
     const { error, data } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
     });
 

@@ -1,10 +1,10 @@
 import 'react-native-gesture-handler';
 
 import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, type ErrorBoundaryProps, useRouter, useSegments } from 'expo-router';
 import { PaperProvider, MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import {
 } from '@expo-google-fonts/manrope';
 import { Colors } from '../constants/theme';
 import { initLocalDB } from '../lib/localDb';
+import { logWarn } from '../lib/logger';
 import { registerBackgroundSync, setupNetworkListener } from '../lib/syncEngine';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { ThemeProvider, useThemePreference } from '../providers/ThemeProvider';
@@ -91,6 +92,26 @@ function RootLayoutNav() {
   );
 }
 
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const colorScheme = useColorScheme();
+  const palette = colorScheme === 'dark' ? Colors.dark : Colors.light;
+
+  return (
+    <View style={[styles.errorContainer, { backgroundColor: palette.background }]}> 
+      <Text style={[styles.errorTitle, { color: palette.text }]}>Something went wrong</Text>
+      <Text style={[styles.errorMessage, { color: palette.textMuted }]}>Please try again.</Text>
+
+      {__DEV__ && error?.message ? (
+        <Text style={[styles.errorDetails, { color: palette.textMuted }]}>{error.message}</Text>
+      ) : null}
+
+      <Pressable style={[styles.errorButton, { backgroundColor: palette.primary }]} onPress={retry}>
+        <Text style={[styles.errorButtonText, { color: palette.onPrimary }]}>Try Again</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Sora_500Medium,
@@ -111,7 +132,7 @@ export default function RootLayout() {
         unsubscribeNetworkListener = setupNetworkListener();
         await registerBackgroundSync();
       } catch (error) {
-        console.warn('[app] Failed to initialize local sync engine', error);
+        logWarn('[app] Failed to initialize local sync engine', error);
       }
     };
 
@@ -142,5 +163,36 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  errorTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  errorDetails: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  errorButton: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.light.primary,
+  },
+  errorButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

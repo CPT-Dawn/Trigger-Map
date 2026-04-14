@@ -11,6 +11,7 @@ import {
   setSyncMeta,
   upsertLocalDisplayName,
 } from './localDb';
+import { logWarn } from './logger';
 import { supabase } from './supabase';
 
 type QueueOperation = 'INSERT' | 'UPDATE' | 'DELETE';
@@ -697,7 +698,7 @@ async function pushLocalChanges(activeUserId: string) {
                 continue;
               }
             } catch (dependencyError) {
-              console.warn('[sync] Failed to recover missing parent row for dependent log', {
+              logWarn('[sync] Failed to recover missing parent row for dependent log', {
                 rowId: row.id,
                 error: dependencyError,
               });
@@ -708,12 +709,12 @@ async function pushLocalChanges(activeUserId: string) {
         if (error?.code === '22P02') {
           // Malformed UUID payloads can never sync to Supabase UUID columns.
           removeFromSyncQueue(row.id);
-          console.warn('[sync] Dropped malformed queue row with invalid UUID payload', { rowId: row.id });
+          logWarn('[sync] Dropped malformed queue row with invalid UUID payload', { rowId: row.id });
           updateSyncStatus({ pendingCount: Math.max(0, syncStatus.pendingCount - 1) });
           continue;
         }
 
-        console.warn('[sync] Failed to push queue row', { rowId: row.id, error });
+        logWarn('[sync] Failed to push queue row', { rowId: row.id, error });
         recordSyncError(error);
         hadError = true;
       }
@@ -721,7 +722,7 @@ async function pushLocalChanges(activeUserId: string) {
 
     refreshSyncStatusSnapshot(activeUserId);
   } catch (error) {
-    console.warn('[sync] Failed while pushing local changes', error);
+    logWarn('[sync] Failed while pushing local changes', error);
     recordSyncError(error);
     hadError = true;
   }
@@ -1023,7 +1024,7 @@ async function pullRemoteChanges(activeUser: ActiveSyncUser) {
 
     return true;
   } catch (error) {
-    console.warn('[sync] Failed while pulling remote changes', error);
+    logWarn('[sync] Failed while pulling remote changes', error);
     recordSyncError(error);
     return false;
   }
@@ -1069,7 +1070,7 @@ export async function runSync() {
         });
       }
     } catch (error) {
-      console.warn('[sync] Failed while running sync', error);
+      logWarn('[sync] Failed while running sync', error);
       recordSyncError(error);
     } finally {
       syncInFlight = null;
@@ -1093,7 +1094,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_SYNC_TASK)) {
       await runSync();
       return BackgroundTask.BackgroundTaskResult.Success;
     } catch (error) {
-      console.warn('[sync] Background sync failed', error);
+      logWarn('[sync] Background sync failed', error);
       return BackgroundTask.BackgroundTaskResult.Failed;
     }
   });
@@ -1117,7 +1118,7 @@ export async function registerBackgroundSync() {
       minimumInterval: 15,
     });
   } catch (error) {
-    console.warn('[sync] Failed to register background sync', error);
+    logWarn('[sync] Failed to register background sync', error);
   }
 }
 

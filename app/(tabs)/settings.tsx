@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SegmentedButtons, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Radius, resolveColors, Spacing } from '../../constants/theme';
@@ -8,7 +8,7 @@ import { CustomButton } from '../../components/ui/CustomButton';
 import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { ProfileInitialAvatar } from '../../components/ui/ProfileInitialAvatar';
-import { addToSyncQueue, db, getLocalDisplayName, upsertLocalDisplayName } from '../../lib/localDb';
+import { addToSyncQueue, db, getLocalDisplayName, getPendingSyncCount, upsertLocalDisplayName } from '../../lib/localDb';
 import { runSync } from '../../lib/syncEngine';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
@@ -142,7 +142,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleSignOut = async () => {
+  const performSignOut = async () => {
     try {
       setIsSigningOut(true);
       const { error } = await supabase.auth.signOut();
@@ -155,6 +155,46 @@ export default function SettingsScreen() {
     } finally {
       setIsSigningOut(false);
     }
+  };
+
+  const handleSignOut = () => {
+    if (!user?.id) {
+      void performSignOut();
+      return;
+    }
+
+    let pendingCount = 0;
+
+    try {
+      pendingCount = getPendingSyncCount(user.id);
+    } catch {
+      pendingCount = 0;
+    }
+
+    if (pendingCount <= 0) {
+      void performSignOut();
+      return;
+    }
+
+    const entryLabel = pendingCount === 1 ? 'entry is' : 'entries are';
+
+    Alert.alert(
+      'Unsynced logs pending',
+      `${pendingCount} ${entryLabel} still waiting to sync. Signing out now can delay sync until you sign in again on this device.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Sign Out Anyway',
+          style: 'destructive',
+          onPress: () => {
+            void performSignOut();
+          },
+        },
+      ],
+    );
   };
 
   const themeOptions: Array<{ value: ThemePreference; label: string }> = [

@@ -39,6 +39,7 @@ Startup is orchestrated in [app/_layout.tsx](../app/_layout.tsx):
      - `ThemeProvider`
      - `AuthProvider`
      - `RootLayoutNav`
+6. Root layout exports an Expo Router `ErrorBoundary` fallback for crash-safe recovery (`Try Again` action)
 
 Auth route protection is centralized in `RootLayoutNav`:
 
@@ -262,6 +263,7 @@ Status is intentionally not surfaced as persistent sync UI.
 - triggers silent sync after save
 - theme preference persists locally
 - sign-out via Supabase Auth
+- sign-out now shows a confirmation prompt when unsynced queue entries exist for the active user
 
 ### 9.5 Auth Screens
 
@@ -291,6 +293,7 @@ Operational notes:
 - FK-supporting indexes were added for log tables as part of launch hardening
 - RLS policies were optimized to use `(select auth.uid())` style predicates
 - remaining external security advisory may exist in Supabase project settings (for example leaked-password protection)
+- Android app config is hardened for launch with `allowBackup: false`, explicit package/versionCode, and secure-store backup configuration
 
 ## 11. Contributor Rules (Non-Negotiable)
 
