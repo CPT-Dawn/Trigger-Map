@@ -4,7 +4,13 @@ import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { Stack, type ErrorBoundaryProps, useRouter, useSegments } from 'expo-router';
+import {
+  Stack,
+  type ErrorBoundaryProps,
+  useRootNavigationState,
+  useRouter,
+  useSegments,
+} from 'expo-router';
 import { PaperProvider, MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -31,6 +37,7 @@ function RootLayoutNav() {
   const { session, isInitialized } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
   const { appliedTheme } = useThemePreference();
 
   const baseTheme = appliedTheme === 'dark' ? MD3DarkTheme : MD3LightTheme;
@@ -64,7 +71,7 @@ function RootLayoutNav() {
   };
 
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!isInitialized || !rootNavigationState?.key) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
@@ -75,7 +82,7 @@ function RootLayoutNav() {
       // Redirect authenticated users to the main tabs if they are on an auth screen
       router.replace('/(tabs)');
     }
-  }, [session, isInitialized, segments]);
+  }, [session, isInitialized, rootNavigationState?.key, segments, router]);
 
   return (
     <PaperProvider theme={paperTheme}>
