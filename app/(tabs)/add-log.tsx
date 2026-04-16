@@ -1704,6 +1704,7 @@ const styles = StyleSheet.create({
   },
   dateButton: {
     flex: 1,
+    paddingTop: Spacing.xxs,
   },
   compactHeaderButtonContent: {
     minHeight: 48,
