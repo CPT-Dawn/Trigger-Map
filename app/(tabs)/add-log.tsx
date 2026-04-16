@@ -262,12 +262,15 @@ const SelectionChip = React.memo(function SelectionChip({
       <View
         style={[
           styles.selectionEntryRow,
-          {
-            backgroundColor: colors.surfaceContainerLow,
-            borderColor: colors.ghostBorder,
-          },
+          { borderBottomColor: colors.ghostBorder },
         ]}
       >
+        <Text
+          variant="titleSmall"
+          style={[styles.selectionEntryMarker, { color: accentColor }]}
+        >
+          {">"}
+        </Text>
         <Text
           variant="titleSmall"
           style={[styles.selectionEntryLabel, { color: colors.text }]}
@@ -327,16 +330,16 @@ const PainEntryCard = React.memo(function PainEntryCard({
       layout={Layout.springify().damping(22).stiffness(210)}
     >
       <View
-        style={[
-          styles.painEntryRow,
-          {
-            backgroundColor: colors.surfaceContainerLow,
-            borderColor: colors.ghostBorder,
-          },
-        ]}
+        style={[styles.painEntryRow, { borderBottomColor: colors.ghostBorder }]}
       >
         <View style={styles.painEntryHeader}>
           <View style={styles.painEntryTitleRow}>
+            <Text
+              variant="titleSmall"
+              style={[styles.painEntryMarker, { color: painAccentColor }]}
+            >
+              {">"}
+            </Text>
             <Text
               variant="titleSmall"
               style={[styles.painBodyPart, { color: colors.text }]}
@@ -1649,7 +1652,6 @@ const styles = StyleSheet.create({
   sectionCard: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    gap: Spacing.xs,
     borderWidth: 1,
     borderLeftWidth: 4,
     borderRadius: Radius.xl,
@@ -1743,12 +1745,11 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   painEntryRow: {
-    gap: Spacing.sm,
+    gap: Spacing.xxs,
     minHeight: 48,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    borderWidth: 1,
-    borderRadius: Radius.md,
+    paddingLeft: 12,
+    paddingVertical: Spacing.xs,
+    borderBottomWidth: 1,
     elevation: 0,
     shadowOpacity: 0,
   },
@@ -1764,6 +1765,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     flex: 1,
     minWidth: 0,
+  },
+  painEntryMarker: {
+    width: 14,
+    textAlign: "center",
+    fontWeight: "800",
+    fontSize: 14,
   },
   painBodyPart: {
     fontWeight: "700",
@@ -1790,7 +1797,7 @@ const styles = StyleSheet.create({
   painLevelInline: {
     fontWeight: "700",
     minWidth: 36,
-    textAlign: "right",
+    textAlign: "left",
   },
   swellingRow: {
     flexDirection: "row",
@@ -1813,12 +1820,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: Spacing.xs,
     minHeight: 48,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    borderWidth: 1,
-    borderRadius: Radius.md,
+    paddingLeft: 12,
+    paddingVertical: Spacing.xs,
+    borderBottomWidth: 1,
     elevation: 0,
     shadowOpacity: 0,
+  },
+  selectionEntryMarker: {
+    width: 14,
+    textAlign: "center",
+    fontWeight: "800",
+    fontSize: 14,
   },
   selectionEntryLabel: {
     flex: 1,
