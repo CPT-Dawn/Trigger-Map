@@ -76,6 +76,7 @@ Auth route protection is centralized in `RootLayoutNav`:
 - Auth state is managed by [providers/AuthProvider.tsx](../providers/AuthProvider.tsx):
     - `getSession()` on boot
     - `onAuthStateChange()` subscription for live updates
+- Standalone EAS builds must inject `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` at build time because the Supabase client initializes during module import.
 
 ## 6. Theme System And UI Primitives
 
