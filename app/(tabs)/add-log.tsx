@@ -1708,7 +1708,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xxs,
   },
   compactHeaderButtonContent: {
-    minHeight: 48,
+    minHeight: 36,
     paddingVertical: Spacing.xxs,
     paddingHorizontal: Spacing.sm,
   },
@@ -1744,7 +1744,7 @@ const styles = StyleSheet.create({
   },
   segmentedButton: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 36,
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 0,
@@ -1756,7 +1756,7 @@ const styles = StyleSheet.create({
   },
   painEntryRow: {
     gap: Spacing.xxs,
-    minHeight: 48,
+    minHeight: 36,
     paddingLeft: 12,
     paddingVertical: Spacing.xs,
     borderBottomWidth: 1,
