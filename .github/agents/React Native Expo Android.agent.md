@@ -21,6 +21,7 @@ You are an expert mobile app developer for Trigger-Map, a React Native Expo app 
 - React Native Paper (MD3) + custom primitives in `components/ui`
 - MaterialCommunityIcons via `@expo/vector-icons`
 - Native controls: `@react-native-community/datetimepicker` + `@react-native-community/slider`
+- Overlay surfaces: native `Modal` + `KeyboardAvoidingView` + themed backdrop (no `@gorhom/bottom-sheet`)
 - Supabase for Auth and remote tables
 - SQLite (`expo-sqlite`) as local source of truth for app domain data
 - Silent background sync via `expo-background-task`, `expo-task-manager`, and `@react-native-community/netinfo`
@@ -75,34 +76,35 @@ Log snapshot contract:
 - Always use `useAppColors()` (+ `useThemePreference()` when needed).
 - Use spacing/radius tokens from `constants/theme.ts`.
 - Prefer existing primitives before custom one-offs:
-	- `ScreenWrapper`
-	- `AppCard`
-	- `CustomButton`
-	- `CustomTextInput`
-	- `AppSnackbar`
+  - `ScreenWrapper`
+  - `AppCard`
+  - `CustomButton`
+  - `CustomTextInput`
+  - `AppSnackbar`
 - Use `MaterialCommunityIcons` from `@expo/vector-icons`.
+- For sheet-like UI, use native `Modal` patterns; do not use `BottomSheetModal` wrappers/providers.
 
 ## 6. Feature-Specific Notes
 
 - `app/(tabs)/add-log.tsx`:
-	- collects multi-type entries in one flow
-	- commits selected entries in a single transaction
-	- queues each inserted row with explicit `userId`
-	- stores local snapshot fields for medicine/food log rows
+  - collects multi-type entries in one flow
+  - commits selected entries in a single transaction
+  - queues each inserted row with explicit `userId`
+  - stores local snapshot fields for medicine/food log rows
 - `app/(tabs)/logs.tsx`:
-	- reads timeline from local DB only
-	- uses tap-to-expand edit/delete actions with undo snackbar
-	- edit flow is type-aware for pain/stress/medicine/food
-	- restore/edit/delete flows use local transaction wrappers so DB and queue stay in sync
+  - reads timeline from local DB only
+  - uses tap-to-expand edit/delete actions with undo snackbar
+  - edit flow is type-aware for pain/stress/medicine/food
+  - restore/edit/delete flows use local transaction wrappers so DB and queue stay in sync
 - `components/forms/ItemSelector.tsx`:
-	- reusable master-data manager for food/medicine
-	- create/edit/delete are local-first + queued + silent sync
-	- validation enforces required unit and numeric quantity > 0
-	- deleting a master item removes it from future selection only; historical logs remain
+  - reusable master-data manager for food/medicine
+  - create/edit/delete are local-first + queued + silent sync
+  - validation enforces required unit and numeric quantity > 0
+  - deleting a master item removes it from future selection only; historical logs remain
 - `app/(tabs)/settings.tsx`:
-	- display name is saved to local `user_settings`
-	- queue entry is created on `auth_profile`
-	- profile save uses transaction and triggers silent sync
+  - display name is saved to local `user_settings`
+  - queue entry is created on `auth_profile`
+  - profile save uses transaction and triggers silent sync
 
 ## 7. Routing And Auth Constraints
 
@@ -113,6 +115,7 @@ Log snapshot contract:
 ## 8. Common Pitfalls To Avoid
 
 - Reintroducing direct Supabase writes in app domain screens.
+- Reintroducing `@gorhom/bottom-sheet` or `BottomSheetModalProvider`.
 - Creating IDs without `createUuid()` for syncable records.
 - Forgetting to queue mutations after local writes.
 - Assuming master-item deletion should remove historical logs (it should not).
@@ -126,21 +129,22 @@ Log snapshot contract:
 ## 9. Bug Triage Decision Tree
 
 - Start with the symptom category:
-	- UI-only issue (layout/colors/motion) -> inspect the screen/component and token usage first.
-	- Local action appears successful but disappears after reload -> verify SQLite write path and transaction boundaries.
-	- Pending queue grows or same row repeats -> inspect `sync_queue` payload shape, `operation`, and `user_id` scoping.
-	- Remote `23502` (not-null) -> verify required field normalization in `ItemSelector`, queue migration, and sync payload sanitization.
-	- Remote `23503` on medicine/food logs -> verify parent master item existence and dependent recovery path in `ensureRemoteParentExistsForDependentLog`.
-	- Profile display name mismatch -> check `auth_profile` queue state and pull-side guard that skips remote profile overwrite while pending.
+  - UI-only issue (layout/colors/motion) -> inspect the screen/component and token usage first.
+  - Local action appears successful but disappears after reload -> verify SQLite write path and transaction boundaries.
+  - Pending queue grows or same row repeats -> inspect `sync_queue` payload shape, `operation`, and `user_id` scoping.
+  - Remote `23502` (not-null) -> verify required field normalization in `ItemSelector`, queue migration, and sync payload sanitization.
+  - Remote `23503` on medicine/food logs -> verify parent master item existence and dependent recovery path in `ensureRemoteParentExistsForDependentLog`.
+  - Profile display name mismatch -> check `auth_profile` queue state and pull-side guard that skips remote profile overwrite while pending.
 - For any multi-step mutation (write + queue), ensure both operations are in one local transaction.
 - Confirm the fix with:
-	- local table readback for mutated row(s)
-	- pending queue count for active user
-	- `bunx tsc --noEmit`
+  - local table readback for mutated row(s)
+  - pending queue count for active user
+  - `bunx tsc --noEmit`
 
 ## 10. Verification Checklist Before Finishing
 
 - Type check passes: `bunx tsc --noEmit`
+- No `@gorhom/bottom-sheet` imports or providers were introduced.
 - New mutations are local-first and queued.
 - Transactions are used where local and queue writes must be atomic.
 - No sync-status UI was added unless requested.

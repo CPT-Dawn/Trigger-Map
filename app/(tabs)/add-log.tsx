@@ -1,36 +1,51 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
+  TouchableWithoutFeedback,
   View,
-} from 'react-native';
-import { ActivityIndicator, IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
+} from "react-native";
 import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetScrollView,
-} from '@gorhom/bottom-sheet';
-import { useHeaderHeight } from '@react-navigation/elements';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import Slider from '@react-native-community/slider';
-import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
-import { Radius, Spacing } from '../../constants/theme';
-import { addToSyncQueue, createUuid, db } from '../../lib/localDb';
-import { runSync } from '../../lib/syncEngine';
-import { useAuth } from '../../providers/AuthProvider';
-import { useAppColors } from '../../providers/ThemeProvider';
-import { ItemSelector, type ItemRecord, type ItemSelectorHandle } from '../../components/forms/ItemSelector';
-import { AppCard } from '../../components/ui/AppCard';
-import { AppSnackbar } from '../../components/ui/AppSnackbar';
-import { CustomButton } from '../../components/ui/CustomButton';
-import { CustomTextInput } from '../../components/ui/CustomTextInput';
-import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
+  ActivityIndicator,
+  IconButton,
+  SegmentedButtons,
+  Switch,
+  Text,
+} from "react-native-paper";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
+import Slider from "@react-native-community/slider";
+import Animated, { FadeInDown, Layout } from "react-native-reanimated";
+import { Radius, Spacing } from "../../constants/theme";
+import { addToSyncQueue, createUuid, db } from "../../lib/localDb";
+import { runSync } from "../../lib/syncEngine";
+import { useAuth } from "../../providers/AuthProvider";
+import { useAppColors } from "../../providers/ThemeProvider";
+import {
+  ItemSelector,
+  type ItemRecord,
+  type ItemSelectorHandle,
+} from "../../components/forms/ItemSelector";
+import { AppCard } from "../../components/ui/AppCard";
+import { AppSnackbar } from "../../components/ui/AppSnackbar";
+import { CustomButton } from "../../components/ui/CustomButton";
+import { CustomTextInput } from "../../components/ui/CustomTextInput";
+import { ScreenWrapper } from "../../components/ui/ScreenWrapper";
 
-type StressLevel = 'low' | 'Mid' | 'high';
+type StressLevel = "low" | "Mid" | "high";
 
 interface SelectedItem {
   id: string;
@@ -57,9 +72,9 @@ interface SavedBodyPart {
 }
 
 const stressOptions: Array<{ value: StressLevel; label: string }> = [
-  { value: 'low', label: 'Low' },
-  { value: 'Mid', label: 'Mid' },
-  { value: 'high', label: 'High' },
+  { value: "low", label: "Low" },
+  { value: "Mid", label: "Mid" },
+  { value: "high", label: "High" },
 ];
 
 const cardReveal = (delay: number) => FadeInDown.delay(delay).duration(340);
@@ -69,14 +84,18 @@ function createPainEntryId() {
 }
 
 function sanitizeBodyPartName(value: string) {
-  return value.trim().replace(/\s+/g, ' ');
+  return value.trim().replace(/\s+/g, " ");
 }
 
 function normalizeBodyPartName(value: string) {
   return sanitizeBodyPartName(value).toLowerCase();
 }
 
-function upsertSavedBodyPartForUser(userId: string, bodyPartName: string, timestamp: string) {
+function upsertSavedBodyPartForUser(
+  userId: string,
+  bodyPartName: string,
+  timestamp: string,
+) {
   const sanitizedName = sanitizeBodyPartName(bodyPartName);
   const normalizedName = normalizeBodyPartName(sanitizedName);
 
@@ -117,15 +136,18 @@ function upsertSavedBodyPartForUser(userId: string, bodyPartName: string, timest
 }
 
 function normalizeStressLevel(level: StressLevel) {
-  if (level === 'Mid') {
-    return 'moderate';
+  if (level === "Mid") {
+    return "moderate";
   }
 
   return level;
 }
 
 function formatSelectedItemLabel(
-  item: Pick<ItemSnapshotRow, 'display_name' | 'name' | 'quantity' | 'unit'> | null,
+  item: Pick<
+    ItemSnapshotRow,
+    "display_name" | "name" | "quantity" | "unit"
+  > | null,
   fallbackLabel: string,
 ) {
   if (!item) {
@@ -133,7 +155,8 @@ function formatSelectedItemLabel(
   }
 
   const explicitDisplayName = item.display_name?.trim() || null;
-  const resolvedName = item.name?.trim() || explicitDisplayName || fallbackLabel;
+  const resolvedName =
+    item.name?.trim() || explicitDisplayName || fallbackLabel;
   const quantity = item.quantity;
   const unit = item.unit?.trim() || null;
 
@@ -187,19 +210,29 @@ const LogSectionCard = React.memo(function LogSectionCard({
       >
         <View style={styles.sectionHeader}>
           <View style={styles.sectionHeaderLeading}>
-            <View style={[styles.sectionIconShell, { backgroundColor: iconContainerColor }]}>
-              <MaterialCommunityIcons name={icon} size={20} color={accentColor} />
+            <View
+              style={[
+                styles.sectionIconShell,
+                { backgroundColor: iconContainerColor },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={icon}
+                size={20}
+                color={accentColor}
+              />
             </View>
             <View style={styles.sectionTitleBlock}>
-              <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
+              <Text
+                variant="titleMedium"
+                style={[styles.sectionTitle, { color: colors.text }]}
+              >
                 {title}
               </Text>
             </View>
           </View>
 
-          <View style={styles.sectionHeaderTrailing}>
-            {action}
-          </View>
+          <View style={styles.sectionHeaderTrailing}>{action}</View>
         </View>
 
         <View style={styles.sectionBody}>{children}</View>
@@ -217,12 +250,33 @@ interface SelectionChipProps {
   onRemoveItem: (itemId: string) => void;
 }
 
-const SelectionChip = React.memo(function SelectionChip({ itemId, label, accentColor, colors, onEditItem, onRemoveItem }: SelectionChipProps) {
+const SelectionChip = React.memo(function SelectionChip({
+  itemId,
+  label,
+  accentColor,
+  colors,
+  onEditItem,
+  onRemoveItem,
+}: SelectionChipProps) {
   return (
     <Animated.View layout={Layout.springify().damping(22).stiffness(205)}>
-      <View style={[styles.selectionEntryRow, { borderBottomColor: colors.ghostBorder }]}>
-        <Text variant="titleSmall" style={[styles.selectionEntryMarker, { color: accentColor }]}>{'>'}</Text>
-        <Text variant="titleSmall" style={[styles.selectionEntryLabel, { color: colors.text }]} numberOfLines={1}>
+      <View
+        style={[
+          styles.selectionEntryRow,
+          { borderBottomColor: colors.ghostBorder },
+        ]}
+      >
+        <Text
+          variant="titleSmall"
+          style={[styles.selectionEntryMarker, { color: accentColor }]}
+        >
+          {">"}
+        </Text>
+        <Text
+          variant="titleSmall"
+          style={[styles.selectionEntryLabel, { color: colors.text }]}
+          numberOfLines={1}
+        >
           {label}
         </Text>
 
@@ -253,11 +307,17 @@ interface PainEntryCardProps {
   entry: PainEntry;
   index: number;
   colors: AddLogColors;
-  onChange: (entryId: string, updates: Partial<Omit<PainEntry, 'id'>>) => void;
+  onChange: (entryId: string, updates: Partial<Omit<PainEntry, "id">>) => void;
   onRemove: (entryId: string) => void;
 }
 
-const PainEntryCard = React.memo(function PainEntryCard({ entry, index, colors, onChange, onRemove }: PainEntryCardProps) {
+const PainEntryCard = React.memo(function PainEntryCard({
+  entry,
+  index,
+  colors,
+  onChange,
+  onRemove,
+}: PainEntryCardProps) {
   const [livePainLevel, setLivePainLevel] = useState(entry.pain_level);
   const painAccentColor = colors.onErrorContainer;
 
@@ -266,12 +326,26 @@ const PainEntryCard = React.memo(function PainEntryCard({ entry, index, colors, 
   }, [entry.pain_level]);
 
   return (
-    <Animated.View entering={cardReveal(index * 42)} layout={Layout.springify().damping(22).stiffness(210)}>
-      <View style={[styles.painEntryRow, { borderBottomColor: colors.ghostBorder }]}>
+    <Animated.View
+      entering={cardReveal(index * 42)}
+      layout={Layout.springify().damping(22).stiffness(210)}
+    >
+      <View
+        style={[styles.painEntryRow, { borderBottomColor: colors.ghostBorder }]}
+      >
         <View style={styles.painEntryHeader}>
           <View style={styles.painEntryTitleRow}>
-            <Text variant="titleSmall" style={[styles.painEntryMarker, { color: painAccentColor }]}>{'>'}</Text>
-            <Text variant="titleSmall" style={[styles.painBodyPart, { color: colors.text }]} numberOfLines={1}>
+            <Text
+              variant="titleSmall"
+              style={[styles.painEntryMarker, { color: painAccentColor }]}
+            >
+              {">"}
+            </Text>
+            <Text
+              variant="titleSmall"
+              style={[styles.painBodyPart, { color: colors.text }]}
+              numberOfLines={1}
+            >
               {entry.body_part}
             </Text>
           </View>
@@ -286,7 +360,12 @@ const PainEntryCard = React.memo(function PainEntryCard({ entry, index, colors, 
         </View>
 
         <View style={styles.painRatingRow}>
-          <Text variant="bodySmall" style={[styles.painMetaLabel, { color: colors.textMuted }]}>Pain rating</Text>
+          <Text
+            variant="bodySmall"
+            style={[styles.painMetaLabel, { color: colors.textMuted }]}
+          >
+            Pain rating
+          </Text>
 
           <Slider
             style={styles.slider}
@@ -307,13 +386,19 @@ const PainEntryCard = React.memo(function PainEntryCard({ entry, index, colors, 
             thumbTintColor={painAccentColor}
           />
 
-          <Text variant="titleSmall" style={[styles.painLevelInline, { color: painAccentColor }]}>
+          <Text
+            variant="titleSmall"
+            style={[styles.painLevelInline, { color: painAccentColor }]}
+          >
             {livePainLevel}/5
           </Text>
         </View>
 
         <View style={styles.swellingRow}>
-          <Text variant="bodySmall" style={[styles.swellingLabel, { color: colors.textMuted }]}>
+          <Text
+            variant="bodySmall"
+            style={[styles.swellingLabel, { color: colors.textMuted }]}
+          >
             Swelling Present?
           </Text>
           <Switch
@@ -400,7 +485,6 @@ const SelectionSection = React.memo(function SelectionSection({
 export default function AddLogScreen() {
   const router = useRouter();
   const colors = useAppColors();
-  const headerHeight = useHeaderHeight();
   const { user } = useAuth();
 
   const medicineSelectorRef = useRef<ItemSelectorHandle>(null);
@@ -411,14 +495,16 @@ export default function AddLogScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [stressLevel, setStressLevel] = useState<StressLevel | null>(null);
   const [painEntries, setPainEntries] = useState<PainEntry[]>([]);
-  const [bodyPartDraft, setBodyPartDraft] = useState('');
-  const bodyPartSheetRef = useRef<BottomSheetModal>(null);
+  const [bodyPartDraft, setBodyPartDraft] = useState("");
+  const [isBodyPartModalVisible, setIsBodyPartModalVisible] = useState(false);
   const [savedBodyParts, setSavedBodyParts] = useState<SavedBodyPart[]>([]);
   const [isBodyPartLoading, setIsBodyPartLoading] = useState(false);
-  const [selectedMedicines, setSelectedMedicines] = useState<SelectedItem[]>([]);
+  const [selectedMedicines, setSelectedMedicines] = useState<SelectedItem[]>(
+    [],
+  );
   const [selectedFoods, setSelectedFoods] = useState<SelectedItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   const openDatePicker = useCallback(() => {
@@ -439,13 +525,13 @@ export default function AddLogScreen() {
     setShowTimePicker(false);
     setStressLevel(null);
     setPainEntries([]);
-    setBodyPartDraft('');
+    setBodyPartDraft("");
     setSelectedMedicines([]);
     setSelectedFoods([]);
-    setSnackbarMessage('');
+    setSnackbarMessage("");
     setSnackbarVisible(false);
 
-    bodyPartSheetRef.current?.dismiss();
+    setIsBodyPartModalVisible(false);
     medicineSelectorRef.current?.dismiss();
     foodSelectorRef.current?.dismiss();
   }, []);
@@ -484,7 +570,7 @@ export default function AddLogScreen() {
           .filter((row) => row.name.length > 0),
       );
     } catch (error: any) {
-      openSnackbar(error?.message ?? 'Unable to load saved body parts.');
+      openSnackbar(error?.message ?? "Unable to load saved body parts.");
     } finally {
       setIsBodyPartLoading(false);
     }
@@ -505,7 +591,11 @@ export default function AddLogScreen() {
 
       if (selectedDate) {
         const nextDate = new Date(logDate);
-        nextDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+        nextDate.setFullYear(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          selectedDate.getDate(),
+        );
         setLogDate(nextDate);
       }
     },
@@ -518,7 +608,12 @@ export default function AddLogScreen() {
 
       if (selectedTime) {
         const nextDate = new Date(logDate);
-        nextDate.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
+        nextDate.setHours(
+          selectedTime.getHours(),
+          selectedTime.getMinutes(),
+          0,
+          0,
+        );
         setLogDate(nextDate);
       }
     },
@@ -526,14 +621,14 @@ export default function AddLogScreen() {
   );
 
   const openBodyPartModal = useCallback(() => {
-    setBodyPartDraft('');
+    setBodyPartDraft("");
     loadSavedBodyParts();
-    bodyPartSheetRef.current?.present();
+    setIsBodyPartModalVisible(true);
   }, [loadSavedBodyParts]);
 
   const closeBodyPartModal = useCallback(() => {
-    bodyPartSheetRef.current?.dismiss();
-    setBodyPartDraft('');
+    setIsBodyPartModalVisible(false);
+    setBodyPartDraft("");
   }, []);
 
   const addPainEntryForBodyPart = useCallback((bodyPartName: string) => {
@@ -552,14 +647,19 @@ export default function AddLogScreen() {
     const trimmedBodyPart = sanitizeBodyPartName(bodyPartDraft);
 
     if (!trimmedBodyPart) {
-      openSnackbar('Body part is required.');
+      openSnackbar("Body part is required.");
       return;
     }
 
     addPainEntryForBodyPart(trimmedBodyPart);
 
     closeBodyPartModal();
-  }, [addPainEntryForBodyPart, bodyPartDraft, closeBodyPartModal, openSnackbar]);
+  }, [
+    addPainEntryForBodyPart,
+    bodyPartDraft,
+    closeBodyPartModal,
+    openSnackbar,
+  ]);
 
   const handleSelectSavedBodyPart = useCallback(
     (bodyPartName: string) => {
@@ -578,7 +678,7 @@ export default function AddLogScreen() {
   const removeSavedBodyPart = useCallback(
     (bodyPart: SavedBodyPart) => {
       if (!user) {
-        openSnackbar('You must be logged in to update saved body parts.');
+        openSnackbar("You must be logged in to update saved body parts.");
         return;
       }
 
@@ -592,11 +692,13 @@ export default function AddLogScreen() {
         );
 
         setSavedBodyParts((currentBodyParts) =>
-          currentBodyParts.filter((currentBodyPart) => currentBodyPart.id !== bodyPart.id),
+          currentBodyParts.filter(
+            (currentBodyPart) => currentBodyPart.id !== bodyPart.id,
+          ),
         );
-        openSnackbar('Body part removed from quick list.');
+        openSnackbar("Body part removed from quick list.");
       } catch (error: any) {
-        openSnackbar(error?.message ?? 'Unable to remove this body part.');
+        openSnackbar(error?.message ?? "Unable to remove this body part.");
       }
     },
     [openSnackbar, user],
@@ -605,16 +707,16 @@ export default function AddLogScreen() {
   const handleDeleteSavedBodyPart = useCallback(
     (bodyPart: SavedBodyPart) => {
       Alert.alert(
-        'Delete saved body part?',
-        'This removes it from future quick selection. Existing pain logs will be kept.',
+        "Delete saved body part?",
+        "This removes it from future quick selection. Existing pain logs will be kept.",
         [
           {
-            text: 'Cancel',
-            style: 'cancel',
+            text: "Cancel",
+            style: "cancel",
           },
           {
-            text: 'Delete',
-            style: 'destructive',
+            text: "Delete",
+            style: "destructive",
             onPress: () => {
               removeSavedBodyPart(bodyPart);
             },
@@ -625,25 +727,38 @@ export default function AddLogScreen() {
     [removeSavedBodyPart],
   );
 
-  const updatePainEntry = useCallback((entryId: string, updates: Partial<Omit<PainEntry, 'id'>>) => {
+  const updatePainEntry = useCallback(
+    (entryId: string, updates: Partial<Omit<PainEntry, "id">>) => {
+      setPainEntries((currentEntries) =>
+        currentEntries.map((entry) =>
+          entry.id === entryId ? { ...entry, ...updates } : entry,
+        ),
+      );
+    },
+    [],
+  );
+
+  const removePainEntry = useCallback((entryId: string) => {
     setPainEntries((currentEntries) =>
-      currentEntries.map((entry) => (entry.id === entryId ? { ...entry, ...updates } : entry)),
+      currentEntries.filter((entry) => entry.id !== entryId),
     );
   }, []);
 
-  const removePainEntry = useCallback((entryId: string) => {
-    setPainEntries((currentEntries) => currentEntries.filter((entry) => entry.id !== entryId));
-  }, []);
-
   const handleSelectedItemChange = useCallback(
-    (setter: React.Dispatch<React.SetStateAction<SelectedItem[]>>, item: ItemRecord) => {
-      const fallbackName = item.display_name?.trim() || item.name?.trim() || 'Saved item';
+    (
+      setter: React.Dispatch<React.SetStateAction<SelectedItem[]>>,
+      item: ItemRecord,
+    ) => {
+      const fallbackName =
+        item.display_name?.trim() || item.name?.trim() || "Saved item";
       const nextName = formatSelectedItemLabel(item, fallbackName);
 
       setter((currentItems) =>
         currentItems.some((currentItem) => currentItem.id === item.id)
           ? currentItems.map((currentItem) =>
-              currentItem.id === item.id ? { id: item.id, name: nextName } : currentItem,
+              currentItem.id === item.id
+                ? { id: item.id, name: nextName }
+                : currentItem,
             )
           : currentItems,
       );
@@ -666,16 +781,20 @@ export default function AddLogScreen() {
   );
 
   const handleMedicineItemDelete = useCallback((itemId: string) => {
-    setSelectedMedicines((currentItems) => currentItems.filter((currentItem) => currentItem.id !== itemId));
+    setSelectedMedicines((currentItems) =>
+      currentItems.filter((currentItem) => currentItem.id !== itemId),
+    );
   }, []);
 
   const handleFoodItemDelete = useCallback((itemId: string) => {
-    setSelectedFoods((currentItems) => currentItems.filter((currentItem) => currentItem.id !== itemId));
+    setSelectedFoods((currentItems) =>
+      currentItems.filter((currentItem) => currentItem.id !== itemId),
+    );
   }, []);
 
   const handleSaveLog = useCallback(async () => {
     if (!user) {
-      openSnackbar('You must be logged in to save entries.');
+      openSnackbar("You must be logged in to save entries.");
       return;
     }
 
@@ -685,17 +804,19 @@ export default function AddLogScreen() {
       selectedMedicines.length === 0 &&
       selectedFoods.length === 0
     ) {
-      openSnackbar('Please enter at least one log (Pain, Stress, Medicine, or Food).');
+      openSnackbar(
+        "Please enter at least one log (Pain, Stress, Medicine, or Food).",
+      );
       return;
     }
 
     setIsSaving(true);
 
     const loggedAt = logDate.toISOString();
-    const logDateString = logDate.toLocaleDateString('en-CA');
+    const logDateString = logDate.toLocaleDateString("en-CA");
 
     try {
-      db.execSync('BEGIN TRANSACTION;');
+      db.execSync("BEGIN TRANSACTION;");
 
       try {
         if (painEntries.length > 0) {
@@ -730,11 +851,14 @@ export default function AddLogScreen() {
               ],
             );
 
-            addToSyncQueue('pain_logs', 'INSERT', payload, { userId: user.id });
+            addToSyncQueue("pain_logs", "INSERT", payload, { userId: user.id });
 
             const normalizedBodyPart = normalizeBodyPartName(entry.body_part);
 
-            if (normalizedBodyPart.length > 0 && !seenBodyPartNames.has(normalizedBodyPart)) {
+            if (
+              normalizedBodyPart.length > 0 &&
+              !seenBodyPartNames.has(normalizedBodyPart)
+            ) {
               upsertSavedBodyPartForUser(user.id, entry.body_part, loggedAt);
               seenBodyPartNames.add(normalizedBodyPart);
             }
@@ -758,10 +882,16 @@ export default function AddLogScreen() {
               (id, user_id, logged_at, log_date, level)
               VALUES (?, ?, ?, ?, ?);
             `,
-            [payload.id, payload.user_id, payload.logged_at, payload.log_date, payload.level],
+            [
+              payload.id,
+              payload.user_id,
+              payload.logged_at,
+              payload.log_date,
+              payload.level,
+            ],
           );
 
-          addToSyncQueue('stress_logs', 'INSERT', payload, { userId: user.id });
+          addToSyncQueue("stress_logs", "INSERT", payload, { userId: user.id });
         }
 
         if (selectedMedicines.length > 0) {
@@ -779,7 +909,8 @@ export default function AddLogScreen() {
             const itemName = snapshotRow?.name?.trim() || medicine.name;
             const itemQuantity = snapshotRow?.quantity ?? null;
             const itemUnit = snapshotRow?.unit?.trim() || null;
-            const itemDisplayName = snapshotRow?.display_name?.trim() || medicine.name;
+            const itemDisplayName =
+              snapshotRow?.display_name?.trim() || medicine.name;
 
             const queuePayload = {
               id,
@@ -816,7 +947,9 @@ export default function AddLogScreen() {
               ],
             );
 
-            addToSyncQueue('medicine_logs', 'INSERT', queuePayload, { userId: user.id });
+            addToSyncQueue("medicine_logs", "INSERT", queuePayload, {
+              userId: user.id,
+            });
           }
         }
 
@@ -835,7 +968,8 @@ export default function AddLogScreen() {
             const itemName = snapshotRow?.name?.trim() || food.name;
             const itemQuantity = snapshotRow?.quantity ?? null;
             const itemUnit = snapshotRow?.unit?.trim() || null;
-            const itemDisplayName = snapshotRow?.display_name?.trim() || food.name;
+            const itemDisplayName =
+              snapshotRow?.display_name?.trim() || food.name;
 
             const queuePayload = {
               id,
@@ -872,27 +1006,29 @@ export default function AddLogScreen() {
               ],
             );
 
-            addToSyncQueue('food_logs', 'INSERT', queuePayload, { userId: user.id });
+            addToSyncQueue("food_logs", "INSERT", queuePayload, {
+              userId: user.id,
+            });
           }
         }
 
-        db.execSync('COMMIT;');
+        db.execSync("COMMIT;");
       } catch (error) {
-        db.execSync('ROLLBACK;');
+        db.execSync("ROLLBACK;");
         throw error;
       }
 
       void runSync();
       resetAddLogForm();
       router.replace({
-        pathname: '/(tabs)/logs',
+        pathname: "/(tabs)/logs",
         params: {
-          toast: 'Log saved successfully.',
+          toast: "Log saved successfully.",
           toastKey: String(Date.now()),
         },
       });
     } catch (error: any) {
-      openSnackbar(error?.message || 'Something went wrong saving your log.');
+      openSnackbar(error?.message || "Something went wrong saving your log.");
     } finally {
       setIsSaving(false);
     }
@@ -925,26 +1061,33 @@ export default function AddLogScreen() {
   }, []);
 
   const handleMedicineChipRemove = useCallback((itemId: string) => {
-    setSelectedMedicines((currentItems) => currentItems.filter((currentItem) => currentItem.id !== itemId));
+    setSelectedMedicines((currentItems) =>
+      currentItems.filter((currentItem) => currentItem.id !== itemId),
+    );
   }, []);
 
   const handleFoodChipRemove = useCallback((itemId: string) => {
-    setSelectedFoods((currentItems) => currentItems.filter((currentItem) => currentItem.id !== itemId));
+    setSelectedFoods((currentItems) =>
+      currentItems.filter((currentItem) => currentItem.id !== itemId),
+    );
   }, []);
 
   const resolveMasterItemLabel = useCallback(
-    (tableName: 'user_medicines' | 'user_foods', id: string, fallbackDisplayName: string) => {
-      const snapshot =
-        user
-          ? db.getFirstSync<ItemSnapshotRow>(
-              `
+    (
+      tableName: "user_medicines" | "user_foods",
+      id: string,
+      fallbackDisplayName: string,
+    ) => {
+      const snapshot = user
+        ? db.getFirstSync<ItemSnapshotRow>(
+            `
                 SELECT name, quantity, unit, display_name
                 FROM ${tableName}
                 WHERE id = ? AND user_id = ?;
               `,
-              [id, user.id],
-            )
-          : null;
+            [id, user.id],
+          )
+        : null;
 
       return formatSelectedItemLabel(snapshot, fallbackDisplayName);
     },
@@ -953,7 +1096,11 @@ export default function AddLogScreen() {
 
   const handleMedicineSelect = useCallback(
     (id: string, displayName: string) => {
-      const resolvedName = resolveMasterItemLabel('user_medicines', id, displayName);
+      const resolvedName = resolveMasterItemLabel(
+        "user_medicines",
+        id,
+        displayName,
+      );
 
       setSelectedMedicines((currentItems) =>
         currentItems.some((medicine) => medicine.id === id)
@@ -966,21 +1113,35 @@ export default function AddLogScreen() {
 
   const handleFoodSelect = useCallback(
     (id: string, displayName: string) => {
-      const resolvedName = resolveMasterItemLabel('user_foods', id, displayName);
+      const resolvedName = resolveMasterItemLabel(
+        "user_foods",
+        id,
+        displayName,
+      );
 
       setSelectedFoods((currentItems) =>
-        currentItems.some((food) => food.id === id) ? currentItems : [...currentItems, { id, name: resolvedName }],
+        currentItems.some((food) => food.id === id)
+          ? currentItems
+          : [...currentItems, { id, name: resolvedName }],
       );
     },
     [resolveMasterItemLabel],
   );
 
   const formattedDateLabel = useMemo(
-    () => logDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+    () =>
+      logDate.toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
     [logDate],
   );
 
-  const normalizedBodyPartDraft = useMemo(() => normalizeBodyPartName(bodyPartDraft), [bodyPartDraft]);
+  const normalizedBodyPartDraft = useMemo(
+    () => normalizeBodyPartName(bodyPartDraft),
+    [bodyPartDraft],
+  );
 
   const filteredSavedBodyParts = useMemo(() => {
     if (normalizedBodyPartDraft.length === 0) {
@@ -997,7 +1158,10 @@ export default function AddLogScreen() {
       return false;
     }
 
-    return savedBodyParts.some((bodyPart) => normalizeBodyPartName(bodyPart.name) === normalizedBodyPartDraft);
+    return savedBodyParts.some(
+      (bodyPart) =>
+        normalizeBodyPartName(bodyPart.name) === normalizedBodyPartDraft,
+    );
   }, [normalizedBodyPartDraft, savedBodyParts]);
 
   const bodyPartCreateLabel = useMemo(() => {
@@ -1007,21 +1171,30 @@ export default function AddLogScreen() {
       return `Add "${sanitizedDraft}"`;
     }
 
-    return 'Add';
+    return "Add";
   }, [bodyPartDraft, hasExactSavedBodyPartMatch]);
 
   const formattedTimeLabel = useMemo(
-    () => logDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }).replace(/\s?(AM|PM)$/i, (match) => match.toLowerCase()),
+    () =>
+      logDate
+        .toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+        .replace(/\s?(AM|PM)$/i, (match) => match.toLowerCase()),
     [logDate],
   );
 
   const totalLogEntries = useMemo(
-    () => painEntries.length + selectedFoods.length + selectedMedicines.length + (stressLevel !== null ? 1 : 0),
-    [painEntries.length, selectedFoods.length, selectedMedicines.length, stressLevel],
+    () =>
+      painEntries.length +
+      selectedFoods.length +
+      selectedMedicines.length +
+      (stressLevel !== null ? 1 : 0),
+    [
+      painEntries.length,
+      selectedFoods.length,
+      selectedMedicines.length,
+      stressLevel,
+    ],
   );
-
-  const bodyPartSnapPoints = useMemo(() => ['100%'], []);
-  const bodyPartSheetTopInset = headerHeight + Spacing.xs;
 
   return (
     <ScreenWrapper>
@@ -1104,7 +1277,14 @@ export default function AddLogScreen() {
         >
           {painEntries.length > 0 &&
             painEntries.map((entry, index) => (
-              <PainEntryCard key={entry.id} entry={entry} index={index} colors={colors} onChange={updatePainEntry} onRemove={removePainEntry} />
+              <PainEntryCard
+                key={entry.id}
+                entry={entry}
+                index={index}
+                colors={colors}
+                onChange={updatePainEntry}
+                onRemove={removePainEntry}
+              />
             ))}
         </LogSectionCard>
 
@@ -1147,9 +1327,9 @@ export default function AddLogScreen() {
           }
         >
           <SegmentedButtons
-            value={stressLevel ?? ''}
+            value={stressLevel ?? ""}
             onValueChange={(value) => {
-              if (value === 'low' || value === 'Mid' || value === 'high') {
+              if (value === "low" || value === "Mid" || value === "high") {
                 setStressLevel(value);
               }
             }}
@@ -1171,148 +1351,239 @@ export default function AddLogScreen() {
           />
         </LogSectionCard>
 
-        <Animated.View entering={cardReveal(500)} layout={Layout.springify().damping(22).stiffness(205)} style={styles.saveCardWrap}>
-
-            <CustomButton
-              mode="contained"
-              onPress={handleSaveLog}
-              disabled={totalLogEntries === 0}
-              isLoading={isSaving}
-              buttonColor={colors.primary}
-              textColor={colors.onPrimary}
-              style={styles.saveButton}
-            >
-              Save Entry
-            </CustomButton>
+        <Animated.View
+          entering={cardReveal(500)}
+          layout={Layout.springify().damping(22).stiffness(205)}
+          style={styles.saveCardWrap}
+        >
+          <CustomButton
+            mode="contained"
+            onPress={handleSaveLog}
+            disabled={totalLogEntries === 0}
+            isLoading={isSaving}
+            buttonColor={colors.primary}
+            textColor={colors.onPrimary}
+            style={styles.saveButton}
+          >
+            Save Entry
+          </CustomButton>
         </Animated.View>
       </ScrollView>
 
-      {showDatePicker && <DateTimePicker value={logDate} mode="date" display="default" onChange={handleDateChange} />}
+      {showDatePicker && (
+        <DateTimePicker
+          value={logDate}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+        />
+      )}
 
-      {showTimePicker && <DateTimePicker value={logDate} mode="time" display="default" onChange={handleTimeChange} />}
+      {showTimePicker && (
+        <DateTimePicker
+          value={logDate}
+          mode="time"
+          display="default"
+          onChange={handleTimeChange}
+        />
+      )}
 
-      <BottomSheetModal
-        ref={bodyPartSheetRef}
-        index={0}
-        snapPoints={bodyPartSnapPoints}
-        enableDynamicSizing={false}
-        enablePanDownToClose
-        enableDismissOnClose
-        backgroundStyle={[styles.sheetBackground, { backgroundColor: colors.glassSurface, borderColor: colors.ghostBorder }]}
-        handleIndicatorStyle={[styles.handleIndicator, { backgroundColor: colors.ghostBorder }]}
-        backdropComponent={(props) => (
-          <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.55} />
-        )}
-        keyboardBehavior="extend"
-        keyboardBlurBehavior="restore"
-        enableBlurKeyboardOnGesture
-        android_keyboardInputMode="adjustResize"
-        topInset={bodyPartSheetTopInset}
-        onDismiss={() => setBodyPartDraft('')}
+      <Modal
+        transparent={true}
+        animationType="slide"
+        visible={isBodyPartModalVisible}
+        onRequestClose={closeBodyPartModal}
+        statusBarTranslucent
       >
-        <BottomSheetScrollView
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          contentContainerStyle={styles.bodyPartScrollContent}
-        >
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text variant="titleLarge" style={[styles.modalTitle, { color: colors.text }]}>
-                Add Body Part
-              </Text>
-              <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeBodyPartModal} />
-            </View>
-
-            <CustomTextInput
-              label="Body part"
-              placeholder="e.g. left knee"
-              value={bodyPartDraft}
-              onChangeText={setBodyPartDraft}
-              autoCapitalize="words"
-              autoCorrect={false}
-              spellCheck={false}
-              autoComplete="off"
-              selectTextOnFocus
-              autoFocus={Platform.OS === 'ios'}
-            />
-
-            <View style={styles.savedBodyPartSectionHeader}>
-              <Text variant="titleSmall" style={[styles.savedBodyPartSectionTitle, { color: colors.text }]}>Saved Body Parts</Text>
-              {isBodyPartLoading ? (
-                <ActivityIndicator color={colors.primary} size="small" />
-              ) : (
-                <Text variant="bodySmall" style={[styles.savedBodyPartCount, { color: colors.textMuted }]}>
-                  {filteredSavedBodyParts.length}
-                </Text>
-              )}
-            </View>
-
-            {filteredSavedBodyParts.length > 0 ? (
-              <View style={styles.savedBodyPartList}>
-                {filteredSavedBodyParts.map((savedBodyPart) => (
+        <TouchableWithoutFeedback onPress={closeBodyPartModal}>
+          <View
+            style={[
+              styles.modalBackdrop,
+              { backgroundColor: colors.shadowAmbient },
+            ]}
+          >
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                style={styles.bodyPartKeyboardAvoidingContainer}
+              >
+                <View
+                  style={[
+                    styles.sheetBackground,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.ghostBorder,
+                    },
+                  ]}
+                >
                   <View
-                    key={savedBodyPart.id}
-                    style={[styles.savedBodyPartRow, { borderBottomColor: colors.ghostBorder }]}
+                    style={[
+                      styles.handleIndicator,
+                      { backgroundColor: colors.outlineVariant },
+                    ]}
+                  />
+
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="interactive"
+                    contentContainerStyle={styles.bodyPartScrollContent}
+                    showsVerticalScrollIndicator={false}
                   >
-                    <View style={styles.savedBodyPartSelectBlock}>
-                      <CustomButton
-                        mode="text"
-                        onPress={() => handleSelectSavedBodyPart(savedBodyPart.name)}
-                        style={styles.savedBodyPartSelectButton}
-                        contentStyle={styles.savedBodyPartSelectContent}
-                        labelStyle={[styles.savedBodyPartSelectLabel, { color: colors.text }]}
-                      >
-                        {savedBodyPart.name}
-                      </CustomButton>
+                    <View style={styles.modalCard}>
+                      <View style={styles.modalHeader}>
+                        <Text
+                          variant="titleLarge"
+                          style={[styles.modalTitle, { color: colors.text }]}
+                        >
+                          Add Body Part
+                        </Text>
+                        <IconButton
+                          icon="close"
+                          iconColor={colors.text}
+                          size={24}
+                          onPress={closeBodyPartModal}
+                        />
+                      </View>
+
+                      <CustomTextInput
+                        label="Body part"
+                        placeholder="e.g. left knee"
+                        value={bodyPartDraft}
+                        onChangeText={setBodyPartDraft}
+                        autoCapitalize="words"
+                        autoCorrect={false}
+                        spellCheck={false}
+                        autoComplete="off"
+                        autoFocus={Platform.OS === "ios"}
+                      />
+
+                      <View style={styles.savedBodyPartSectionHeader}>
+                        <Text
+                          variant="titleSmall"
+                          style={[
+                            styles.savedBodyPartSectionTitle,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Saved Body Parts
+                        </Text>
+                        {isBodyPartLoading ? (
+                          <ActivityIndicator
+                            color={colors.primary}
+                            size="small"
+                          />
+                        ) : (
+                          <Text
+                            variant="bodySmall"
+                            style={[
+                              styles.savedBodyPartCount,
+                              { color: colors.textMuted },
+                            ]}
+                          >
+                            {filteredSavedBodyParts.length}
+                          </Text>
+                        )}
+                      </View>
+
+                      {filteredSavedBodyParts.length > 0 ? (
+                        <View style={styles.savedBodyPartList}>
+                          {filteredSavedBodyParts.map((savedBodyPart) => (
+                            <View
+                              key={savedBodyPart.id}
+                              style={[
+                                styles.savedBodyPartRow,
+                                { borderBottomColor: colors.ghostBorder },
+                              ]}
+                            >
+                              <View style={styles.savedBodyPartSelectBlock}>
+                                <CustomButton
+                                  mode="text"
+                                  onPress={() =>
+                                    handleSelectSavedBodyPart(
+                                      savedBodyPart.name,
+                                    )
+                                  }
+                                  style={styles.savedBodyPartSelectButton}
+                                  contentStyle={
+                                    styles.savedBodyPartSelectContent
+                                  }
+                                  labelStyle={[
+                                    styles.savedBodyPartSelectLabel,
+                                    { color: colors.text },
+                                  ]}
+                                >
+                                  {savedBodyPart.name}
+                                </CustomButton>
+                              </View>
+
+                              <IconButton
+                                icon="trash-can-outline"
+                                iconColor={colors.error}
+                                size={20}
+                                style={styles.savedBodyPartDeleteButton}
+                                onPress={() =>
+                                  handleDeleteSavedBodyPart(savedBodyPart)
+                                }
+                                accessibilityLabel={`Delete saved body part ${savedBodyPart.name}`}
+                              />
+                            </View>
+                          ))}
+                        </View>
+                      ) : (
+                        <View
+                          style={[
+                            styles.savedBodyPartEmptyState,
+                            {
+                              backgroundColor: colors.surfaceContainerLow,
+                              borderColor: colors.ghostBorder,
+                            },
+                          ]}
+                        >
+                          <MaterialCommunityIcons
+                            name="arm-flex-outline"
+                            size={22}
+                            color={colors.textMuted}
+                          />
+                          <Text
+                            variant="bodySmall"
+                            style={[
+                              styles.savedBodyPartEmptyText,
+                              { color: colors.textMuted },
+                            ]}
+                          >
+                            {normalizedBodyPartDraft.length > 0
+                              ? "No saved body part matches this search."
+                              : "Saved body parts from previous pain logs will appear here."}
+                          </Text>
+                        </View>
+                      )}
+
+                      <View style={styles.modalActions}>
+                        <CustomButton
+                          mode="text"
+                          onPress={closeBodyPartModal}
+                          style={styles.modalActionButton}
+                        >
+                          Cancel
+                        </CustomButton>
+                        <CustomButton
+                          mode="contained"
+                          onPress={handleAddBodyPart}
+                          buttonColor={colors.primary}
+                          textColor={colors.onPrimary}
+                          style={styles.modalActionButton}
+                        >
+                          {bodyPartCreateLabel}
+                        </CustomButton>
+                      </View>
                     </View>
-
-                    <IconButton
-                      icon="trash-can-outline"
-                      iconColor={colors.error}
-                      size={20}
-                      style={styles.savedBodyPartDeleteButton}
-                      onPress={() => handleDeleteSavedBodyPart(savedBodyPart)}
-                      accessibilityLabel={`Delete saved body part ${savedBodyPart.name}`}
-                    />
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View
-                style={[
-                  styles.savedBodyPartEmptyState,
-                  {
-                    backgroundColor: colors.surfaceContainerLow,
-                    borderColor: colors.ghostBorder,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons name="arm-flex-outline" size={22} color={colors.textMuted} />
-                <Text variant="bodySmall" style={[styles.savedBodyPartEmptyText, { color: colors.textMuted }]}>
-                  {normalizedBodyPartDraft.length > 0
-                    ? 'No saved body part matches this search.'
-                    : 'Saved body parts from previous pain logs will appear here.'}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.modalActions}>
-              <CustomButton mode="text" onPress={closeBodyPartModal} style={styles.modalActionButton}>
-                Cancel
-              </CustomButton>
-              <CustomButton
-                mode="contained"
-                onPress={handleAddBodyPart}
-                buttonColor={colors.primary}
-                textColor={colors.onPrimary}
-                style={styles.modalActionButton}
-              >
-                {bodyPartCreateLabel}
-              </CustomButton>
-            </View>
+                  </ScrollView>
+                </View>
+              </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
           </View>
-        </BottomSheetScrollView>
-      </BottomSheetModal>
+        </TouchableWithoutFeedback>
+      </Modal>
 
       <AppSnackbar
         visible={snackbarVisible}
@@ -1342,14 +1613,30 @@ export default function AddLogScreen() {
 }
 
 const styles = StyleSheet.create({
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  bodyPartKeyboardAvoidingContainer: {
+    width: "100%",
+    maxHeight: "90%",
+    justifyContent: "flex-end",
+  },
   sheetBackground: {
+    height: "100%",
+    minHeight: 320,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     borderWidth: 1,
+    overflow: "hidden",
+    paddingTop: Spacing.md,
   },
   handleIndicator: {
     width: 48,
     height: 5,
+    borderRadius: Radius.full,
+    alignSelf: "center",
+    marginBottom: Spacing.sm,
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
@@ -1365,13 +1652,13 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   heroHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: Spacing.md,
   },
   heroTitle: {
-    fontWeight: '700',
+    fontWeight: "700",
     flex: 1,
   },
   heroSubtitle: {
@@ -1381,9 +1668,9 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   heroMetaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
     gap: Spacing.sm,
   },
   heroMetaChip: {
@@ -1405,29 +1692,29 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: Spacing.xs,
   },
   sectionHeaderLeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.md,
     flex: 1,
     minWidth: 0,
   },
   sectionHeaderTrailing: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.xxs,
   },
   sectionIconShell: {
     width: 38,
     height: 38,
     borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionTitleBlock: {
     flex: 1,
@@ -1435,7 +1722,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   sectionTitle: {
-    fontWeight: '700',
+    fontWeight: "700",
     flexShrink: 1,
   },
   sectionBody: {
@@ -1443,7 +1730,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   dateTimeRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: Spacing.xs,
   },
   dateButton: {
@@ -1465,8 +1752,8 @@ const styles = StyleSheet.create({
   clearActionSlot: {
     width: 76,
     minHeight: 48,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+    alignItems: "flex-end",
+    justifyContent: "center",
   },
   clearButton: {
     marginVertical: 0,
@@ -1497,26 +1784,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
   },
   painEntryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: Spacing.xs,
   },
   painEntryTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.xs,
     flex: 1,
     minWidth: 0,
   },
   painEntryMarker: {
     width: 14,
-    textAlign: 'center',
-    fontWeight: '800',
+    textAlign: "center",
+    fontWeight: "800",
     fontSize: 14,
   },
   painBodyPart: {
-    fontWeight: '700',
+    fontWeight: "700",
     flex: 1,
   },
   painEntryDeleteButton: {
@@ -1525,42 +1812,42 @@ const styles = StyleSheet.create({
     height: 48,
   },
   painRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.sm,
   },
   painMetaLabel: {
     width: 84,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   slider: {
     flex: 1,
     height: 40,
   },
   painLevelInline: {
-    fontWeight: '700',
+    fontWeight: "700",
     minWidth: 36,
-    textAlign: 'right',
+    textAlign: "right",
   },
   swellingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: Spacing.sm,
     paddingTop: Spacing.xxs,
   },
   swellingLabel: {
     flexShrink: 1,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   selectionEntryList: {
     gap: 0,
     marginTop: Spacing.xxs,
   },
   selectionEntryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: Spacing.xs,
     minHeight: 48,
     paddingHorizontal: Spacing.xs,
@@ -1571,17 +1858,17 @@ const styles = StyleSheet.create({
   },
   selectionEntryMarker: {
     width: 14,
-    textAlign: 'center',
-    fontWeight: '800',
+    textAlign: "center",
+    fontWeight: "800",
     fontSize: 14,
   },
   selectionEntryLabel: {
     flex: 1,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   selectionEntryActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.xxs,
   },
   selectionEntryButton: {
@@ -1607,7 +1894,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   saveCardTitle: {
-    fontWeight: '700',
+    fontWeight: "700",
   },
   saveCardSubtitle: {
     lineHeight: 19,
@@ -1625,40 +1912,40 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: Spacing.md,
   },
   modalTitle: {
-    fontWeight: '700',
+    fontWeight: "700",
     flex: 1,
   },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: Spacing.sm,
   },
   modalActionButton: {
     flex: 1,
   },
   savedBodyPartSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: Spacing.sm,
   },
   savedBodyPartSectionTitle: {
-    fontWeight: '700',
+    fontWeight: "700",
   },
   savedBodyPartCount: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   savedBodyPartList: {
     gap: 0,
   },
   savedBodyPartRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     minHeight: 48,
     borderBottomWidth: 1,
   },
@@ -1667,17 +1954,17 @@ const styles = StyleSheet.create({
   },
   savedBodyPartSelectButton: {
     marginHorizontal: 0,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   savedBodyPartSelectContent: {
     minHeight: 48,
-    justifyContent: 'flex-start',
+    justifyContent: "flex-start",
     paddingHorizontal: Spacing.xs,
     paddingVertical: Spacing.xxs,
   },
   savedBodyPartSelectLabel: {
-    fontWeight: '600',
-    textAlign: 'left',
+    fontWeight: "600",
+    textAlign: "left",
     marginHorizontal: 0,
   },
   savedBodyPartDeleteButton: {
@@ -1688,13 +1975,13 @@ const styles = StyleSheet.create({
   savedBodyPartEmptyState: {
     borderRadius: Radius.lg,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.lg,
   },
   savedBodyPartEmptyText: {
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

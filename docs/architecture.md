@@ -9,7 +9,7 @@ Trigger-Map is an Android-first health logging app focused on pain, stress, medi
 - Primary UX goal: fast local entry with no online dependency
 - Data model goal: local-first SQLite + queued sync to Supabase
 - Sync UX goal: seamless background behavior with no sync-status UI by default
-- Current dashboard status: [app/(tabs)/index.tsx](../app/(tabs)/index.tsx) remains a placeholder
+- Current dashboard status: [app/(tabs)/index.tsx](<../app/(tabs)/index.tsx>) remains a placeholder
 
 ## 2. Runtime Stack
 
@@ -19,6 +19,7 @@ Trigger-Map is an Android-first health logging app focused on pain, stress, medi
 - Expo Router for file-based navigation
 - TypeScript
 - React Native Paper (MD3) with custom primitives
+- Overlay surfaces: native `Modal` + `KeyboardAvoidingView` (no `@gorhom/bottom-sheet`)
 - Local DB: `expo-sqlite`
 - Backend: Supabase Auth + Postgres tables
 - Background execution: `expo-background-task` + `expo-task-manager`
@@ -27,18 +28,18 @@ Trigger-Map is an Android-first health logging app focused on pain, stress, medi
 
 ## 3. Startup Lifecycle
 
-Startup is orchestrated in [app/_layout.tsx](../app/_layout.tsx):
+Startup is orchestrated in [app/\_layout.tsx](../app/_layout.tsx):
 
 1. Load fonts (Sora + Manrope)
 2. Initialize local DB (`initLocalDB()`)
 3. Register network listener (`setupNetworkListener()`)
 4. Register periodic background sync (`registerBackgroundSync()`)
 5. Render provider tree:
-     - `SafeAreaProvider`
-     - `GestureHandlerRootView`
-     - `ThemeProvider`
-     - `AuthProvider`
-     - `RootLayoutNav`
+   - `SafeAreaProvider`
+   - `GestureHandlerRootView`
+   - `ThemeProvider`
+   - `AuthProvider`
+   - `RootLayoutNav`
 6. Root layout exports an Expo Router `ErrorBoundary` fallback for crash-safe recovery (`Try Again` action)
 
 Auth route protection is centralized in `RootLayoutNav`:
@@ -50,14 +51,14 @@ Auth route protection is centralized in `RootLayoutNav`:
 
 ### 4.1 Route Groups
 
-- [app/(auth)/_layout.tsx](../app/(auth)/_layout.tsx)
-- [app/(auth)/sign-in.tsx](../app/(auth)/sign-in.tsx)
-- [app/(auth)/sign-up.tsx](../app/(auth)/sign-up.tsx)
-- [app/(tabs)/_layout.tsx](../app/(tabs)/_layout.tsx)
-- [app/(tabs)/index.tsx](../app/(tabs)/index.tsx)
-- [app/(tabs)/logs.tsx](../app/(tabs)/logs.tsx)
-- [app/(tabs)/add-log.tsx](../app/(tabs)/add-log.tsx)
-- [app/(tabs)/settings.tsx](../app/(tabs)/settings.tsx)
+- [app/(auth)/\_layout.tsx](<../app/(auth)/_layout.tsx>)
+- [app/(auth)/sign-in.tsx](<../app/(auth)/sign-in.tsx>)
+- [app/(auth)/sign-up.tsx](<../app/(auth)/sign-up.tsx>)
+- [app/(tabs)/\_layout.tsx](<../app/(tabs)/_layout.tsx>)
+- [app/(tabs)/index.tsx](<../app/(tabs)/index.tsx>)
+- [app/(tabs)/logs.tsx](<../app/(tabs)/logs.tsx>)
+- [app/(tabs)/add-log.tsx](<../app/(tabs)/add-log.tsx>)
+- [app/(tabs)/settings.tsx](<../app/(tabs)/settings.tsx>)
 
 ### 4.2 Bottom Navigation
 
@@ -67,17 +68,17 @@ Auth route protection is centralized in `RootLayoutNav`:
 - dedicated center FAB for Add Log
 - adaptive Android bottom inset handling
 
-[app/(tabs)/add-log.tsx](../app/(tabs)/add-log.tsx) is hidden from tab list with `href: null` and opened by FAB navigation.
+[app/(tabs)/add-log.tsx](<../app/(tabs)/add-log.tsx>) is hidden from tab list with `href: null` and opened by FAB navigation.
 
 ## 5. Auth And Session Model
 
 - Supabase client lives in [lib/supabase.ts](../lib/supabase.ts)
 - Session persistence uses SecureStore adapter
 - Auth state is managed by [providers/AuthProvider.tsx](../providers/AuthProvider.tsx):
-    - `getSession()` on boot
-    - `onAuthStateChange()` subscription for live updates
-    - resolved `profileDisplayName` is sourced from local `user_settings` first and then auth metadata fallback
-    - local display-name changes are broadcast so the global profile avatar and settings summary update immediately after save
+  - `getSession()` on boot
+  - `onAuthStateChange()` subscription for live updates
+  - resolved `profileDisplayName` is sourced from local `user_settings` first and then auth metadata fallback
+  - local display-name changes are broadcast so the global profile avatar and settings summary update immediately after save
 - Standalone EAS builds must inject `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` at build time because the Supabase client initializes during module import.
 
 ## 6. Theme System And UI Primitives
@@ -101,6 +102,11 @@ Rules:
 - avoid hardcoded hex/RGB in feature files
 - use `Spacing` and `Radius` tokens
 - prefer `useAppColors()` and `useThemePreference()`
+
+Overlay implementation rule:
+
+- use native `Modal` for sheet-like surfaces (backdrop + bottom-aligned surfaced container + `KeyboardAvoidingView`)
+- do not introduce `@gorhom/bottom-sheet` or root `BottomSheetModalProvider`
 
 ## 7. Local Data Architecture (SQLite)
 
@@ -155,10 +161,10 @@ Queue rows are explicitly user-scoped with `sync_queue.user_id`.
 
 - IDs for syncable rows are UUIDs from `createUuid()`
 - both timestamps are required on inserts:
-    - `logged_at`: ISO timestamp
-    - `log_date`: day key used for grouping
+  - `logged_at`: ISO timestamp
+  - `log_date`: day key used for grouping
 - medicine/food logs persist local snapshot columns:
-    - `item_display_name`, `item_name`, `item_quantity`, `item_unit`
+  - `item_display_name`, `item_name`, `item_quantity`, `item_unit`
 - master item deletion does not delete historical logs
 
 ## 8. Sync Architecture
@@ -184,16 +190,16 @@ On full success it updates `last_sync_at` and clears `last_sync_error`.
 
 - only active-user queue rows are read
 - queue is sorted by priority:
-    - master item upserts first
-    - dependent log upserts second
-    - dependent deletes third
-    - master deletes last
+  - master item upserts first
+  - dependent log upserts second
+  - dependent deletes third
+  - master deletes last
 - stress payloads are normalized to backend-safe values
 - user item payloads are sanitized and normalized for required remote fields:
-    - `name`
-    - `quantity`
-    - `unit`
-    - `user_id` fallback for inserts
+  - `name`
+  - `quantity`
+  - `unit`
+  - `user_id` fallback for inserts
 - `auth_profile` rows call `supabase.auth.updateUser`
 
 Error handling:
@@ -225,7 +231,7 @@ Status is intentionally not surfaced as persistent sync UI.
 
 ### 9.1 Add Log
 
-[app/(tabs)/add-log.tsx](../app/(tabs)/add-log.tsx):
+[app/(tabs)/add-log.tsx](<../app/(tabs)/add-log.tsx>):
 
 - multi-type form (pain, stress, medicine, food)
 - validates at least one category before save
@@ -233,10 +239,11 @@ Status is intentionally not surfaced as persistent sync UI.
 - queues each inserted row with explicit `userId`
 - stores medicine/food snapshot data in local log rows
 - auto-upserts body-part master entries from pain logs
+- body-part picker uses native `Modal` with keyboard-safe layout
 
 ### 9.2 Logs
 
-[app/(tabs)/logs.tsx](../app/(tabs)/logs.tsx):
+[app/(tabs)/logs.tsx](<../app/(tabs)/logs.tsx>):
 
 - reads timeline from local DB only
 - filter chips: all/pain/stress/medicine/food
@@ -250,16 +257,17 @@ Status is intentionally not surfaced as persistent sync UI.
 
 - shared master-data manager for food/medicine
 - supports search/create/edit/delete
+- uses native `Modal` (Android-friendly typing path and debounced search filtering)
 - required form validation before save:
-    - name required
-    - unit required
-    - quantity required numeric > 0
+  - name required
+  - unit required
+  - quantity required numeric > 0
 - duplicate name create path updates existing item instead of inserting duplicate
 - delete removes item from future selection only, preserves historical logs
 
 ### 9.4 Settings
 
-[app/(tabs)/settings.tsx](../app/(tabs)/settings.tsx):
+[app/(tabs)/settings.tsx](<../app/(tabs)/settings.tsx>):
 
 - display name is cached in local `user_settings`
 - save flow queues `auth_profile` update in transaction
@@ -311,6 +319,7 @@ Operational notes:
 8. Use theme tokens and existing UI primitives
 9. Maintain stress normalization rules (`Mid` maps to `moderate`)
 10. Run `bunx tsc --noEmit` after meaningful changes
+11. Keep overlays modal-first; do not add `@gorhom/bottom-sheet`
 
 ## 12. Verification Checklist
 
