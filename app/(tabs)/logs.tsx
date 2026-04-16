@@ -21,7 +21,7 @@ import Reanimated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { ActivityIndicator, Chip, IconButton, SegmentedButtons, Switch, Text } from 'react-native-paper';
+import { ActivityIndicator, Chip, IconButton, SegmentedButtons, Switch, Text, TextInput } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -1724,6 +1724,7 @@ export default function LogsScreen() {
                       </View>
 
                       <CustomTextInput
+                        mode="flat"
                         label={`Search ${editingEntry.payload.kind === 'medicine' ? 'medicine' : 'food'}`}
                         placeholder={`Type to filter ${editingEntry.payload.kind === 'medicine' ? 'medicines' : 'foods'}`}
                         value={editItemSearch}
@@ -1732,6 +1733,12 @@ export default function LogsScreen() {
                         autoCorrect={false}
                         spellCheck={false}
                         autoComplete="off"
+                        left={<TextInput.Icon icon="magnify" color={colors.textMuted} />}
+                        right={
+                          editItemSearch.length > 0
+                            ? <TextInput.Icon icon="close-circle" color={colors.textMuted} onPress={() => setEditItemSearch('')} forceTextInputFocus={false} />
+                            : undefined
+                        }
                       />
 
                       <View

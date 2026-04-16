@@ -10,7 +10,6 @@ import { ActivityIndicator, IconButton, SegmentedButtons, Switch, Text } from 'r
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
-  BottomSheetTextInput,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import { useHeaderHeight } from '@react-navigation/elements';
@@ -28,6 +27,7 @@ import { ItemSelector, type ItemRecord, type ItemSelectorHandle } from '../../co
 import { AppCard } from '../../components/ui/AppCard';
 import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { CustomButton } from '../../components/ui/CustomButton';
+import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 
 type StressLevel = 'low' | 'Mid' | 'high';
@@ -1223,34 +1223,18 @@ export default function AddLogScreen() {
               <IconButton icon="close" iconColor={colors.text} size={24} onPress={closeBodyPartModal} />
             </View>
 
-            <View style={styles.fieldBlock}>
-              <Text variant="labelMedium" style={[styles.fieldLabel, { color: colors.textMuted }]}>
-                Body part
-              </Text>
-              <View
-                style={[
-                  styles.fieldSurface,
-                  {
-                    backgroundColor: colors.surfaceContainerLowest,
-                    borderColor: colors.ghostBorder,
-                  },
-                ]}
-              >
-                <BottomSheetTextInput
-                  style={[styles.fieldInput, { color: colors.text }]}
-                  placeholder="e.g. left knee"
-                  placeholderTextColor={colors.textMuted}
-                  value={bodyPartDraft}
-                  onChangeText={setBodyPartDraft}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  spellCheck={false}
-                  autoComplete="off"
-                  selectTextOnFocus
-                  autoFocus={Platform.OS === 'ios'}
-                />
-              </View>
-            </View>
+            <CustomTextInput
+              label="Body part"
+              placeholder="e.g. left knee"
+              value={bodyPartDraft}
+              onChangeText={setBodyPartDraft}
+              autoCapitalize="words"
+              autoCorrect={false}
+              spellCheck={false}
+              autoComplete="off"
+              selectTextOnFocus
+              autoFocus={Platform.OS === 'ios'}
+            />
 
             <View style={styles.savedBodyPartSectionHeader}>
               <Text variant="titleSmall" style={[styles.savedBodyPartSectionTitle, { color: colors.text }]}>Saved Body Parts</Text>
@@ -1366,26 +1350,6 @@ const styles = StyleSheet.create({
   handleIndicator: {
     width: 48,
     height: 5,
-  },
-  fieldBlock: {
-    gap: Spacing.xs,
-  },
-  fieldLabel: {
-    marginLeft: Spacing.xs,
-  },
-  fieldSurface: {
-    minHeight: 52,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  fieldInput: {
-    flex: 1,
-    minHeight: 24,
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,

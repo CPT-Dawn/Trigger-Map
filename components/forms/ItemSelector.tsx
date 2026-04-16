@@ -8,14 +8,13 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert, Pressable, StyleSheet, View, Platform, type StyleProp, type ViewStyle } from 'react-native';
-import { ActivityIndicator, IconButton, Text } from 'react-native-paper';
+import { Alert, Pressable, StyleSheet, View, Platform } from 'react-native';
+import { ActivityIndicator, IconButton, Text, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   BottomSheetBackdrop,
   BottomSheetFlatList,
   BottomSheetModal,
-  BottomSheetTextInput,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import { useHeaderHeight } from '@react-navigation/elements';
@@ -28,6 +27,7 @@ import { useAppColors } from '../../providers/ThemeProvider';
 import { AppCard } from '../ui/AppCard';
 import { AppSnackbar } from '../ui/AppSnackbar';
 import { CustomButton } from '../ui/CustomButton';
+import { CustomTextInput } from '../ui/CustomTextInput';
 
 export interface ItemRecord {
   id: string;
@@ -217,45 +217,6 @@ function scheduleIdleWork(task: () => void) {
   return () => {
     clearTimeout(timeoutId);
   };
-}
-
-interface SheetTextFieldProps extends React.ComponentProps<typeof BottomSheetTextInput> {
-  label?: string;
-  icon?: keyof typeof MaterialCommunityIcons.glyphMap;
-  trailing?: React.ReactNode;
-  colors: ReturnType<typeof useAppColors>;
-  containerStyle?: StyleProp<ViewStyle>;
-  surfaceStyle?: StyleProp<ViewStyle>;
-}
-
-function SheetTextField({ label, icon, trailing, colors, containerStyle, surfaceStyle, style, ...props }: SheetTextFieldProps) {
-  return (
-    <View style={[styles.fieldBlock, containerStyle]}>
-      {label ? (
-        <Text variant="labelMedium" style={[styles.fieldLabel, { color: colors.textMuted }]}>
-          {label}
-        </Text>
-      ) : null}
-      <View
-        style={[
-          styles.fieldSurface,
-          {
-            backgroundColor: colors.surfaceContainerLowest,
-            borderColor: colors.ghostBorder,
-          },
-          surfaceStyle,
-        ]}
-      >
-        {icon ? <MaterialCommunityIcons name={icon} size={18} color={colors.textMuted} /> : null}
-        <BottomSheetTextInput
-          {...props}
-          style={[styles.fieldInput, { color: colors.text }, style]}
-          placeholderTextColor={colors.textMuted}
-        />
-        {trailing}
-      </View>
-    </View>
-  );
 }
 
 interface ItemRowProps {
@@ -899,11 +860,11 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
         {!activeForm && (
           <>
-            <SheetTextField
-              colors={colors}
-              containerStyle={styles.searchFieldBlock}
-              surfaceStyle={styles.searchFieldSurface}
-              icon="magnify"
+            <CustomTextInput
+              mode="flat"
+              label={`Search ${displayType.toLowerCase()}`}
+              style={styles.searchInput}
+              contentStyle={styles.searchInputContent}
               placeholder={`Search ${displayType.toLowerCase()}...`}
               value={searchInputValue}
               onChangeText={handleSearchQueryChange}
@@ -913,12 +874,11 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
               autoComplete="off"
               selectTextOnFocus
               returnKeyType="search"
-              trailing={
-                searchInputValue.length > 0 ? (
-                  <Pressable accessibilityRole="button" onPress={clearSearchQuery} hitSlop={Spacing.sm}>
-                    <MaterialCommunityIcons name="close-circle" size={18} color={colors.textMuted} />
-                  </Pressable>
-                ) : null
+              left={<TextInput.Icon icon="magnify" color={colors.textMuted} />}
+              right={
+                searchInputValue.length > 0
+                  ? <TextInput.Icon icon="close-circle" color={colors.textMuted} onPress={clearSearchQuery} forceTextInputFocus={false} />
+                  : undefined
               }
             />
           </>
@@ -995,8 +955,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
         variant="solid"
       >
         <View style={styles.formFields}>
-          <SheetTextField
-            colors={colors}
+          <CustomTextInput
             label="Name"
             placeholder={`e.g. ${type === 'medicine' ? 'Ibuprofen' : 'Apple'}`}
             value={draftName}
@@ -1011,8 +970,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
 
           <View style={styles.formRow}>
             <View style={styles.formColumn}>
-              <SheetTextField
-                colors={colors}
+              <CustomTextInput
                 label="Quantity"
                 placeholder="e.g. 400"
                 value={draftQuantity}
@@ -1027,8 +985,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(fu
             </View>
 
             <View style={styles.formColumn}>
-              <SheetTextField
-                colors={colors}
+              <CustomTextInput
                 label="Unit"
                 placeholder={`e.g. ${type === 'medicine' ? 'mg' : 'piece'}`}
                 value={draftUnit}
@@ -1303,33 +1260,11 @@ const styles = StyleSheet.create({
   loadingText: {
     flex: 1,
   },
-  fieldBlock: {
-    gap: Spacing.xs,
+  searchInput: {
+    marginBottom: 0,
   },
-  searchFieldBlock: {
-    width: '100%',
-  },
-  fieldLabel: {
-    marginLeft: Spacing.sm,
-  },
-  fieldSurface: {
-    minHeight: 56,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  searchFieldSurface: {
-    minHeight: 56,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 0,
-  },
-  fieldInput: {
-    flex: 1,
-    minHeight: 24,
+  searchInputContent: {
+    minHeight: 52,
   },
   formCard: {
     marginTop: Spacing.sm,
