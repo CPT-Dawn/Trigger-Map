@@ -118,7 +118,7 @@ export const Colors = {
     ambientTertiary: "rgba(251, 191, 36, 0.1)",
     surfaceOverlayStart: "rgba(255, 255, 255, 0.05)",
     surfaceOverlayEnd: "rgba(255, 255, 255, 0.01)",
-    inputSurface: "#1F2937",
+    inputSurface: "#0B1121",
     dangerSoft: "rgba(248, 113, 113, 0.15)",
     chartPositive: "#34D399",
     chartTrigger: "#F87171",
