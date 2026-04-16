@@ -95,6 +95,7 @@ Core primitives used across features:
 - `CustomButton`
 - `CustomTextInput`
 - `AppSnackbar`
+- `ModalSheet`
 - `ProfileInitialAvatar`
 
 Rules:
@@ -105,7 +106,7 @@ Rules:
 
 Overlay implementation rule:
 
-- use native `Modal` for sheet-like surfaces (backdrop + bottom-aligned surfaced container + `KeyboardAvoidingView`)
+- use shared `ModalSheet` (native `Modal` + backdrop + bottom-aligned surfaced container + `KeyboardAvoidingView`) for sheet-like surfaces
 - do not introduce `@gorhom/bottom-sheet` or root `BottomSheetModalProvider`
 
 ## 7. Local Data Architecture (SQLite)
@@ -257,7 +258,7 @@ Status is intentionally not surfaced as persistent sync UI.
 
 - shared master-data manager for food/medicine
 - supports search/create/edit/delete
-- uses native `Modal` (Android-friendly typing path and debounced search filtering)
+- uses shared `ModalSheet` (Android-friendly typing path and debounced search filtering)
 - required form validation before save:
   - name required
   - unit required

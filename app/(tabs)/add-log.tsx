@@ -5,16 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableWithoutFeedback,
-  View,
-} from "react-native";
+import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   IconButton,
@@ -43,6 +34,7 @@ import { AppCard } from "../../components/ui/AppCard";
 import { AppSnackbar } from "../../components/ui/AppSnackbar";
 import { CustomButton } from "../../components/ui/CustomButton";
 import { CustomTextInput } from "../../components/ui/CustomTextInput";
+import { ModalSheet } from "../../components/ui/ModalSheet";
 import { ScreenWrapper } from "../../components/ui/ScreenWrapper";
 
 type StressLevel = "low" | "Mid" | "high";
@@ -1388,202 +1380,157 @@ export default function AddLogScreen() {
         />
       )}
 
-      <Modal
-        transparent={true}
-        animationType="slide"
+      <ModalSheet
         visible={isBodyPartModalVisible}
         onRequestClose={closeBodyPartModal}
-        statusBarTranslucent
       >
-        <TouchableWithoutFeedback onPress={closeBodyPartModal}>
-          <View
-            style={[
-              styles.modalBackdrop,
-              { backgroundColor: colors.shadowAmbient },
-            ]}
-          >
-            <TouchableWithoutFeedback onPress={() => {}}>
-              <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
-                style={styles.bodyPartKeyboardAvoidingContainer}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          contentContainerStyle={styles.bodyPartScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text
+                variant="titleLarge"
+                style={[styles.modalTitle, { color: colors.text }]}
               >
-                <View
+                Add Body Part
+              </Text>
+              <IconButton
+                icon="close"
+                iconColor={colors.text}
+                size={24}
+                onPress={closeBodyPartModal}
+              />
+            </View>
+
+            <CustomTextInput
+              label="Body part"
+              placeholder="e.g. left knee"
+              value={bodyPartDraft}
+              onChangeText={setBodyPartDraft}
+              autoCapitalize="words"
+              autoCorrect={false}
+              spellCheck={false}
+              autoComplete="off"
+              autoFocus={Platform.OS === "ios"}
+            />
+
+            <View style={styles.savedBodyPartSectionHeader}>
+              <Text
+                variant="titleSmall"
+                style={[
+                  styles.savedBodyPartSectionTitle,
+                  { color: colors.text },
+                ]}
+              >
+                Saved Body Parts
+              </Text>
+              {isBodyPartLoading ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <Text
+                  variant="bodySmall"
                   style={[
-                    styles.sheetBackground,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.ghostBorder,
-                    },
+                    styles.savedBodyPartCount,
+                    { color: colors.textMuted },
                   ]}
                 >
+                  {filteredSavedBodyParts.length}
+                </Text>
+              )}
+            </View>
+
+            {filteredSavedBodyParts.length > 0 ? (
+              <View style={styles.savedBodyPartList}>
+                {filteredSavedBodyParts.map((savedBodyPart) => (
                   <View
+                    key={savedBodyPart.id}
                     style={[
-                      styles.handleIndicator,
-                      { backgroundColor: colors.outlineVariant },
+                      styles.savedBodyPartRow,
+                      { borderBottomColor: colors.ghostBorder },
                     ]}
-                  />
-
-                  <ScrollView
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="interactive"
-                    contentContainerStyle={styles.bodyPartScrollContent}
-                    showsVerticalScrollIndicator={false}
                   >
-                    <View style={styles.modalCard}>
-                      <View style={styles.modalHeader}>
-                        <Text
-                          variant="titleLarge"
-                          style={[styles.modalTitle, { color: colors.text }]}
-                        >
-                          Add Body Part
-                        </Text>
-                        <IconButton
-                          icon="close"
-                          iconColor={colors.text}
-                          size={24}
-                          onPress={closeBodyPartModal}
-                        />
-                      </View>
-
-                      <CustomTextInput
-                        label="Body part"
-                        placeholder="e.g. left knee"
-                        value={bodyPartDraft}
-                        onChangeText={setBodyPartDraft}
-                        autoCapitalize="words"
-                        autoCorrect={false}
-                        spellCheck={false}
-                        autoComplete="off"
-                        autoFocus={Platform.OS === "ios"}
-                      />
-
-                      <View style={styles.savedBodyPartSectionHeader}>
-                        <Text
-                          variant="titleSmall"
-                          style={[
-                            styles.savedBodyPartSectionTitle,
-                            { color: colors.text },
-                          ]}
-                        >
-                          Saved Body Parts
-                        </Text>
-                        {isBodyPartLoading ? (
-                          <ActivityIndicator
-                            color={colors.primary}
-                            size="small"
-                          />
-                        ) : (
-                          <Text
-                            variant="bodySmall"
-                            style={[
-                              styles.savedBodyPartCount,
-                              { color: colors.textMuted },
-                            ]}
-                          >
-                            {filteredSavedBodyParts.length}
-                          </Text>
-                        )}
-                      </View>
-
-                      {filteredSavedBodyParts.length > 0 ? (
-                        <View style={styles.savedBodyPartList}>
-                          {filteredSavedBodyParts.map((savedBodyPart) => (
-                            <View
-                              key={savedBodyPart.id}
-                              style={[
-                                styles.savedBodyPartRow,
-                                { borderBottomColor: colors.ghostBorder },
-                              ]}
-                            >
-                              <View style={styles.savedBodyPartSelectBlock}>
-                                <CustomButton
-                                  mode="text"
-                                  onPress={() =>
-                                    handleSelectSavedBodyPart(
-                                      savedBodyPart.name,
-                                    )
-                                  }
-                                  style={styles.savedBodyPartSelectButton}
-                                  contentStyle={
-                                    styles.savedBodyPartSelectContent
-                                  }
-                                  labelStyle={[
-                                    styles.savedBodyPartSelectLabel,
-                                    { color: colors.text },
-                                  ]}
-                                >
-                                  {savedBodyPart.name}
-                                </CustomButton>
-                              </View>
-
-                              <IconButton
-                                icon="trash-can-outline"
-                                iconColor={colors.error}
-                                size={20}
-                                style={styles.savedBodyPartDeleteButton}
-                                onPress={() =>
-                                  handleDeleteSavedBodyPart(savedBodyPart)
-                                }
-                                accessibilityLabel={`Delete saved body part ${savedBodyPart.name}`}
-                              />
-                            </View>
-                          ))}
-                        </View>
-                      ) : (
-                        <View
-                          style={[
-                            styles.savedBodyPartEmptyState,
-                            {
-                              backgroundColor: colors.surfaceContainerLow,
-                              borderColor: colors.ghostBorder,
-                            },
-                          ]}
-                        >
-                          <MaterialCommunityIcons
-                            name="arm-flex-outline"
-                            size={22}
-                            color={colors.textMuted}
-                          />
-                          <Text
-                            variant="bodySmall"
-                            style={[
-                              styles.savedBodyPartEmptyText,
-                              { color: colors.textMuted },
-                            ]}
-                          >
-                            {normalizedBodyPartDraft.length > 0
-                              ? "No saved body part matches this search."
-                              : "Saved body parts from previous pain logs will appear here."}
-                          </Text>
-                        </View>
-                      )}
-
-                      <View style={styles.modalActions}>
-                        <CustomButton
-                          mode="text"
-                          onPress={closeBodyPartModal}
-                          style={styles.modalActionButton}
-                        >
-                          Cancel
-                        </CustomButton>
-                        <CustomButton
-                          mode="contained"
-                          onPress={handleAddBodyPart}
-                          buttonColor={colors.primary}
-                          textColor={colors.onPrimary}
-                          style={styles.modalActionButton}
-                        >
-                          {bodyPartCreateLabel}
-                        </CustomButton>
-                      </View>
+                    <View style={styles.savedBodyPartSelectBlock}>
+                      <CustomButton
+                        mode="text"
+                        onPress={() =>
+                          handleSelectSavedBodyPart(savedBodyPart.name)
+                        }
+                        style={styles.savedBodyPartSelectButton}
+                        contentStyle={styles.savedBodyPartSelectContent}
+                        labelStyle={[
+                          styles.savedBodyPartSelectLabel,
+                          { color: colors.text },
+                        ]}
+                      >
+                        {savedBodyPart.name}
+                      </CustomButton>
                     </View>
-                  </ScrollView>
-                </View>
-              </KeyboardAvoidingView>
-            </TouchableWithoutFeedback>
+
+                    <IconButton
+                      icon="trash-can-outline"
+                      iconColor={colors.error}
+                      size={20}
+                      style={styles.savedBodyPartDeleteButton}
+                      onPress={() => handleDeleteSavedBodyPart(savedBodyPart)}
+                      accessibilityLabel={`Delete saved body part ${savedBodyPart.name}`}
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.savedBodyPartEmptyState,
+                  {
+                    backgroundColor: colors.surfaceContainerLow,
+                    borderColor: colors.ghostBorder,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="arm-flex-outline"
+                  size={22}
+                  color={colors.textMuted}
+                />
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    styles.savedBodyPartEmptyText,
+                    { color: colors.textMuted },
+                  ]}
+                >
+                  {normalizedBodyPartDraft.length > 0
+                    ? "No saved body part matches this search."
+                    : "Saved body parts from previous pain logs will appear here."}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.modalActions}>
+              <CustomButton
+                mode="text"
+                onPress={closeBodyPartModal}
+                style={styles.modalActionButton}
+              >
+                Cancel
+              </CustomButton>
+              <CustomButton
+                mode="contained"
+                onPress={handleAddBodyPart}
+                buttonColor={colors.primary}
+                textColor={colors.onPrimary}
+                style={styles.modalActionButton}
+              >
+                {bodyPartCreateLabel}
+              </CustomButton>
+            </View>
           </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+        </ScrollView>
+      </ModalSheet>
 
       <AppSnackbar
         visible={snackbarVisible}
@@ -1613,31 +1560,6 @@ export default function AddLogScreen() {
 }
 
 const styles = StyleSheet.create({
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  bodyPartKeyboardAvoidingContainer: {
-    width: "100%",
-    maxHeight: "90%",
-    justifyContent: "flex-end",
-  },
-  sheetBackground: {
-    height: "100%",
-    minHeight: 320,
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    borderWidth: 1,
-    overflow: "hidden",
-    paddingTop: Spacing.md,
-  },
-  handleIndicator: {
-    width: 48,
-    height: 5,
-    borderRadius: Radius.full,
-    alignSelf: "center",
-    marginBottom: Spacing.sm,
-  },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,

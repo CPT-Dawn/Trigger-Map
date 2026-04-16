@@ -81,8 +81,9 @@ Log snapshot contract:
   - `CustomButton`
   - `CustomTextInput`
   - `AppSnackbar`
+  - `ModalSheet`
 - Use `MaterialCommunityIcons` from `@expo/vector-icons`.
-- For sheet-like UI, use native `Modal` patterns; do not use `BottomSheetModal` wrappers/providers.
+- For sheet-like UI, use `ModalSheet`; do not use `BottomSheetModal` wrappers/providers.
 
 ## 6. Feature-Specific Notes
 

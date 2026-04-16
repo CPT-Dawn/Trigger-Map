@@ -9,13 +9,10 @@ import React, {
 import {
   Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import {
@@ -35,6 +32,7 @@ import { AppCard } from "../ui/AppCard";
 import { AppSnackbar } from "../ui/AppSnackbar";
 import { CustomButton } from "../ui/CustomButton";
 import { CustomTextInput } from "../ui/CustomTextInput";
+import { ModalSheet } from "../ui/ModalSheet";
 
 export interface ItemRecord {
   id: string;
@@ -1343,74 +1341,35 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
 
     return (
       <>
-        <Modal
-          transparent={true}
-          animationType="slide"
-          visible={internalVisible}
-          onRequestClose={handleDismiss}
-          statusBarTranslucent
-        >
-          <TouchableWithoutFeedback onPress={handleDismiss}>
-            <View
-              style={[
-                styles.modalBackdrop,
-                { backgroundColor: colors.shadowAmbient },
-              ]}
-            >
-              <TouchableWithoutFeedback onPress={() => {}}>
-                <KeyboardAvoidingView
-                  behavior={Platform.OS === "ios" ? "padding" : undefined}
-                  style={styles.keyboardAvoidingContainer}
-                >
-                  <View
-                    style={[
-                      styles.sheetBackground,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.ghostBorder,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.handleIndicator,
-                        { backgroundColor: colors.outlineVariant },
-                      ]}
-                    />
+        <ModalSheet visible={internalVisible} onRequestClose={handleDismiss}>
+          <View style={styles.sheetContent}>
+            {headerContent}
 
-                    <View style={styles.sheetContent}>
-                      {headerContent}
-
-                      {activeForm ? (
-                        <ScrollView
-                          style={styles.formScroll}
-                          keyboardShouldPersistTaps="handled"
-                          keyboardDismissMode="interactive"
-                          contentContainerStyle={styles.formScrollContent}
-                          showsVerticalScrollIndicator={false}
-                        >
-                          {renderForm()}
-                        </ScrollView>
-                      ) : (
-                        <FlatList
-                          style={styles.list}
-                          data={filteredItems}
-                          keyExtractor={keyExtractor}
-                          renderItem={renderListItem}
-                          ListEmptyComponent={listEmptyContent}
-                          ListFooterComponent={listFooterContent}
-                          contentContainerStyle={styles.listContent}
-                          showsVerticalScrollIndicator={false}
-                          keyboardShouldPersistTaps="handled"
-                        />
-                      )}
-                    </View>
-                  </View>
-                </KeyboardAvoidingView>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
+            {activeForm ? (
+              <ScrollView
+                style={styles.formScroll}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+                contentContainerStyle={styles.formScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {renderForm()}
+              </ScrollView>
+            ) : (
+              <FlatList
+                style={styles.list}
+                data={filteredItems}
+                keyExtractor={keyExtractor}
+                renderItem={renderListItem}
+                ListEmptyComponent={listEmptyContent}
+                ListFooterComponent={listFooterContent}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              />
+            )}
+          </View>
+        </ModalSheet>
 
         <AppSnackbar
           visible={snackbarVisible}
@@ -1427,31 +1386,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
 ItemSelector.displayName = "ItemSelector";
 
 const styles = StyleSheet.create({
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  keyboardAvoidingContainer: {
-    width: "100%",
-    maxHeight: "90%",
-    justifyContent: "flex-end",
-  },
-  sheetBackground: {
-    height: "100%",
-    minHeight: 320,
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    borderWidth: 1,
-    overflow: "hidden",
-    paddingTop: Spacing.md,
-  },
-  handleIndicator: {
-    width: 48,
-    height: 5,
-    borderRadius: Radius.full,
-    alignSelf: "center",
-    marginBottom: Spacing.sm,
-  },
   sheetContent: {
     flex: 1,
   },
