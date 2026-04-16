@@ -1051,7 +1051,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
                 autoCorrect={false}
                 spellCheck={false}
                 autoComplete="off"
-                selectTextOnFocus
                 returnKeyType="search"
                 left={
                   <TextInput.Icon icon="magnify" color={colors.textMuted} />
@@ -1176,7 +1175,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
               autoCorrect={false}
               spellCheck={false}
               autoComplete="off"
-              selectTextOnFocus
               autoFocus={Platform.OS === "android"}
             />
 
@@ -1191,7 +1189,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
                   autoCorrect={false}
                   spellCheck={false}
                   autoComplete="off"
-                  selectTextOnFocus
                   returnKeyType="next"
                 />
               </View>
@@ -1206,7 +1203,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
                   autoCorrect={false}
                   spellCheck={false}
                   autoComplete="off"
-                  selectTextOnFocus
                   returnKeyType="done"
                 />
               </View>
