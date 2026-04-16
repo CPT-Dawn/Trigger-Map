@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Keyboard, ScrollView, StyleSheet, View } from 'react-native';
 import { SegmentedButtons, Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Radius, resolveColors, Spacing } from '../../constants/theme';
@@ -138,6 +138,8 @@ export default function SettingsScreen() {
 
   const handleSaveProfile = async () => {
     if (!canSaveProfile || !user) return;
+
+    Keyboard.dismiss();
 
     try {
       setIsSavingProfile(true);
