@@ -7,6 +7,7 @@ import {
   getPendingSyncCountForTable,
   getSyncMeta,
   getSyncQueue,
+  notifyLocalDisplayNameChanged,
   removeFromSyncQueue,
   setSyncMeta,
   upsertLocalDisplayName,
@@ -109,6 +110,11 @@ interface SyncStatusSnapshot {
   pendingCount: number;
   lastSyncAt: string | null;
   lastError: string | null;
+}
+
+interface PushLocalChangesResult {
+  succeeded: boolean;
+  didProcessAuthProfile: boolean;
 }
 
 let syncInFlight: Promise<void> | null = null;
@@ -660,14 +666,18 @@ async function runQueueOperation(row: QueueRow) {
   }
 }
 
-async function pushLocalChanges(activeUserId: string) {
+async function pushLocalChanges(activeUserId: string): Promise<PushLocalChangesResult> {
   let hadError = false;
+  let didProcessAuthProfile = false;
 
   try {
     const networkState = await NetInfo.fetch();
 
     if (!isOnline(networkState)) {
-      return false;
+      return {
+        succeeded: false,
+        didProcessAuthProfile: false,
+      };
     }
 
     const queue = sortQueueForProcessing(getSyncQueue(activeUserId) as QueueRow[]);
@@ -682,6 +692,11 @@ async function pushLocalChanges(activeUserId: string) {
 
         await runQueueOperation(row);
         removeFromSyncQueue(row.id);
+
+        if (row.table_name === 'auth_profile') {
+          didProcessAuthProfile = true;
+        }
+
         updateSyncStatus({ pendingCount: Math.max(0, syncStatus.pendingCount - 1) });
       } catch (error: any) {
         if (error?.code === '23503' && isDependentLogTableName(row.table_name)) {
@@ -727,7 +742,10 @@ async function pushLocalChanges(activeUserId: string) {
     hadError = true;
   }
 
-  return !hadError;
+  return {
+    succeeded: !hadError,
+    didProcessAuthProfile,
+  };
 }
 
 function upsertUserMedicines(rows: UserItemRow[]) {
@@ -974,7 +992,7 @@ async function fetchRecentLogsFromSupabase(userId: string) {
   };
 }
 
-async function pullRemoteChanges(activeUser: ActiveSyncUser) {
+async function pullRemoteChanges(activeUser: ActiveSyncUser, options?: { skipProfileCacheRefresh?: boolean }) {
   try {
     const networkState = await NetInfo.fetch();
 
@@ -982,8 +1000,22 @@ async function pullRemoteChanges(activeUser: ActiveSyncUser) {
       return false;
     }
 
-    if (getPendingSyncCountForTable('auth_profile', activeUser.id) === 0) {
-      upsertLocalDisplayName(activeUser.id, resolveRemoteDisplayName(activeUser));
+    if (!options?.skipProfileCacheRefresh && getPendingSyncCountForTable('auth_profile', activeUser.id) === 0) {
+      let latestActiveUser = activeUser;
+
+      try {
+        const freshActiveUser = await getActiveSyncUser();
+
+        if (freshActiveUser && freshActiveUser.id === activeUser.id) {
+          latestActiveUser = freshActiveUser;
+        }
+      } catch {
+        // Fall back to the auth snapshot captured at sync start.
+      }
+
+      const resolvedDisplayName = resolveRemoteDisplayName(latestActiveUser);
+      upsertLocalDisplayName(activeUser.id, resolvedDisplayName);
+      notifyLocalDisplayNameChanged(activeUser.id, resolvedDisplayName);
     }
 
     const [medicinesResult, foodsResult, recentLogs] = await Promise.all([
@@ -1051,8 +1083,8 @@ export async function runSync() {
       activeUserId = activeUser.id;
       refreshSyncStatusSnapshot(activeUserId);
 
-      const pushSucceeded = await pushLocalChanges(activeUserId);
-      const pullSucceeded = await pullRemoteChanges(activeUser);
+      const { succeeded: pushSucceeded, didProcessAuthProfile } = await pushLocalChanges(activeUserId);
+      const pullSucceeded = await pullRemoteChanges(activeUser, { skipProfileCacheRefresh: didProcessAuthProfile });
 
       if (pushSucceeded && pullSucceeded) {
         const syncedAt = new Date().toISOString();

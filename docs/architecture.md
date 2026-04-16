@@ -76,6 +76,8 @@ Auth route protection is centralized in `RootLayoutNav`:
 - Auth state is managed by [providers/AuthProvider.tsx](../providers/AuthProvider.tsx):
     - `getSession()` on boot
     - `onAuthStateChange()` subscription for live updates
+    - resolved `profileDisplayName` is sourced from local `user_settings` first and then auth metadata fallback
+    - local display-name changes are broadcast so the global profile avatar and settings summary update immediately after save
 - Standalone EAS builds must inject `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` at build time because the Supabase client initializes during module import.
 
 ## 6. Theme System And UI Primitives
@@ -261,6 +263,7 @@ Status is intentionally not surfaced as persistent sync UI.
 
 - display name is cached in local `user_settings`
 - save flow queues `auth_profile` update in transaction
+- save flow broadcasts the new local profile name before triggering silent sync
 - triggers silent sync after save
 - theme preference persists locally
 - sign-out via Supabase Auth

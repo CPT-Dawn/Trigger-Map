@@ -28,6 +28,10 @@ interface TableColumnInfoRow {
 
 type UserItemTableName = 'user_medicines' | 'user_foods';
 
+type LocalDisplayNameChangeListener = (change: { userId: string; displayName: string | null }) => void;
+
+const localDisplayNameChangeListeners = new Set<LocalDisplayNameChangeListener>();
+
 interface UserItemBackfillRow {
   id: string;
   name: string | null;
@@ -1012,6 +1016,24 @@ export function getLocalDisplayName(userId: string) {
   );
 
   return row?.display_name ?? null;
+}
+
+export function subscribeLocalDisplayNameChanges(listener: LocalDisplayNameChangeListener) {
+  localDisplayNameChangeListeners.add(listener);
+
+  return () => {
+    localDisplayNameChangeListeners.delete(listener);
+  };
+}
+
+export function notifyLocalDisplayNameChanged(userId: string, displayName: string | null) {
+  for (const listener of localDisplayNameChangeListeners) {
+    try {
+      listener({ userId, displayName });
+    } catch {
+      // Keep local DB writes authoritative even if a listener fails.
+    }
+  }
 }
 
 export function upsertLocalDisplayName(userId: string, displayName: string | null) {

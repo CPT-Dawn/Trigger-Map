@@ -8,7 +8,14 @@ import { CustomButton } from '../../components/ui/CustomButton';
 import { AppSnackbar } from '../../components/ui/AppSnackbar';
 import { CustomTextInput } from '../../components/ui/CustomTextInput';
 import { ProfileInitialAvatar } from '../../components/ui/ProfileInitialAvatar';
-import { addToSyncQueue, db, getLocalDisplayName, getPendingSyncCount, upsertLocalDisplayName } from '../../lib/localDb';
+import {
+  addToSyncQueue,
+  db,
+  getLocalDisplayName,
+  getPendingSyncCount,
+  notifyLocalDisplayNameChanged,
+  upsertLocalDisplayName,
+} from '../../lib/localDb';
 import { runSync } from '../../lib/syncEngine';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../providers/AuthProvider';
@@ -66,15 +73,23 @@ function SettingsSectionCard({
 export default function SettingsScreen() {
   const colors = useAppColors();
   const { themePreference, setThemePreference } = useThemePreference();
-  const { user } = useAuth();
+  const { user, profileDisplayName } = useAuth();
+  const resolvedProfileDisplayName = profileDisplayName?.trim() ?? '';
 
   const initialDisplayName = useMemo(
-    () =>
-      (user?.user_metadata?.display_name as string | undefined) ??
-      (user?.user_metadata?.full_name as string | undefined) ??
-      user?.email?.split('@')[0] ??
-      '',
-    [user],
+    () => {
+      if (resolvedProfileDisplayName.length > 0) {
+        return resolvedProfileDisplayName;
+      }
+
+      return (
+        (user?.user_metadata?.display_name as string | undefined)?.trim() ??
+        (user?.user_metadata?.full_name as string | undefined)?.trim() ??
+        user?.email?.split('@')[0] ??
+        ''
+      );
+    },
+    [resolvedProfileDisplayName, user],
   );
 
   const [displayName, setDisplayName] = useState(initialDisplayName);
@@ -142,7 +157,9 @@ export default function SettingsScreen() {
         throw error;
       }
 
+      setDisplayName(trimmedDisplayName);
       setSavedDisplayName(trimmedDisplayName);
+      notifyLocalDisplayNameChanged(user.id, trimmedDisplayName);
       openSnackbar('Profile updated successfully.');
       void runSync();
     } catch (error: any) {
@@ -230,10 +247,10 @@ export default function SettingsScreen() {
           styles={styles}
         >
           <View style={styles.profileRow}>
-            <ProfileInitialAvatar name={displayName} size={56} />
+            <ProfileInitialAvatar name={savedDisplayName || displayName} size={56} />
             <View style={styles.profileMeta}>
               <Text variant="titleMedium" style={styles.profileName} numberOfLines={1}>
-                {trimmedDisplayName || 'Set your name'}
+                {savedDisplayName || 'Set your name'}
               </Text>
               <Text variant="bodyMedium" style={styles.profileEmail} numberOfLines={1}>
                 {userEmail}

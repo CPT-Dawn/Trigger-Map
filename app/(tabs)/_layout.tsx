@@ -13,17 +13,20 @@ import { ProfileInitialAvatar } from '../../components/ui/ProfileInitialAvatar';
 export default function TabLayout() {
   const colors = useAppColors();
   const { appliedTheme } = useThemePreference();
-  const { user } = useAuth();
+  const { user, profileDisplayName } = useAuth();
   const router = useRouter();
   const headerChromeBase = appliedTheme === 'dark' ? colors.surfaceContainerLow : colors.surfaceContainerLowest;
   const headerVeilOpacity = appliedTheme === 'dark' ? 0.28 : 0.14;
   const headerSheenOpacity = appliedTheme === 'dark' ? 0.24 : 0.46;
-
-  const profileName =
-    (user?.user_metadata?.display_name as string | undefined) ??
-    (user?.user_metadata?.full_name as string | undefined) ??
+  const profileDisplayNameText = profileDisplayName?.trim() ?? '';
+  const fallbackProfileName =
+    (user?.user_metadata?.display_name as string | undefined)?.trim() ??
+    (user?.user_metadata?.full_name as string | undefined)?.trim() ??
     user?.email?.split('@')[0] ??
     '';
+
+  const profileName =
+    profileDisplayNameText.length > 0 ? profileDisplayNameText : fallbackProfileName;
 
   const headerAvatar = (
     <ProfileInitialAvatar name={profileName} size={40} style={{ marginRight: 0 }} />
