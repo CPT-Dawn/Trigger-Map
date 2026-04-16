@@ -1,13 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Keyboard, ScrollView, StyleSheet, View } from 'react-native';
-import { SegmentedButtons, Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Radius, resolveColors, Spacing } from '../../constants/theme';
-import { AppCard } from '../../components/ui/AppCard';
-import { CustomButton } from '../../components/ui/CustomButton';
-import { AppSnackbar } from '../../components/ui/AppSnackbar';
-import { CustomTextInput } from '../../components/ui/CustomTextInput';
-import { ProfileInitialAvatar } from '../../components/ui/ProfileInitialAvatar';
+import React, { useEffect, useMemo, useState } from "react";
+import { Alert, Keyboard, ScrollView, StyleSheet, View } from "react-native";
+import { SegmentedButtons, Text } from "react-native-paper";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Radius, resolveColors, Spacing } from "../../constants/theme";
+import { AppCard } from "../../components/ui/AppCard";
+import { CustomButton } from "../../components/ui/CustomButton";
+import { AppSnackbar } from "../../components/ui/AppSnackbar";
+import { CustomTextInput } from "../../components/ui/CustomTextInput";
+import { ProfileInitialAvatar } from "../../components/ui/ProfileInitialAvatar";
 import {
   addToSyncQueue,
   db,
@@ -15,12 +15,16 @@ import {
   getPendingSyncCount,
   notifyLocalDisplayNameChanged,
   upsertLocalDisplayName,
-} from '../../lib/localDb';
-import { runSync } from '../../lib/syncEngine';
-import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../providers/AuthProvider';
-import { ThemePreference, useAppColors, useThemePreference } from '../../providers/ThemeProvider';
-import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
+} from "../../lib/localDb";
+import { runSync } from "../../lib/syncEngine";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../providers/AuthProvider";
+import {
+  ThemePreference,
+  useAppColors,
+  useThemePreference,
+} from "../../providers/ThemeProvider";
+import { ScreenWrapper } from "../../components/ui/ScreenWrapper";
 
 type SettingsSectionCardStyles = ReturnType<typeof createStyles>;
 
@@ -46,18 +50,34 @@ function SettingsSectionCard({
   styles,
 }: SettingsSectionCardProps) {
   return (
-    <AppCard style={styles.card} contentStyle={styles.cardContent} animated delay={delay}>
+    <AppCard
+      style={styles.card}
+      contentStyle={styles.cardContent}
+      animated
+      delay={delay}
+    >
       <View style={styles.cardHeaderRow}>
         <View style={styles.cardTitleRow}>
-          <View style={[styles.sectionIconShell, { backgroundColor: colors.surfaceContainerLow }]}>
+          <View
+            style={[
+              styles.sectionIconShell,
+              { backgroundColor: colors.surfaceContainerLow },
+            ]}
+          >
             <MaterialCommunityIcons name={icon} size={20} color={accentColor} />
           </View>
           <View style={styles.cardTitleBlock}>
-            <Text variant="titleMedium" style={[styles.cardTitle, { color: colors.text }]}>
+            <Text
+              variant="titleMedium"
+              style={[styles.cardTitle, { color: colors.text }]}
+            >
               {title}
             </Text>
             {subtitle ? (
-              <Text variant="bodySmall" style={[styles.cardSubtitle, { color: colors.textMuted }]}>
+              <Text
+                variant="bodySmall"
+                style={[styles.cardSubtitle, { color: colors.textMuted }]}
+              >
                 {subtitle}
               </Text>
             ) : null}
@@ -74,30 +94,27 @@ export default function SettingsScreen() {
   const colors = useAppColors();
   const { themePreference, setThemePreference } = useThemePreference();
   const { user, profileDisplayName } = useAuth();
-  const resolvedProfileDisplayName = profileDisplayName?.trim() ?? '';
+  const resolvedProfileDisplayName = profileDisplayName?.trim() ?? "";
 
-  const initialDisplayName = useMemo(
-    () => {
-      if (resolvedProfileDisplayName.length > 0) {
-        return resolvedProfileDisplayName;
-      }
+  const initialDisplayName = useMemo(() => {
+    if (resolvedProfileDisplayName.length > 0) {
+      return resolvedProfileDisplayName;
+    }
 
-      return (
-        (user?.user_metadata?.display_name as string | undefined)?.trim() ??
-        (user?.user_metadata?.full_name as string | undefined)?.trim() ??
-        user?.email?.split('@')[0] ??
-        ''
-      );
-    },
-    [resolvedProfileDisplayName, user],
-  );
+    return (
+      (user?.user_metadata?.display_name as string | undefined)?.trim() ??
+      (user?.user_metadata?.full_name as string | undefined)?.trim() ??
+      user?.email?.split("@")[0] ??
+      ""
+    );
+  }, [resolvedProfileDisplayName, user]);
 
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [savedDisplayName, setSavedDisplayName] = useState(initialDisplayName);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarMessage, setSnackbarMessage] = useState("");
 
   useEffect(() => {
     const fallbackDisplayName = initialDisplayName.trim();
@@ -109,8 +126,9 @@ export default function SettingsScreen() {
     }
 
     try {
-      const localDisplayName = getLocalDisplayName(user.id)?.trim() ?? '';
-      const resolvedDisplayName = localDisplayName.length > 0 ? localDisplayName : fallbackDisplayName;
+      const localDisplayName = getLocalDisplayName(user.id)?.trim() ?? "";
+      const resolvedDisplayName =
+        localDisplayName.length > 0 ? localDisplayName : fallbackDisplayName;
 
       setDisplayName(resolvedDisplayName);
       setSavedDisplayName(resolvedDisplayName);
@@ -126,10 +144,12 @@ export default function SettingsScreen() {
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const userEmail = user?.email ?? 'No email found';
+  const userEmail = user?.email ?? "No email found";
   const trimmedDisplayName = displayName.trim();
   const canSaveProfile =
-    trimmedDisplayName.length > 0 && trimmedDisplayName !== savedDisplayName && !isSavingProfile;
+    trimmedDisplayName.length > 0 &&
+    trimmedDisplayName !== savedDisplayName &&
+    !isSavingProfile;
 
   const openSnackbar = (message: string) => {
     setSnackbarMessage(message);
@@ -144,28 +164,38 @@ export default function SettingsScreen() {
     try {
       setIsSavingProfile(true);
 
-      db.execSync('BEGIN TRANSACTION;');
+      db.execSync("BEGIN TRANSACTION;");
 
       try {
         upsertLocalDisplayName(user.id, trimmedDisplayName);
-        db.runSync('DELETE FROM sync_queue WHERE table_name = ? AND operation = ? AND user_id = ?;', ['auth_profile', 'UPDATE', user.id]);
-        addToSyncQueue('auth_profile', 'UPDATE', {
-          user_id: user.id,
-          display_name: trimmedDisplayName,
-        }, { userId: user.id });
-        db.execSync('COMMIT;');
+        db.runSync(
+          "DELETE FROM sync_queue WHERE table_name = ? AND operation = ? AND user_id = ?;",
+          ["auth_profile", "UPDATE", user.id],
+        );
+        addToSyncQueue(
+          "auth_profile",
+          "UPDATE",
+          {
+            user_id: user.id,
+            display_name: trimmedDisplayName,
+          },
+          { userId: user.id },
+        );
+        db.execSync("COMMIT;");
       } catch (error) {
-        db.execSync('ROLLBACK;');
+        db.execSync("ROLLBACK;");
         throw error;
       }
 
       setDisplayName(trimmedDisplayName);
       setSavedDisplayName(trimmedDisplayName);
       notifyLocalDisplayNameChanged(user.id, trimmedDisplayName);
-      openSnackbar('Profile updated successfully.');
+      openSnackbar("Profile updated successfully.");
       void runSync();
     } catch (error: any) {
-      openSnackbar(error?.message || 'Something went wrong while saving your profile.');
+      openSnackbar(
+        error?.message || "Something went wrong while saving your profile.",
+      );
     } finally {
       setIsSavingProfile(false);
     }
@@ -177,10 +207,10 @@ export default function SettingsScreen() {
       const { error } = await supabase.auth.signOut();
 
       if (error) {
-        openSnackbar(error.message || 'Unable to log out right now.');
+        openSnackbar(error.message || "Unable to log out right now.");
       }
     } catch {
-      openSnackbar('Something went wrong while logging out.');
+      openSnackbar("Something went wrong while logging out.");
     } finally {
       setIsSigningOut(false);
     }
@@ -205,19 +235,19 @@ export default function SettingsScreen() {
       return;
     }
 
-    const entryLabel = pendingCount === 1 ? 'entry is' : 'entries are';
+    const entryLabel = pendingCount === 1 ? "entry is" : "entries are";
 
     Alert.alert(
-      'Unsynced logs pending',
+      "Unsynced logs pending",
       `${pendingCount} ${entryLabel} still waiting to sync. Signing out now can delay sync until you sign in again on this device.`,
       [
         {
-          text: 'Cancel',
-          style: 'cancel',
+          text: "Cancel",
+          style: "cancel",
         },
         {
-          text: 'Sign Out Anyway',
-          style: 'destructive',
+          text: "Sign Out Anyway",
+          style: "destructive",
           onPress: () => {
             void performSignOut();
           },
@@ -227,9 +257,9 @@ export default function SettingsScreen() {
   };
 
   const themeOptions: Array<{ value: ThemePreference; label: string }> = [
-    { value: 'auto', label: 'Auto' },
-    { value: 'light', label: 'Light' },
-    { value: 'dark', label: 'Dark' },
+    { value: "auto", label: "Auto" },
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
   ];
 
   return (
@@ -249,12 +279,23 @@ export default function SettingsScreen() {
           styles={styles}
         >
           <View style={styles.profileRow}>
-            <ProfileInitialAvatar name={savedDisplayName || displayName} size={56} />
+            <ProfileInitialAvatar
+              name={savedDisplayName || displayName}
+              size={56}
+            />
             <View style={styles.profileMeta}>
-              <Text variant="titleMedium" style={styles.profileName} numberOfLines={1}>
-                {savedDisplayName || 'Set your name'}
+              <Text
+                variant="titleMedium"
+                style={styles.profileName}
+                numberOfLines={1}
+              >
+                {savedDisplayName || "Set your name"}
               </Text>
-              <Text variant="bodyMedium" style={styles.profileEmail} numberOfLines={1}>
+              <Text
+                variant="bodyMedium"
+                style={styles.profileEmail}
+                numberOfLines={1}
+              >
                 {userEmail}
               </Text>
             </View>
@@ -297,7 +338,7 @@ export default function SettingsScreen() {
           <SegmentedButtons
             value={themePreference}
             onValueChange={(value) => {
-              if (value === 'auto' || value === 'light' || value === 'dark') {
+              if (value === "auto" || value === "light" || value === "dark") {
                 void setThemePreference(value);
               }
             }}
@@ -334,7 +375,7 @@ export default function SettingsScreen() {
             icon="logout"
             onPress={handleSignOut}
             isLoading={isSigningOut}
-            buttonColor={colors.errorContainer}
+            buttonColor={colors.dangerSoft}
             textColor={colors.error}
             style={styles.dangerButton}
           >
@@ -372,18 +413,18 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     },
     cardContent: {
       gap: Spacing.md,
-      alignItems: 'stretch',
+      alignItems: "stretch",
       paddingBottom: Spacing.sm,
     },
     cardHeaderRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       gap: Spacing.md,
     },
     cardTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: Spacing.md,
       flex: 1,
     },
@@ -391,27 +432,27 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
       width: 40,
       height: 40,
       borderRadius: Radius.lg,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     cardTitleBlock: {
       flex: 1,
       gap: Spacing.xxs,
     },
     cardTitle: {
-      fontWeight: '700',
+      fontWeight: "700",
     },
     cardSubtitle: {
       lineHeight: 18,
     },
     cardBody: {
       gap: Spacing.md,
-      alignItems: 'stretch',
+      alignItems: "stretch",
     },
     profileRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
       gap: Spacing.md,
       marginBottom: 0,
     },
@@ -421,7 +462,7 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     },
     profileName: {
       color: colors.text,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     profileEmail: {
       color: colors.textMuted,
@@ -438,14 +479,14 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     },
     segmentedButton: {
       flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       borderColor: colors.ghostBorder,
       minHeight: 44,
     },
     segmentedButtonLabel: {
-      textAlign: 'center',
-      width: '100%',
+      textAlign: "center",
+      width: "100%",
     },
     dangerButton: {
       marginTop: Spacing.xs,
