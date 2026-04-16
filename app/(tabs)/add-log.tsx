@@ -5,7 +5,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import {
   ActivityIndicator,
   IconButton,
@@ -255,15 +262,12 @@ const SelectionChip = React.memo(function SelectionChip({
       <View
         style={[
           styles.selectionEntryRow,
-          { borderBottomColor: colors.ghostBorder },
+          {
+            backgroundColor: colors.surfaceContainerLow,
+            borderColor: colors.ghostBorder,
+          },
         ]}
       >
-        <Text
-          variant="titleSmall"
-          style={[styles.selectionEntryMarker, { color: accentColor }]}
-        >
-          {">"}
-        </Text>
         <Text
           variant="titleSmall"
           style={[styles.selectionEntryLabel, { color: colors.text }]}
@@ -323,16 +327,16 @@ const PainEntryCard = React.memo(function PainEntryCard({
       layout={Layout.springify().damping(22).stiffness(210)}
     >
       <View
-        style={[styles.painEntryRow, { borderBottomColor: colors.ghostBorder }]}
+        style={[
+          styles.painEntryRow,
+          {
+            backgroundColor: colors.surfaceContainerLow,
+            borderColor: colors.ghostBorder,
+          },
+        ]}
       >
         <View style={styles.painEntryHeader}>
           <View style={styles.painEntryTitleRow}>
-            <Text
-              variant="titleSmall"
-              style={[styles.painEntryMarker, { color: painAccentColor }]}
-            >
-              {">"}
-            </Text>
             <Text
               variant="titleSmall"
               style={[styles.painBodyPart, { color: colors.text }]}
@@ -1391,32 +1395,61 @@ export default function AddLogScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text
-                variant="titleLarge"
-                style={[styles.modalTitle, { color: colors.text }]}
-              >
-                Add Body Part
-              </Text>
-              <IconButton
-                icon="close"
-                iconColor={colors.text}
-                size={24}
-                onPress={closeBodyPartModal}
+            <View style={styles.bodyPartHeaderContainer}>
+              <View style={styles.bodyPartHeaderRow}>
+                <View style={styles.bodyPartHeaderCopy}>
+                  <View
+                    style={[
+                      styles.bodyPartHeaderIconShell,
+                      { backgroundColor: colors.errorContainer },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="arm-flex-outline"
+                      size={20}
+                      color={colors.error}
+                    />
+                  </View>
+                  <View style={styles.bodyPartHeaderTextBlock}>
+                    <Text
+                      variant="titleLarge"
+                      style={[styles.bodyPartTitle, { color: colors.text }]}
+                    >
+                      Select Body Part
+                    </Text>
+                    <Text
+                      variant="bodySmall"
+                      style={[
+                        styles.bodyPartSubtitle,
+                        { color: colors.textMuted },
+                      ]}
+                    >
+                      Choose a saved body part or add a new one.
+                    </Text>
+                  </View>
+                </View>
+
+                <IconButton
+                  icon="close"
+                  iconColor={colors.text}
+                  size={24}
+                  onPress={closeBodyPartModal}
+                  style={styles.bodyPartHeaderCloseButton}
+                />
+              </View>
+
+              <CustomTextInput
+                label="Body part"
+                placeholder="e.g. left knee"
+                value={bodyPartDraft}
+                onChangeText={setBodyPartDraft}
+                autoCapitalize="words"
+                autoCorrect={false}
+                spellCheck={false}
+                autoComplete="off"
+                autoFocus={Platform.OS === "ios"}
               />
             </View>
-
-            <CustomTextInput
-              label="Body part"
-              placeholder="e.g. left knee"
-              value={bodyPartDraft}
-              onChangeText={setBodyPartDraft}
-              autoCapitalize="words"
-              autoCorrect={false}
-              spellCheck={false}
-              autoComplete="off"
-              autoFocus={Platform.OS === "ios"}
-            />
 
             <View style={styles.savedBodyPartSectionHeader}>
               <Text
@@ -1446,39 +1479,51 @@ export default function AddLogScreen() {
             {filteredSavedBodyParts.length > 0 ? (
               <View style={styles.savedBodyPartList}>
                 {filteredSavedBodyParts.map((savedBodyPart) => (
-                  <View
+                  <AppCard
                     key={savedBodyPart.id}
                     style={[
-                      styles.savedBodyPartRow,
-                      { borderBottomColor: colors.ghostBorder },
+                      styles.savedBodyPartCard,
+                      {
+                        backgroundColor: colors.surfaceContainerLow,
+                        borderColor: colors.ghostBorder,
+                      },
                     ]}
+                    variant="subtle"
                   >
-                    <View style={styles.savedBodyPartSelectBlock}>
-                      <CustomButton
-                        mode="text"
+                    <View style={styles.savedBodyPartRow}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Select saved body part ${savedBodyPart.name}`}
                         onPress={() =>
                           handleSelectSavedBodyPart(savedBodyPart.name)
                         }
-                        style={styles.savedBodyPartSelectButton}
-                        contentStyle={styles.savedBodyPartSelectContent}
-                        labelStyle={[
-                          styles.savedBodyPartSelectLabel,
-                          { color: colors.text },
+                        style={({ pressed }) => [
+                          styles.savedBodyPartSelectArea,
+                          pressed && styles.savedBodyPartSelectAreaPressed,
                         ]}
                       >
-                        {savedBodyPart.name}
-                      </CustomButton>
-                    </View>
+                        <Text
+                          variant="titleSmall"
+                          style={[
+                            styles.savedBodyPartName,
+                            { color: colors.text },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {savedBodyPart.name}
+                        </Text>
+                      </Pressable>
 
-                    <IconButton
-                      icon="trash-can-outline"
-                      iconColor={colors.error}
-                      size={20}
-                      style={styles.savedBodyPartDeleteButton}
-                      onPress={() => handleDeleteSavedBodyPart(savedBodyPart)}
-                      accessibilityLabel={`Delete saved body part ${savedBodyPart.name}`}
-                    />
-                  </View>
+                      <IconButton
+                        icon="trash-can-outline"
+                        iconColor={colors.error}
+                        size={20}
+                        style={styles.savedBodyPartDeleteButton}
+                        onPress={() => handleDeleteSavedBodyPart(savedBodyPart)}
+                        accessibilityLabel={`Delete saved body part ${savedBodyPart.name}`}
+                      />
+                    </View>
+                  </AppCard>
                 ))}
               </View>
             ) : (
@@ -1695,13 +1740,15 @@ const styles = StyleSheet.create({
   },
   segmentedButton: {
     flex: 1,
+    minHeight: 48,
   },
   painEntryRow: {
-    gap: Spacing.xs,
+    gap: Spacing.sm,
     minHeight: 48,
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: Spacing.xs,
-    borderBottomWidth: 1,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderRadius: Radius.md,
     elevation: 0,
     shadowOpacity: 0,
   },
@@ -1714,15 +1761,9 @@ const styles = StyleSheet.create({
   painEntryTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: Spacing.sm,
     flex: 1,
     minWidth: 0,
-  },
-  painEntryMarker: {
-    width: 14,
-    textAlign: "center",
-    fontWeight: "800",
-    fontSize: 14,
   },
   painBodyPart: {
     fontWeight: "700",
@@ -1763,7 +1804,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   selectionEntryList: {
-    gap: 0,
+    gap: Spacing.xs,
     marginTop: Spacing.xxs,
   },
   selectionEntryRow: {
@@ -1772,17 +1813,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: Spacing.xs,
     minHeight: 48,
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: Spacing.xxs,
-    borderBottomWidth: 1,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderRadius: Radius.md,
     elevation: 0,
     shadowOpacity: 0,
-  },
-  selectionEntryMarker: {
-    width: 14,
-    textAlign: "center",
-    fontWeight: "800",
-    fontSize: 14,
   },
   selectionEntryLabel: {
     flex: 1,
@@ -1823,6 +1859,7 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: Spacing.xs,
+    marginBottom: Spacing.xxxl,
   },
   modalCard: {
     padding: Spacing.lg,
@@ -1833,15 +1870,41 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxxl + Spacing.xl,
     gap: Spacing.md,
   },
-  modalHeader: {
+  bodyPartHeaderContainer: {
+    gap: Spacing.sm,
+  },
+  bodyPartHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: Spacing.md,
   },
-  modalTitle: {
+  bodyPartHeaderCopy: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    flex: 1,
+  },
+  bodyPartHeaderIconShell: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bodyPartHeaderTextBlock: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  bodyPartHeaderCloseButton: {
+    margin: 0,
+  },
+  bodyPartTitle: {
     fontWeight: "700",
     flex: 1,
+  },
+  bodyPartSubtitle: {
+    lineHeight: 20,
   },
   modalActions: {
     flexDirection: "row",
@@ -1863,31 +1926,34 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   savedBodyPartList: {
-    gap: 0,
+    gap: Spacing.xs,
+  },
+  savedBodyPartCard: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    padding: Spacing.sm,
   },
   savedBodyPartRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.xs,
     minHeight: 48,
-    borderBottomWidth: 1,
   },
-  savedBodyPartSelectBlock: {
+  savedBodyPartSelectArea: {
     flex: 1,
-  },
-  savedBodyPartSelectButton: {
-    marginHorizontal: 0,
-    justifyContent: "center",
-  },
-  savedBodyPartSelectContent: {
+    flexDirection: "row",
+    alignItems: "center",
     minHeight: 48,
-    justifyContent: "flex-start",
-    paddingHorizontal: Spacing.xs,
     paddingVertical: Spacing.xxs,
+    paddingRight: Spacing.xxs,
   },
-  savedBodyPartSelectLabel: {
+  savedBodyPartSelectAreaPressed: {
+    opacity: 0.86,
+  },
+  savedBodyPartName: {
     fontWeight: "600",
-    textAlign: "left",
-    marginHorizontal: 0,
+    flex: 1,
   },
   savedBodyPartDeleteButton: {
     margin: 0,

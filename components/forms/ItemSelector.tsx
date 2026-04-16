@@ -309,12 +309,6 @@ const ItemRow = React.memo(function ItemRow({
               pressed && styles.itemSelectPressed,
             ]}
           >
-            <Text
-              variant="titleSmall"
-              style={[styles.itemMarker, { color: accentColor }]}
-            >
-              {">"}
-            </Text>
             <View style={styles.itemTextBlock}>
               <Text
                 variant="titleSmall"
@@ -1264,7 +1258,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
           index={index}
           animateRows={shouldAnimateRows}
           accentColor={accentColor}
-          backgroundColor={colors.surfaceContainerLowest}
+          backgroundColor={colors.surfaceContainerLow}
           borderColor={colors.ghostBorder}
           textColor={colors.text}
           errorColor={colors.error}
@@ -1277,7 +1271,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
         accentColor,
         colors.error,
         colors.ghostBorder,
-        colors.surfaceContainerLowest,
+        colors.surfaceContainerLow,
         colors.text,
         handleDeleteMasterItem,
         handleEditMasterItem,
@@ -1519,11 +1513,13 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   previewCard: {
+    minHeight: 56,
     borderRadius: Radius.lg,
     borderWidth: 1,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     gap: Spacing.xxs,
+    justifyContent: "center",
   },
   previewTitle: {
     fontWeight: "700",
@@ -1549,10 +1545,9 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   itemCard: {
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: Spacing.xxs,
+    padding: Spacing.sm,
   },
   itemRow: {
     minHeight: 48,
@@ -1560,8 +1555,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: Spacing.xs,
-    paddingHorizontal: Spacing.xs,
-    paddingVertical: Spacing.xxs,
   },
   itemSelectArea: {
     flex: 1,
@@ -1570,16 +1563,9 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingVertical: Spacing.xxs,
     paddingRight: Spacing.xxs,
-    gap: Spacing.sm,
   },
   itemSelectPressed: {
     opacity: 0.86,
-  },
-  itemMarker: {
-    width: 14,
-    textAlign: "center",
-    fontWeight: "800",
-    fontSize: 14,
   },
   itemTextBlock: {
     flex: 1,
