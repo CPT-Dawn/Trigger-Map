@@ -66,8 +66,6 @@ export default function TabLayout() {
             backgroundColor: 'transparent',
             elevation: 0,
             shadowOpacity: 0,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.ghostBorder,
           },
           headerBackground: () => (
             <View style={StyleSheet.absoluteFill}>
@@ -90,6 +88,7 @@ export default function TabLayout() {
                   },
                 ]}
               />
+              <View style={[styles.headerBottomBorder, { backgroundColor: colors.ghostBorder }]} />
             </View>
           ),
           headerTitleAlign: 'left',
@@ -155,6 +154,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
+    height: 1,
+  },
+  headerBottomBorder: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     height: 1,
   },
 });
