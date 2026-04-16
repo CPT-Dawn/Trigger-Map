@@ -1339,6 +1339,7 @@ export default function AddLogScreen() {
               label: option.label,
               showSelectedCheck: false,
               style: styles.segmentedButton,
+              labelStyle: styles.segmentedButtonLabel,
             }))}
             theme={{
               colors: {
@@ -1739,11 +1740,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   segmentedRoot: {
-    marginTop: Spacing.xs,
+    marginTop: Spacing.xxs,
   },
   segmentedButton: {
     flex: 1,
     minHeight: 48,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 0,
+  },
+  segmentedButtonLabel: {
+    textAlign: "center",
+    textAlignVertical: "center",
+    includeFontPadding: false,
   },
   painEntryRow: {
     gap: Spacing.xxs,
