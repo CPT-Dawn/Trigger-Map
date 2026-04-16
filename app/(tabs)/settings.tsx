@@ -15,6 +15,54 @@ import { useAuth } from '../../providers/AuthProvider';
 import { ThemePreference, useAppColors, useThemePreference } from '../../providers/ThemeProvider';
 import { ScreenWrapper } from '../../components/ui/ScreenWrapper';
 
+type SettingsSectionCardStyles = ReturnType<typeof createStyles>;
+
+type SettingsSectionCardProps = {
+  delay: number;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  title: string;
+  subtitle?: string;
+  accentColor: string;
+  children: React.ReactNode;
+  colors: ReturnType<typeof useAppColors>;
+  styles: SettingsSectionCardStyles;
+};
+
+function SettingsSectionCard({
+  delay,
+  icon,
+  title,
+  subtitle,
+  accentColor,
+  children,
+  colors,
+  styles,
+}: SettingsSectionCardProps) {
+  return (
+    <AppCard style={styles.card} contentStyle={styles.cardContent} animated delay={delay}>
+      <View style={styles.cardHeaderRow}>
+        <View style={styles.cardTitleRow}>
+          <View style={[styles.sectionIconShell, { backgroundColor: colors.surfaceContainerLow }]}>
+            <MaterialCommunityIcons name={icon} size={20} color={accentColor} />
+          </View>
+          <View style={styles.cardTitleBlock}>
+            <Text variant="titleMedium" style={[styles.cardTitle, { color: colors.text }]}>
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text variant="bodySmall" style={[styles.cardSubtitle, { color: colors.textMuted }]}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.cardBody}>{children}</View>
+    </AppCard>
+  );
+}
+
 export default function SettingsScreen() {
   const colors = useAppColors();
   const { themePreference, setThemePreference } = useThemePreference();
@@ -62,44 +110,6 @@ export default function SettingsScreen() {
   }, [initialDisplayName, user?.id]);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
-
-  const SettingsSectionCard = ({
-    delay,
-    icon,
-    title,
-    subtitle,
-    accentColor,
-    children,
-  }: {
-    delay: number;
-    icon: keyof typeof MaterialCommunityIcons.glyphMap;
-    title: string;
-    subtitle?: string;
-    accentColor: string;
-    children: React.ReactNode;
-  }) => (
-    <AppCard style={styles.card} contentStyle={styles.cardContent} animated delay={delay}>
-      <View style={styles.cardHeaderRow}>
-        <View style={styles.cardTitleRow}>
-          <View style={[styles.sectionIconShell, { backgroundColor: colors.surfaceContainerLow }]}> 
-            <MaterialCommunityIcons name={icon} size={20} color={accentColor} />
-          </View>
-          <View style={styles.cardTitleBlock}>
-            <Text variant="titleMedium" style={[styles.cardTitle, { color: colors.text }]}>
-              {title}
-            </Text>
-            {subtitle ? (
-              <Text variant="bodySmall" style={[styles.cardSubtitle, { color: colors.textMuted }]}> 
-                {subtitle}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.cardBody}>{children}</View>
-    </AppCard>
-  );
 
   const userEmail = user?.email ?? 'No email found';
   const trimmedDisplayName = displayName.trim();
@@ -216,6 +226,8 @@ export default function SettingsScreen() {
           icon="account-circle-outline"
           title="Profile"
           accentColor={colors.primary}
+          colors={colors}
+          styles={styles}
         >
           <View style={styles.profileRow}>
             <ProfileInitialAvatar name={displayName} size={56} />
@@ -229,16 +241,14 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <Text variant="labelLarge" style={styles.inputLabel}>
-            Display name
-          </Text>
-
           <CustomTextInput
             mode="outlined"
+            label="Display name"
             value={displayName}
             onChangeText={setDisplayName}
-            placeholder="Your display name"
             autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
             style={styles.input}
           />
 
@@ -262,6 +272,8 @@ export default function SettingsScreen() {
           title="Appearance"
           subtitle="Choose how Trigger Map looks."
           accentColor={colors.secondary}
+          colors={colors}
+          styles={styles}
         >
           <SegmentedButtons
             value={themePreference}
@@ -295,6 +307,8 @@ export default function SettingsScreen() {
           title="Account"
           subtitle="Sign out from this device when you’re done."
           accentColor={colors.error}
+          colors={colors}
+          styles={styles}
         >
           <CustomButton
             mode="contained"
@@ -393,10 +407,6 @@ const createStyles = (colors: ReturnType<typeof resolveColors>) =>
     profileEmail: {
       color: colors.textMuted,
       lineHeight: 20,
-    },
-    inputLabel: {
-      color: colors.text,
-      fontWeight: '600',
     },
     input: {
       marginBottom: 0,
