@@ -987,18 +987,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
       const inlineCreateLabel = `Add "${searchInputValue.trim()}"`;
 
       return (
-        <AppCard
-          style={[
-            styles.headerCard,
-            {
-              backgroundColor: colors.surfaceContainerLowest,
-              borderColor: colors.ghostBorder,
-              borderLeftColor: accentColor,
-              shadowColor: colors.shadowAmbient,
-            },
-          ]}
-          variant="solid"
-        >
+        <View style={styles.headerContainer}>
           <View style={styles.headerRow}>
             <View style={styles.headerCopy}>
               <View
@@ -1079,9 +1068,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
               <CustomTextInput
                 mode="flat"
                 label={`Search ${displayType.toLowerCase()}`}
-                style={styles.searchInput}
-                contentStyle={styles.searchInputContent}
-                placeholder={`Search ${displayType.toLowerCase()}...`}
+                placeholder={`Type to filter ${type === "medicine" ? "medicines" : "foods"}`}
                 value={searchInputValue}
                 onChangeText={handleSearchQueryChange}
                 autoCapitalize="none"
@@ -1117,7 +1104,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
               </Text>
             </View>
           )}
-        </AppCard>
+        </View>
       );
     }, [
       accentColor,
@@ -1136,6 +1123,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
       iconName,
       loading,
       searchInputValue,
+      type,
     ]);
 
     const unitSuggestionChips = useMemo(
@@ -1193,18 +1181,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
       );
 
       return (
-        <AppCard
-          style={[
-            styles.formCard,
-            {
-              backgroundColor: colors.surfaceContainerLowest,
-              borderColor: colors.ghostBorder,
-              borderLeftColor: accentColor,
-              shadowColor: colors.shadowAmbient,
-            },
-          ]}
-          variant="solid"
-        >
+        <View style={styles.formContent}>
           <View style={styles.formFields}>
             <CustomTextInput
               label="Name"
@@ -1291,7 +1268,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
               {activeForm?.mode === "edit" ? "Save Changes" : "Add"}
             </CustomButton>
           </View>
-        </AppCard>
+        </View>
       );
     };
 
@@ -1394,8 +1371,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
       <>
         <ModalSheet visible={internalVisible} onRequestClose={handleDismiss}>
           <View style={styles.sheetContent}>
-            {headerContent}
-
             {activeForm ? (
               <ScrollView
                 style={styles.formScroll}
@@ -1404,12 +1379,27 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
                 contentContainerStyle={styles.formScrollContent}
                 showsVerticalScrollIndicator={false}
               >
-                {renderForm()}
+                <AppCard
+                  style={[
+                    styles.sheetCard,
+                    {
+                      backgroundColor: colors.surfaceContainerLowest,
+                      borderColor: colors.ghostBorder,
+                      borderLeftColor: accentColor,
+                      shadowColor: colors.shadowAmbient,
+                    },
+                  ]}
+                  variant="solid"
+                >
+                  {headerContent}
+                  {renderForm()}
+                </AppCard>
               </ScrollView>
             ) : (
               <View style={styles.listArea}>
                 <AppCard
                   style={[
+                    styles.sheetCard,
                     styles.listCard,
                     {
                       backgroundColor: colors.surfaceContainerLowest,
@@ -1421,6 +1411,8 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
                   contentStyle={styles.listCardContent}
                   variant="solid"
                 >
+                  {headerContent}
+
                   <View style={styles.listSectionHeader}>
                     <Text
                       variant="titleSmall"
@@ -1487,7 +1479,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
-    gap: Spacing.sm,
   },
   listArea: {
     flex: 1,
@@ -1498,7 +1489,7 @@ const styles = StyleSheet.create({
   formScroll: {
     flex: 1,
   },
-  headerCard: {
+  sheetCard: {
     borderWidth: 1,
     borderLeftWidth: 4,
     borderRadius: Radius.xl,
@@ -1508,6 +1499,8 @@ const styles = StyleSheet.create({
     elevation: 2,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+  },
+  headerContainer: {
     gap: Spacing.sm,
   },
   headerRow: {
@@ -1582,26 +1575,9 @@ const styles = StyleSheet.create({
   loadingText: {
     flex: 1,
   },
-  searchInput: {
-    marginBottom: 0,
-  },
-  searchInputContent: {
-    minHeight: 52,
-  },
-  formCard: {
+  formContent: {
     marginTop: Spacing.sm,
-    borderWidth: 1,
-    borderLeftWidth: 4,
-    borderRadius: Radius.xl,
-    shadowOpacity: 0.11,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
     gap: Spacing.md,
-    padding: Spacing.md,
-  },
-  formTitle: {
-    fontWeight: "700",
   },
   formFields: {
     gap: Spacing.md,
@@ -1652,19 +1628,11 @@ const styles = StyleSheet.create({
   formScrollContent: {
     paddingBottom: Spacing.xxxl + Spacing.xl,
     paddingTop: Spacing.xs,
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   listCard: {
     flex: 1,
-    borderWidth: 1,
-    borderLeftWidth: 4,
-    borderRadius: Radius.xl,
-    shadowOpacity: 0.11,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    marginTop: Spacing.sm,
   },
   listCardContent: {
     flex: 1,

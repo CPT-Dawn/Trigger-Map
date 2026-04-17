@@ -19,6 +19,7 @@ import {
   SegmentedButtons,
   Switch,
   Text,
+  TextInput,
 } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -1455,8 +1456,9 @@ export default function AddLogScreen() {
                 </View>
 
                 <CustomTextInput
+                  mode="flat"
                   label="Body part name"
-                  placeholder="left knee"
+                  placeholder="Type to filter or add a body part"
                   value={bodyPartDraft}
                   onChangeText={setBodyPartDraft}
                   autoCapitalize="words"
@@ -1464,6 +1466,19 @@ export default function AddLogScreen() {
                   spellCheck={false}
                   autoComplete="off"
                   autoFocus={Platform.OS === "ios"}
+                  left={
+                    <TextInput.Icon icon="magnify" color={colors.textMuted} />
+                  }
+                  right={
+                    bodyPartDraft.length > 0 ? (
+                      <TextInput.Icon
+                        icon="close-circle"
+                        color={colors.textMuted}
+                        onPress={() => setBodyPartDraft("")}
+                        forceTextInputFocus={false}
+                      />
+                    ) : undefined
+                  }
                 />
               </View>
 
@@ -1911,18 +1926,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     gap: Spacing.sm,
   },
-  bodyPartSavedCard: {
-    borderWidth: 1,
-    borderLeftWidth: 4,
-    borderRadius: Radius.xl,
-    shadowOpacity: 0.11,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.xs,
-  },
   bodyPartHeaderContainer: {
     gap: Spacing.sm,
   },
@@ -1978,16 +1981,6 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
   },
   savedBodyPartSectionTitle: {
-    fontWeight: "700",
-  },
-  savedBodyPartCountPill: {
-    minHeight: 30,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  savedBodyPartCount: {
     fontWeight: "700",
   },
   savedBodyPartList: {
