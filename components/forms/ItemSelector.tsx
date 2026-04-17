@@ -1046,20 +1046,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
           {!activeForm && (
             <>
               <View style={styles.headerMetaRow}>
-                <View
-                  style={[
-                    styles.savedCountPill,
-                    { backgroundColor: accentContainerColor },
-                  ]}
-                >
-                  <Text
-                    variant="labelLarge"
-                    style={[styles.savedCountText, { color: accentColor }]}
-                  >
-                    {filteredItems.length}
-                  </Text>
-                </View>
-
                 {shouldShowInlineCreate ? (
                   <Pressable
                     onPress={handleOpenCreateForm}
