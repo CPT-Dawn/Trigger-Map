@@ -1399,102 +1399,141 @@ export default function AddLogScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.modalCard}>
-            <View style={styles.bodyPartHeaderContainer}>
-              <View style={styles.bodyPartHeaderRow}>
-                <View style={styles.bodyPartHeaderCopy}>
+            <AppCard
+              style={[
+                styles.bodyPartHeaderCard,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.ghostBorder,
+                  borderLeftColor: colors.onErrorContainer,
+                  shadowColor: colors.shadowAmbient,
+                },
+              ]}
+              variant="solid"
+            >
+              <View style={styles.bodyPartHeaderContainer}>
+                <View style={styles.bodyPartHeaderRow}>
+                  <View style={styles.bodyPartHeaderCopy}>
+                    <View
+                      style={[
+                        styles.bodyPartHeaderIconShell,
+                        { backgroundColor: colors.errorContainer },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name="arm-flex-outline"
+                        size={20}
+                        color={colors.onErrorContainer}
+                      />
+                    </View>
+                    <View style={styles.bodyPartHeaderTextBlock}>
+                      <Text
+                        variant="titleLarge"
+                        style={[styles.bodyPartTitle, { color: colors.text }]}
+                      >
+                        Body Part
+                      </Text>
+                      <Text
+                        variant="bodySmall"
+                        style={[
+                          styles.bodyPartSubtitle,
+                          { color: colors.textMuted },
+                        ]}
+                      >
+                        Select a saved body part or add one for this pain entry.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <IconButton
+                    icon="close"
+                    iconColor={colors.text}
+                    size={24}
+                    onPress={closeBodyPartModal}
+                    style={styles.bodyPartHeaderCloseButton}
+                  />
+                </View>
+
+                <CustomTextInput
+                  label="Body part name"
+                  placeholder="e.g. left knee"
+                  value={bodyPartDraft}
+                  onChangeText={setBodyPartDraft}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  spellCheck={false}
+                  autoComplete="off"
+                  autoFocus={Platform.OS === "ios"}
+                />
+              </View>
+            </AppCard>
+
+            <AppCard
+              style={[
+                styles.bodyPartSavedCard,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.ghostBorder,
+                  borderLeftColor: colors.onErrorContainer,
+                  shadowColor: colors.shadowAmbient,
+                },
+              ]}
+              variant="solid"
+            >
+              <View style={styles.savedBodyPartSectionHeader}>
+                <Text
+                  variant="titleSmall"
+                  style={[
+                    styles.savedBodyPartSectionTitle,
+                    { color: colors.text },
+                  ]}
+                >
+                  Saved Body Parts
+                </Text>
+                {isBodyPartLoading ? (
+                  <ActivityIndicator color={colors.primary} size="small" />
+                ) : (
                   <View
                     style={[
-                      styles.bodyPartHeaderIconShell,
+                      styles.savedBodyPartCountPill,
                       { backgroundColor: colors.errorContainer },
                     ]}
                   >
-                    <MaterialCommunityIcons
-                      name="arm-flex-outline"
-                      size={20}
-                      color={colors.error}
-                    />
-                  </View>
-                  <View style={styles.bodyPartHeaderTextBlock}>
                     <Text
-                      variant="titleLarge"
-                      style={[styles.bodyPartTitle, { color: colors.text }]}
-                    >
-                      Select Body Part
-                    </Text>
-                    <Text
-                      variant="bodySmall"
+                      variant="labelLarge"
                       style={[
-                        styles.bodyPartSubtitle,
-                        { color: colors.textMuted },
+                        styles.savedBodyPartCount,
+                        { color: colors.onErrorContainer },
                       ]}
                     >
-                      Choose a saved body part or add a new one.
+                      {filteredSavedBodyParts.length}
                     </Text>
                   </View>
-                </View>
-
-                <IconButton
-                  icon="close"
-                  iconColor={colors.text}
-                  size={24}
-                  onPress={closeBodyPartModal}
-                  style={styles.bodyPartHeaderCloseButton}
-                />
+                )}
               </View>
 
-              <CustomTextInput
-                label="Body part"
-                placeholder="e.g. left knee"
-                value={bodyPartDraft}
-                onChangeText={setBodyPartDraft}
-                autoCapitalize="words"
-                autoCorrect={false}
-                spellCheck={false}
-                autoComplete="off"
-                autoFocus={Platform.OS === "ios"}
-              />
-            </View>
+              {filteredSavedBodyParts.length > 0 ? (
+                <View style={styles.savedBodyPartList}>
+                  {filteredSavedBodyParts.map((savedBodyPart, index) => (
+                    <View
+                      key={savedBodyPart.id}
+                      style={[
+                        styles.savedBodyPartRow,
+                        { borderBottomColor: colors.ghostBorder },
+                        index === filteredSavedBodyParts.length - 1 &&
+                          styles.savedBodyPartRowLast,
+                      ]}
+                    >
+                      <Text
+                        variant="titleSmall"
+                        style={[
+                          styles.savedBodyPartMarker,
+                          { color: colors.onErrorContainer },
+                        ]}
+                      >
+                        {">"}
+                      </Text>
 
-            <View style={styles.savedBodyPartSectionHeader}>
-              <Text
-                variant="titleSmall"
-                style={[
-                  styles.savedBodyPartSectionTitle,
-                  { color: colors.text },
-                ]}
-              >
-                Saved Body Parts
-              </Text>
-              {isBodyPartLoading ? (
-                <ActivityIndicator color={colors.primary} size="small" />
-              ) : (
-                <Text
-                  variant="bodySmall"
-                  style={[
-                    styles.savedBodyPartCount,
-                    { color: colors.textMuted },
-                  ]}
-                >
-                  {filteredSavedBodyParts.length}
-                </Text>
-              )}
-            </View>
-
-            {filteredSavedBodyParts.length > 0 ? (
-              <View style={styles.savedBodyPartList}>
-                {filteredSavedBodyParts.map((savedBodyPart) => (
-                  <AppCard
-                    key={savedBodyPart.id}
-                    style={[
-                      styles.savedBodyPartCard,
-                      {
-                        backgroundColor: colors.surfaceContainerLow,
-                        borderColor: colors.ghostBorder,
-                      },
-                    ]}
-                    variant="subtle"
-                  >
-                    <View style={styles.savedBodyPartRow}>
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Select saved body part ${savedBodyPart.name}`}
@@ -1527,37 +1566,37 @@ export default function AddLogScreen() {
                         accessibilityLabel={`Delete saved body part ${savedBodyPart.name}`}
                       />
                     </View>
-                  </AppCard>
-                ))}
-              </View>
-            ) : (
-              <View
-                style={[
-                  styles.savedBodyPartEmptyState,
-                  {
-                    backgroundColor: colors.surfaceContainerLow,
-                    borderColor: colors.ghostBorder,
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="arm-flex-outline"
-                  size={22}
-                  color={colors.textMuted}
-                />
-                <Text
-                  variant="bodySmall"
+                  ))}
+                </View>
+              ) : (
+                <View
                   style={[
-                    styles.savedBodyPartEmptyText,
-                    { color: colors.textMuted },
+                    styles.savedBodyPartEmptyState,
+                    {
+                      backgroundColor: colors.surfaceContainerLow,
+                      borderColor: colors.ghostBorder,
+                    },
                   ]}
                 >
-                  {normalizedBodyPartDraft.length > 0
-                    ? "No saved body part matches this search."
-                    : "Saved body parts from previous pain logs will appear here."}
-                </Text>
-              </View>
-            )}
+                  <MaterialCommunityIcons
+                    name="arm-flex-outline"
+                    size={22}
+                    color={colors.textMuted}
+                  />
+                  <Text
+                    variant="bodySmall"
+                    style={[
+                      styles.savedBodyPartEmptyText,
+                      { color: colors.textMuted },
+                    ]}
+                  >
+                    {normalizedBodyPartDraft.length > 0
+                      ? "No saved body part matches this search."
+                      : "Saved body parts from previous pain logs appear here."}
+                  </Text>
+                </View>
+              )}
+            </AppCard>
 
             <View style={styles.modalActions}>
               <CustomButton
@@ -1884,13 +1923,38 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xxxl,
   },
   modalCard: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
+    padding: Spacing.xs,
+    paddingTop: 10,
+    gap: Spacing.sm,
   },
   bodyPartScrollContent: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxxl + Spacing.xl,
     gap: Spacing.md,
+  },
+  bodyPartHeaderCard: {
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    borderRadius: Radius.xl,
+    shadowOpacity: 0.11,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  bodyPartSavedCard: {
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    borderRadius: Radius.xl,
+    shadowOpacity: 0.11,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.xs,
   },
   bodyPartHeaderContainer: {
     gap: Spacing.sm,
@@ -1920,6 +1984,8 @@ const styles = StyleSheet.create({
   },
   bodyPartHeaderCloseButton: {
     margin: 0,
+    width: 48,
+    height: 48,
   },
   bodyPartTitle: {
     fontWeight: "700",
@@ -1931,9 +1997,11 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     gap: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   modalActionButton: {
     flex: 1,
+    minHeight: 48,
   },
   savedBodyPartSectionHeader: {
     flexDirection: "row",
@@ -1944,16 +2012,18 @@ const styles = StyleSheet.create({
   savedBodyPartSectionTitle: {
     fontWeight: "700",
   },
+  savedBodyPartCountPill: {
+    minHeight: 30,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   savedBodyPartCount: {
-    fontWeight: "600",
+    fontWeight: "700",
   },
   savedBodyPartList: {
-    gap: Spacing.xs,
-  },
-  savedBodyPartCard: {
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    padding: Spacing.sm,
+    gap: 0,
   },
   savedBodyPartRow: {
     flexDirection: "row",
@@ -1961,6 +2031,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: Spacing.xs,
     minHeight: 48,
+    paddingLeft: 12,
+    paddingVertical: Spacing.xs,
+    borderBottomWidth: 1,
+  },
+  savedBodyPartRowLast: {
+    borderBottomWidth: 0,
+  },
+  savedBodyPartMarker: {
+    width: 14,
+    textAlign: "center",
+    fontWeight: "800",
+    fontSize: 14,
   },
   savedBodyPartSelectArea: {
     flex: 1,

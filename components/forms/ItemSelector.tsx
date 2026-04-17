@@ -258,10 +258,10 @@ interface ItemRowProps {
   index: number;
   animateRows: boolean;
   accentColor: string;
-  backgroundColor: string;
-  borderColor: string;
+  dividerColor: string;
   textColor: string;
   errorColor: string;
+  isLast: boolean;
   onSelect: (item: ItemRecord) => void;
   onEdit: (item: ItemRecord) => void;
   onDelete: (item: ItemRecord) => void;
@@ -272,10 +272,10 @@ const ItemRow = React.memo(function ItemRow({
   index,
   animateRows,
   accentColor,
-  backgroundColor,
-  borderColor,
+  dividerColor,
   textColor,
   errorColor,
+  isLast,
   onSelect,
   onEdit,
   onDelete,
@@ -289,57 +289,55 @@ const ItemRow = React.memo(function ItemRow({
 
   return (
     <Animated.View entering={revealAnimation}>
-      <AppCard
-        style={[
-          styles.itemCard,
-          {
-            backgroundColor,
-            borderColor,
-          },
-        ]}
-        variant="subtle"
+      <View
+        style={[styles.itemRow, !isLast && { borderBottomColor: dividerColor }]}
       >
-        <View style={styles.itemRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Select ${itemName}`}
-            onPress={() => onSelect(item)}
-            style={({ pressed }) => [
-              styles.itemSelectArea,
-              pressed && styles.itemSelectPressed,
-            ]}
-          >
-            <View style={styles.itemTextBlock}>
-              <Text
-                variant="titleSmall"
-                style={[styles.itemTitle, { color: textColor }]}
-                numberOfLines={1}
-              >
-                {inlineLabel}
-              </Text>
-            </View>
-          </Pressable>
+        <Text
+          variant="titleSmall"
+          style={[styles.itemMarker, { color: accentColor }]}
+        >
+          {">"}
+        </Text>
 
-          <View style={styles.itemActionGroup}>
-            <IconButton
-              icon="pencil-outline"
-              iconColor={accentColor}
-              size={20}
-              style={styles.itemActionButton}
-              onPress={() => onEdit(item)}
-              accessibilityLabel={`Edit ${itemName}`}
-            />
-            <IconButton
-              icon="trash-can-outline"
-              iconColor={errorColor}
-              size={20}
-              style={styles.itemActionButton}
-              onPress={() => onDelete(item)}
-              accessibilityLabel={`Delete ${itemName}`}
-            />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Select ${itemName}`}
+          onPress={() => onSelect(item)}
+          style={({ pressed }) => [
+            styles.itemSelectArea,
+            pressed && styles.itemSelectPressed,
+          ]}
+        >
+          <View style={styles.itemTextBlock}>
+            <Text
+              variant="titleSmall"
+              style={[styles.itemTitle, { color: textColor }]}
+              numberOfLines={1}
+            >
+              {inlineLabel}
+            </Text>
           </View>
+        </Pressable>
+
+        <View style={styles.itemActionGroup}>
+          <IconButton
+            icon="pencil-outline"
+            iconColor={accentColor}
+            size={20}
+            style={styles.itemActionButton}
+            onPress={() => onEdit(item)}
+            accessibilityLabel={`Edit ${itemName}`}
+          />
+          <IconButton
+            icon="trash-can-outline"
+            iconColor={errorColor}
+            size={20}
+            style={styles.itemActionButton}
+            onPress={() => onDelete(item)}
+            accessibilityLabel={`Delete ${itemName}`}
+          />
         </View>
-      </AppCard>
+      </View>
     </Animated.View>
   );
 });
@@ -387,7 +385,9 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
         : colors.onSecondaryContainer;
     const accentContainerColor =
       type === "medicine" ? colors.primaryContainer : colors.secondaryContainer;
-    const createLabel = `Create New ${displayType}`;
+    const createLabel = `Add ${displayType}`;
+    const savedItemsTitle =
+      type === "medicine" ? "Saved Medicines" : "Saved Foods";
     const unitSuggestions =
       type === "medicine" ? MEDICINE_UNIT_SUGGESTIONS : FOOD_UNIT_SUGGESTIONS;
     const normalizedSearch = debouncedSearchQuery.trim().toLowerCase();
@@ -982,9 +982,23 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
       user,
     ]);
 
-    const headerContent = useMemo(
-      () => (
-        <View style={styles.headerContainer}>
+    const headerContent = useMemo(() => {
+      const shouldShowInlineCreate = hasSearchQuery && !hasExactMatch;
+      const inlineCreateLabel = `Add "${searchInputValue.trim()}"`;
+
+      return (
+        <AppCard
+          style={[
+            styles.headerCard,
+            {
+              backgroundColor: colors.surfaceContainerLowest,
+              borderColor: colors.ghostBorder,
+              borderLeftColor: accentColor,
+              shadowColor: colors.shadowAmbient,
+            },
+          ]}
+          variant="solid"
+        >
           <View style={styles.headerRow}>
             <View style={styles.headerCopy}>
               <View
@@ -1015,8 +1029,8 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
                   style={[styles.sheetSubtitle, { color: colors.textMuted }]}
                 >
                   {activeForm
-                    ? "Enter item details below."
-                    : `Choose a saved ${displayType.toLowerCase()} or create a new one.`}
+                    ? `Add or update ${displayType.toLowerCase()} details in log format.`
+                    : `Choose a saved ${displayType.toLowerCase()} or add one for this log.`}
                 </Text>
               </View>
             </View>
@@ -1031,6 +1045,51 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
 
           {!activeForm && (
             <>
+              <View style={styles.headerMetaRow}>
+                <View
+                  style={[
+                    styles.savedCountPill,
+                    { backgroundColor: accentContainerColor },
+                  ]}
+                >
+                  <Text
+                    variant="labelLarge"
+                    style={[styles.savedCountText, { color: accentColor }]}
+                  >
+                    {filteredItems.length}
+                  </Text>
+                </View>
+
+                {shouldShowInlineCreate ? (
+                  <Pressable
+                    onPress={handleOpenCreateForm}
+                    style={({ pressed }) => [
+                      styles.quickCreateInline,
+                      {
+                        backgroundColor: colors.surfaceContainerLow,
+                        borderColor: colors.ghostBorder,
+                      },
+                      pressed && styles.quickCreateInlinePressed,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={inlineCreateLabel}
+                  >
+                    <MaterialCommunityIcons
+                      name="plus"
+                      size={16}
+                      color={accentColor}
+                    />
+                    <Text
+                      variant="labelMedium"
+                      style={{ color: accentColor }}
+                      numberOfLines={1}
+                    >
+                      {inlineCreateLabel}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
               <CustomTextInput
                 mode="flat"
                 label={`Search ${displayType.toLowerCase()}`}
@@ -1072,23 +1131,26 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
               </Text>
             </View>
           )}
-        </View>
-      ),
-      [
-        accentColor,
-        accentContainerColor,
-        activeForm,
-        clearSearchQuery,
-        closeSheet,
-        colors,
-        createLabel,
-        displayType,
-        handleSearchQueryChange,
-        iconName,
-        loading,
-        searchInputValue,
-      ],
-    );
+        </AppCard>
+      );
+    }, [
+      accentColor,
+      accentContainerColor,
+      activeForm,
+      clearSearchQuery,
+      closeSheet,
+      colors,
+      createLabel,
+      displayType,
+      filteredItems.length,
+      handleOpenCreateForm,
+      hasExactMatch,
+      hasSearchQuery,
+      handleSearchQueryChange,
+      iconName,
+      loading,
+      searchInputValue,
+    ]);
 
     const unitSuggestionChips = useMemo(
       () =>
@@ -1258,10 +1320,10 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
           index={index}
           animateRows={shouldAnimateRows}
           accentColor={accentColor}
-          backgroundColor={colors.surfaceContainerLow}
-          borderColor={colors.ghostBorder}
+          dividerColor={colors.ghostBorder}
           textColor={colors.text}
           errorColor={colors.error}
+          isLast={index === filteredItems.length - 1}
           onSelect={handleSelectItem}
           onEdit={handleEditMasterItem}
           onDelete={handleDeleteMasterItem}
@@ -1271,8 +1333,8 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
         accentColor,
         colors.error,
         colors.ghostBorder,
-        colors.surfaceContainerLow,
         colors.text,
+        filteredItems.length,
         handleDeleteMasterItem,
         handleEditMasterItem,
         handleSelectItem,
@@ -1283,7 +1345,15 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
     const listEmptyContent = useMemo(
       () =>
         loading ? null : (
-          <View style={styles.emptyState}>
+          <View
+            style={[
+              styles.emptyState,
+              {
+                backgroundColor: colors.surfaceContainerLow,
+                borderColor: colors.ghostBorder,
+              },
+            ]}
+          >
             <MaterialCommunityIcons
               name="magnify"
               size={32}
@@ -1293,32 +1363,35 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
               variant="bodyMedium"
               style={[styles.emptyText, { color: colors.textMuted }]}
             >
-              No matching saved items.
+              No matching saved {displayType.toLowerCase()} entries.
             </Text>
           </View>
         ),
-      [colors.textMuted, loading],
+      [
+        colors.ghostBorder,
+        colors.surfaceContainerLow,
+        colors.textMuted,
+        displayType,
+        loading,
+      ],
     );
 
     const listFooterContent = useMemo(() => {
-      if (activeForm || (hasSearchQuery && hasExactMatch)) {
+      if (activeForm || hasSearchQuery) {
         return null;
       }
-
-      const footerCreateLabel = hasSearchQuery
-        ? `Create "${searchInputValue.trim()}"`
-        : createLabel;
 
       return (
         <View style={styles.footerContainer}>
           <CustomButton
-            mode="contained"
+            mode="contained-tonal"
             icon="plus"
             onPress={handleOpenCreateForm}
             buttonColor={accentContainerColor}
             textColor={accentColor}
+            style={styles.footerCreateButton}
           >
-            {footerCreateLabel}
+            {createLabel}
           </CustomButton>
         </View>
       );
@@ -1328,9 +1401,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
       activeForm,
       createLabel,
       handleOpenCreateForm,
-      hasExactMatch,
       hasSearchQuery,
-      searchInputValue,
     ]);
 
     return (
@@ -1350,17 +1421,62 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
                 {renderForm()}
               </ScrollView>
             ) : (
-              <FlatList
-                style={styles.list}
-                data={filteredItems}
-                keyExtractor={keyExtractor}
-                renderItem={renderListItem}
-                ListEmptyComponent={listEmptyContent}
-                ListFooterComponent={listFooterContent}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              />
+              <View style={styles.listArea}>
+                <AppCard
+                  style={[
+                    styles.listCard,
+                    {
+                      backgroundColor: colors.surfaceContainerLowest,
+                      borderColor: colors.ghostBorder,
+                      borderLeftColor: accentColor,
+                      shadowColor: colors.shadowAmbient,
+                    },
+                  ]}
+                  contentStyle={styles.listCardContent}
+                  variant="solid"
+                >
+                  <View style={styles.listSectionHeader}>
+                    <Text
+                      variant="titleSmall"
+                      style={[styles.listSectionTitle, { color: colors.text }]}
+                    >
+                      {savedItemsTitle}
+                    </Text>
+                    {loading ? (
+                      <ActivityIndicator color={colors.primary} size="small" />
+                    ) : (
+                      <View
+                        style={[
+                          styles.savedCountPill,
+                          { backgroundColor: accentContainerColor },
+                        ]}
+                      >
+                        <Text
+                          variant="labelLarge"
+                          style={[
+                            styles.savedCountText,
+                            { color: accentColor },
+                          ]}
+                        >
+                          {filteredItems.length}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <FlatList
+                    style={styles.list}
+                    data={filteredItems}
+                    keyExtractor={keyExtractor}
+                    renderItem={renderListItem}
+                    ListEmptyComponent={listEmptyContent}
+                    ListFooterComponent={listFooterContent}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                  />
+                </AppCard>
+              </View>
             )}
           </View>
         </ModalSheet>
@@ -1382,6 +1498,13 @@ ItemSelector.displayName = "ItemSelector";
 const styles = StyleSheet.create({
   sheetContent: {
     flex: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  listArea: {
+    flex: 1,
   },
   list: {
     flex: 1,
@@ -1389,10 +1512,16 @@ const styles = StyleSheet.create({
   formScroll: {
     flex: 1,
   },
-  headerContainer: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.md,
+  headerCard: {
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    borderRadius: Radius.xl,
+    shadowOpacity: 0.11,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
     gap: Spacing.sm,
   },
   headerRow: {
@@ -1406,6 +1535,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     flex: 1,
+    minWidth: 0,
   },
   headerIconShell: {
     width: 44,
@@ -1423,6 +1553,7 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     fontWeight: "700",
+    flexShrink: 1,
   },
   sheetSubtitle: {
     lineHeight: 20,
@@ -1451,7 +1582,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 34,
     paddingHorizontal: Spacing.sm,
-    maxWidth: "68%",
+    maxWidth: "72%",
   },
   quickCreateInlinePressed: {
     opacity: 0.92,
@@ -1533,28 +1664,54 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   formScrollContent: {
-    paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxxl + Spacing.xl,
     paddingTop: Spacing.xs,
     gap: Spacing.md,
   },
-  listContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xxxl + Spacing.xl,
+  listCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    borderRadius: Radius.xl,
+    shadowOpacity: 0.11,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  listCardContent: {
+    flex: 1,
     gap: Spacing.xs,
   },
-  itemCard: {
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    padding: Spacing.sm,
+  listSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+  },
+  listSectionTitle: {
+    fontWeight: "700",
+  },
+  listContent: {
+    paddingTop: Spacing.xxs,
+    paddingBottom: Spacing.xl,
   },
   itemRow: {
-    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: Spacing.xs,
+    minHeight: 48,
+    paddingLeft: 12,
+    paddingVertical: Spacing.xs,
+    borderBottomWidth: 1,
+  },
+  itemMarker: {
+    width: 14,
+    textAlign: "center",
+    fontWeight: "800",
+    fontSize: 14,
   },
   itemSelectArea: {
     flex: 1,
@@ -1584,6 +1741,8 @@ const styles = StyleSheet.create({
     height: 48,
   },
   emptyState: {
+    borderWidth: 1,
+    borderRadius: Radius.lg,
     paddingVertical: Spacing.xxl,
     paddingHorizontal: Spacing.md,
     alignItems: "center",
@@ -1594,7 +1753,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   footerContainer: {
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
+  },
+  footerCreateButton: {
+    marginTop: Spacing.xxs,
   },
 });
