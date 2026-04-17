@@ -904,13 +904,13 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
               ),
             ),
           );
-          onMasterItemChange?.(resolvedItem);
           const updatedLabel = getMasterItemDisplayName(resolvedItem);
-          setSearchInputValue(updatedLabel);
+          onMasterItemChange?.(resolvedItem);
+          onSelect(resolvedItem.id, updatedLabel);
 
           closeSheet();
           resetForm();
-          showError(`${displayType} updated.`);
+          showError(`${displayType} updated and selected.`);
           void runSync();
         } else {
           const itemId = createUuid();
