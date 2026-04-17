@@ -1,6 +1,7 @@
-import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
-import * as BackgroundTask from 'expo-background-task';
-import * as TaskManager from 'expo-task-manager';
+import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
+import * as BackgroundTask from "expo-background-task";
+import * as TaskManager from "expo-task-manager";
+import * as Location from "expo-location";
 import {
   db,
   getPendingSyncCount,
@@ -11,11 +12,81 @@ import {
   removeFromSyncQueue,
   setSyncMeta,
   upsertLocalDisplayName,
-} from './localDb';
-import { logWarn } from './logger';
-import { supabase } from './supabase';
+} from "./localDb";
+import { logWarn } from "./logger";
+import { supabase } from "./supabase";
+import { createUuid } from "./localDb";
 
-type QueueOperation = 'INSERT' | 'UPDATE' | 'DELETE';
+function mapWmoToCondition(code: number): string {
+  if (code === 0) return "Clear";
+  if ([1, 2, 3].includes(code)) return "Cloudy";
+  if ([45, 48].includes(code)) return "Fog";
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return "Rain";
+  if (code >= 71 && code <= 77) return "Snow";
+  if (code >= 95) return "Storm";
+  return "Overcast";
+}
+
+export async function fetchAndStoreDailyWeather(dateString: string) {
+  const existingRow = db.getFirstSync<{ id: string }>(
+    `SELECT id FROM daily_environmental_context WHERE date = ?`,
+    [dateString],
+  );
+
+  if (existingRow) {
+    return;
+  }
+
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      throw new Error("Location permission denied");
+    }
+
+    const loc = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    const lat = loc.coords.latitude;
+    const lon = loc.coords.longitude;
+
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,surface_pressure,weather_code`,
+    );
+    if (!res.ok) {
+      throw new Error(`Weather API failed: ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    const current = data.current || {};
+
+    const temp = current.temperature_2m ?? 20;
+    const humidity = current.relative_humidity_2m ?? 50;
+    const pressure = current.surface_pressure ?? 1012;
+    const wmoCode = current.weather_code ?? 0;
+    const condition = mapWmoToCondition(wmoCode);
+
+    db.runSync(
+      `
+        INSERT INTO daily_environmental_context (
+          id, date, avg_temperature, max_humidity, barometric_pressure, weather_condition
+        ) VALUES (?, ?, ?, ?, ?, ?);
+      `,
+      [createUuid(), dateString, temp, humidity, pressure, condition],
+    );
+  } catch (error) {
+    logWarn("fetchAndStoreDailyWeather error", error);
+    db.runSync(
+      `
+        INSERT INTO daily_environmental_context (
+          id, date, avg_temperature, max_humidity, barometric_pressure, weather_condition
+        ) VALUES (?, ?, ?, ?, ?, ?);
+      `,
+      [createUuid(), dateString, 22.5, 60, 1012, "Unknown"],
+    );
+  }
+}
+
+type QueueOperation = "INSERT" | "UPDATE" | "DELETE";
 
 interface QueueRow {
   id: string;
@@ -26,8 +97,8 @@ interface QueueRow {
   created_at: string;
 }
 
-type UserItemTableName = 'user_medicines' | 'user_foods';
-type DependentLogTableName = 'medicine_logs' | 'food_logs';
+type UserItemTableName = "user_medicines" | "user_foods";
+type DependentLogTableName = "medicine_logs" | "food_logs";
 
 interface ActiveSyncUser {
   id: string;
@@ -100,10 +171,10 @@ interface LogDependencyReference {
   logId: string | null;
 }
 
-const BACKGROUND_SYNC_TASK = 'BACKGROUND_SYNC_TASK';
-const DEFAULT_USER_ITEM_NAME = 'Saved item';
+const BACKGROUND_SYNC_TASK = "BACKGROUND_SYNC_TASK";
+const DEFAULT_USER_ITEM_NAME = "Saved item";
 const DEFAULT_USER_ITEM_QUANTITY = 1;
-const DEFAULT_USER_ITEM_UNIT = 'unit';
+const DEFAULT_USER_ITEM_UNIT = "unit";
 
 interface SyncStatusSnapshot {
   isSyncing: boolean;
@@ -130,14 +201,14 @@ function getErrorMessage(error: unknown) {
     return error.message;
   }
 
-  if (typeof error === 'string') {
+  if (typeof error === "string") {
     return error;
   }
 
   try {
     return JSON.stringify(error);
   } catch {
-    return 'Unknown sync error';
+    return "Unknown sync error";
   }
 }
 
@@ -152,7 +223,7 @@ function recordSyncError(error: unknown) {
   const errorMessage = getErrorMessage(error);
 
   try {
-    setSyncMeta('last_sync_error', errorMessage);
+    setSyncMeta("last_sync_error", errorMessage);
   } catch {
     // Keep in-memory status even if persistent metadata write fails.
   }
@@ -173,8 +244,8 @@ function refreshSyncStatusSnapshot(activeUserId?: string | null) {
 
     updateSyncStatus({
       pendingCount,
-      lastSyncAt: getSyncMeta('last_sync_at'),
-      lastError: getSyncMeta('last_sync_error'),
+      lastSyncAt: getSyncMeta("last_sync_at"),
+      lastError: getSyncMeta("last_sync_error"),
     });
   } catch {
     // If local DB isn't initialized yet, keep existing in-memory status.
@@ -196,7 +267,7 @@ function parseQueuePayload(rawPayload: string): unknown {
 }
 
 function getPayloadRecord(payload: unknown) {
-  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
     return payload as Record<string, unknown>;
   }
 
@@ -212,7 +283,7 @@ function getPayloadRowId(payload: unknown) {
 
   const directId = payloadRecord.id;
 
-  if (typeof directId === 'string' && directId.length > 0) {
+  if (typeof directId === "string" && directId.length > 0) {
     return directId;
   }
 
@@ -221,7 +292,7 @@ function getPayloadRowId(payload: unknown) {
 
   const nestedId = rowRecord?.id ?? dataRecord?.id;
 
-  return typeof nestedId === 'string' && nestedId.length > 0 ? nestedId : null;
+  return typeof nestedId === "string" && nestedId.length > 0 ? nestedId : null;
 }
 
 function getWritePayload(payload: unknown) {
@@ -242,20 +313,24 @@ function getWritePayload(payload: unknown) {
   return payloadRecord;
 }
 
-function isUserItemTableName(tableName: string): tableName is UserItemTableName {
-  return tableName === 'user_medicines' || tableName === 'user_foods';
+function isUserItemTableName(
+  tableName: string,
+): tableName is UserItemTableName {
+  return tableName === "user_medicines" || tableName === "user_foods";
 }
 
-function isDependentLogTableName(tableName: string): tableName is DependentLogTableName {
-  return tableName === 'medicine_logs' || tableName === 'food_logs';
+function isDependentLogTableName(
+  tableName: string,
+): tableName is DependentLogTableName {
+  return tableName === "medicine_logs" || tableName === "food_logs";
 }
 
 function normalizeUserItemQuantity(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) {
+  if (typeof value === "number" && Number.isFinite(value)) {
     return value;
   }
 
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const parsedValue = Number(value.trim());
 
     if (Number.isFinite(parsedValue)) {
@@ -266,8 +341,11 @@ function normalizeUserItemQuantity(value: unknown) {
   return DEFAULT_USER_ITEM_QUANTITY;
 }
 
-function normalizeUserItemName(value: unknown, fallbackName = DEFAULT_USER_ITEM_NAME) {
-  if (typeof value === 'string') {
+function normalizeUserItemName(
+  value: unknown,
+  fallbackName = DEFAULT_USER_ITEM_NAME,
+) {
+  if (typeof value === "string") {
     const trimmedValue = value.trim();
 
     if (trimmedValue.length > 0) {
@@ -277,11 +355,16 @@ function normalizeUserItemName(value: unknown, fallbackName = DEFAULT_USER_ITEM_
 
   const trimmedFallbackName = fallbackName.trim();
 
-  return trimmedFallbackName.length > 0 ? trimmedFallbackName : DEFAULT_USER_ITEM_NAME;
+  return trimmedFallbackName.length > 0
+    ? trimmedFallbackName
+    : DEFAULT_USER_ITEM_NAME;
 }
 
-function normalizeUserItemUnit(value: unknown, fallbackUnit = DEFAULT_USER_ITEM_UNIT) {
-  if (typeof value === 'string') {
+function normalizeUserItemUnit(
+  value: unknown,
+  fallbackUnit = DEFAULT_USER_ITEM_UNIT,
+) {
+  if (typeof value === "string") {
     const trimmedValue = value.trim();
 
     if (trimmedValue.length > 0) {
@@ -291,7 +374,9 @@ function normalizeUserItemUnit(value: unknown, fallbackUnit = DEFAULT_USER_ITEM_
 
   const trimmedFallbackUnit = fallbackUnit.trim();
 
-  return trimmedFallbackUnit.length > 0 ? trimmedFallbackUnit : DEFAULT_USER_ITEM_UNIT;
+  return trimmedFallbackUnit.length > 0
+    ? trimmedFallbackUnit
+    : DEFAULT_USER_ITEM_UNIT;
 }
 
 function sanitizeUserItemWritePayload(payload: unknown, row: QueueRow) {
@@ -301,9 +386,10 @@ function sanitizeUserItemWritePayload(payload: unknown, row: QueueRow) {
     return payload;
   }
 
-  const allowedKeys = row.operation === 'INSERT'
-    ? (['id', 'user_id', 'name', 'quantity', 'unit'] as const)
-    : (['name', 'quantity', 'unit'] as const);
+  const allowedKeys =
+    row.operation === "INSERT"
+      ? (["id", "user_id", "name", "quantity", "unit"] as const)
+      : (["name", "quantity", "unit"] as const);
   const sanitizedPayload: Record<string, unknown> = {};
 
   for (const key of allowedKeys) {
@@ -312,26 +398,33 @@ function sanitizeUserItemWritePayload(payload: unknown, row: QueueRow) {
     }
   }
 
-  if (row.operation === 'INSERT') {
-    if (typeof sanitizedPayload.user_id !== 'string' || sanitizedPayload.user_id.length === 0) {
+  if (row.operation === "INSERT") {
+    if (
+      typeof sanitizedPayload.user_id !== "string" ||
+      sanitizedPayload.user_id.length === 0
+    ) {
       sanitizedPayload.user_id = row.user_id;
     }
 
     sanitizedPayload.name = normalizeUserItemName(sanitizedPayload.name);
-    sanitizedPayload.quantity = normalizeUserItemQuantity(sanitizedPayload.quantity);
+    sanitizedPayload.quantity = normalizeUserItemQuantity(
+      sanitizedPayload.quantity,
+    );
     sanitizedPayload.unit = normalizeUserItemUnit(sanitizedPayload.unit);
     return sanitizedPayload;
   }
 
-  if (Object.prototype.hasOwnProperty.call(sanitizedPayload, 'name')) {
+  if (Object.prototype.hasOwnProperty.call(sanitizedPayload, "name")) {
     sanitizedPayload.name = normalizeUserItemName(sanitizedPayload.name);
   }
 
-  if (Object.prototype.hasOwnProperty.call(sanitizedPayload, 'quantity')) {
-    sanitizedPayload.quantity = normalizeUserItemQuantity(sanitizedPayload.quantity);
+  if (Object.prototype.hasOwnProperty.call(sanitizedPayload, "quantity")) {
+    sanitizedPayload.quantity = normalizeUserItemQuantity(
+      sanitizedPayload.quantity,
+    );
   }
 
-  if (Object.prototype.hasOwnProperty.call(sanitizedPayload, 'unit')) {
+  if (Object.prototype.hasOwnProperty.call(sanitizedPayload, "unit")) {
     sanitizedPayload.unit = normalizeUserItemUnit(sanitizedPayload.unit);
   }
 
@@ -341,7 +434,7 @@ function sanitizeUserItemWritePayload(payload: unknown, row: QueueRow) {
 function getNormalizedWritePayload(row: QueueRow, payload: unknown) {
   let writePayload = getWritePayload(payload);
 
-  if (row.table_name === 'stress_logs') {
+  if (row.table_name === "stress_logs") {
     writePayload = normalizeStressWritePayload(writePayload);
   }
 
@@ -364,11 +457,11 @@ function hasWritableKeys(payload: unknown) {
 
 function getQueueProcessingPriority(row: QueueRow) {
   if (isUserItemTableName(row.table_name)) {
-    return row.operation === 'DELETE' ? 3 : 0;
+    return row.operation === "DELETE" ? 3 : 0;
   }
 
   if (isDependentLogTableName(row.table_name)) {
-    return row.operation === 'DELETE' ? 2 : 1;
+    return row.operation === "DELETE" ? 2 : 1;
   }
 
   return 2;
@@ -376,13 +469,17 @@ function getQueueProcessingPriority(row: QueueRow) {
 
 function sortQueueForProcessing(queue: QueueRow[]) {
   return [...queue].sort((leftRow, rightRow) => {
-    const priorityDifference = getQueueProcessingPriority(leftRow) - getQueueProcessingPriority(rightRow);
+    const priorityDifference =
+      getQueueProcessingPriority(leftRow) -
+      getQueueProcessingPriority(rightRow);
 
     if (priorityDifference !== 0) {
       return priorityDifference;
     }
 
-    const createdAtDifference = leftRow.created_at.localeCompare(rightRow.created_at);
+    const createdAtDifference = leftRow.created_at.localeCompare(
+      rightRow.created_at,
+    );
 
     if (createdAtDifference !== 0) {
       return createdAtDifference;
@@ -403,10 +500,12 @@ function inferNameFromDisplayName(displayName: string | null) {
     return null;
   }
 
-  const [leadingName] = trimmedDisplayName.split('•');
+  const [leadingName] = trimmedDisplayName.split("•");
   const normalizedName = leadingName?.trim();
 
-  return normalizedName && normalizedName.length > 0 ? normalizedName : trimmedDisplayName;
+  return normalizedName && normalizedName.length > 0
+    ? normalizedName
+    : trimmedDisplayName;
 }
 
 function getLogDependencyReference(row: QueueRow, payload: unknown) {
@@ -420,27 +519,38 @@ function getLogDependencyReference(row: QueueRow, payload: unknown) {
     return null;
   }
 
-  const parentIdKey = row.table_name === 'medicine_logs' ? 'medicine_id' : 'food_id';
-  const parentId = typeof writePayloadRecord[parentIdKey] === 'string' ? writePayloadRecord[parentIdKey] : null;
-  const userIdFromPayload = typeof writePayloadRecord.user_id === 'string' ? writePayloadRecord.user_id : null;
+  const parentIdKey =
+    row.table_name === "medicine_logs" ? "medicine_id" : "food_id";
+  const parentId =
+    typeof writePayloadRecord[parentIdKey] === "string"
+      ? writePayloadRecord[parentIdKey]
+      : null;
+  const userIdFromPayload =
+    typeof writePayloadRecord.user_id === "string"
+      ? writePayloadRecord.user_id
+      : null;
   const userId = row.user_id ?? userIdFromPayload;
 
   if (!parentId || !userId) {
     return null;
   }
 
-  const explicitLogId = typeof writePayloadRecord.id === 'string' ? writePayloadRecord.id : null;
+  const explicitLogId =
+    typeof writePayloadRecord.id === "string" ? writePayloadRecord.id : null;
   const fallbackLogId = getPayloadRowId(payload);
 
   return {
-    parentTable: row.table_name === 'medicine_logs' ? 'user_medicines' : 'user_foods',
+    parentTable:
+      row.table_name === "medicine_logs" ? "user_medicines" : "user_foods",
     parentId,
     userId,
     logId: explicitLogId ?? fallbackLogId,
   } as LogDependencyReference;
 }
 
-function getFallbackMasterRow(reference: LogDependencyReference): LocalMasterRow {
+function getFallbackMasterRow(
+  reference: LogDependencyReference,
+): LocalMasterRow {
   const existingMasterRow = db.getFirstSync<LocalMasterRow>(
     `
       SELECT id, user_id, name, quantity, unit
@@ -456,14 +566,17 @@ function getFallbackMasterRow(reference: LogDependencyReference): LocalMasterRow
       ...existingMasterRow,
       name: normalizeUserItemName(
         existingMasterRow.name,
-        reference.parentTable === 'user_medicines' ? 'Recovered medicine' : 'Recovered food',
+        reference.parentTable === "user_medicines"
+          ? "Recovered medicine"
+          : "Recovered food",
       ),
       quantity: normalizeUserItemQuantity(existingMasterRow.quantity),
       unit: normalizeUserItemUnit(existingMasterRow.unit),
     };
   }
 
-  const sourceLogTable = reference.parentTable === 'user_medicines' ? 'medicine_logs' : 'food_logs';
+  const sourceLogTable =
+    reference.parentTable === "user_medicines" ? "medicine_logs" : "food_logs";
   const sourceLogSnapshot = reference.logId
     ? db.getFirstSync<LocalLogSnapshotRow>(
         `
@@ -475,21 +588,28 @@ function getFallbackMasterRow(reference: LogDependencyReference): LocalMasterRow
         [reference.logId, reference.userId],
       )
     : null;
-  const snapshotName = sourceLogSnapshot?.item_name?.trim() || inferNameFromDisplayName(sourceLogSnapshot?.item_display_name ?? null);
+  const snapshotName =
+    sourceLogSnapshot?.item_name?.trim() ||
+    inferNameFromDisplayName(sourceLogSnapshot?.item_display_name ?? null);
 
   return {
     id: reference.parentId,
     user_id: reference.userId,
     name: normalizeUserItemName(
       snapshotName,
-      reference.parentTable === 'user_medicines' ? 'Recovered medicine' : 'Recovered food',
+      reference.parentTable === "user_medicines"
+        ? "Recovered medicine"
+        : "Recovered food",
     ),
     quantity: normalizeUserItemQuantity(sourceLogSnapshot?.item_quantity),
     unit: normalizeUserItemUnit(sourceLogSnapshot?.item_unit),
   };
 }
 
-async function ensureRemoteParentExistsForDependentLog(row: QueueRow, payload: unknown) {
+async function ensureRemoteParentExistsForDependentLog(
+  row: QueueRow,
+  payload: unknown,
+) {
   const dependencyReference = getLogDependencyReference(row, payload);
 
   if (!dependencyReference) {
@@ -499,7 +619,7 @@ async function ensureRemoteParentExistsForDependentLog(row: QueueRow, payload: u
   const fallbackMasterRow = getFallbackMasterRow(dependencyReference);
   const { error } = await supabase
     .from(dependencyReference.parentTable)
-    .upsert(fallbackMasterRow as never, { onConflict: 'id' });
+    .upsert(fallbackMasterRow as never, { onConflict: "id" });
 
   if (error) {
     throw error;
@@ -508,34 +628,34 @@ async function ensureRemoteParentExistsForDependentLog(row: QueueRow, payload: u
   return true;
 }
 
-function normalizeStressLevel(level: StressLogRow['level']) {
-  if (typeof level === 'string') {
+function normalizeStressLevel(level: StressLogRow["level"]) {
+  if (typeof level === "string") {
     const lowered = level.trim().toLowerCase();
 
-    if (lowered === 'low' || lowered === 'moderate' || lowered === 'high') {
+    if (lowered === "low" || lowered === "moderate" || lowered === "high") {
       return lowered;
     }
 
-    if (lowered === 'none') {
-      return 'low';
+    if (lowered === "none") {
+      return "low";
     }
 
-    if (lowered === 'mid') {
-      return 'moderate';
+    if (lowered === "mid") {
+      return "moderate";
     }
 
-    return 'low';
+    return "low";
   }
 
-  if (typeof level === 'number' && Number.isFinite(level)) {
-    if (level <= 0) return 'low';
-    if (level <= 3) return 'low';
-    if (level <= 6) return 'moderate';
+  if (typeof level === "number" && Number.isFinite(level)) {
+    if (level <= 0) return "low";
+    if (level <= 3) return "low";
+    if (level <= 6) return "moderate";
 
-    return 'high';
+    return "high";
   }
 
-  return 'low';
+  return "low";
 }
 
 function normalizeStressWritePayload(payload: unknown) {
@@ -545,26 +665,35 @@ function normalizeStressWritePayload(payload: unknown) {
     return payload;
   }
 
-  payloadRecord.level = normalizeStressLevel(payloadRecord.level as StressLogRow['level']);
+  payloadRecord.level = normalizeStressLevel(
+    payloadRecord.level as StressLogRow["level"],
+  );
 
   return payloadRecord;
 }
 
-function resolveRemoteDisplayName(user: { email?: string | null; user_metadata?: Record<string, unknown> | null }) {
+function resolveRemoteDisplayName(user: {
+  email?: string | null;
+  user_metadata?: Record<string, unknown> | null;
+}) {
   const metadata = user.user_metadata ?? {};
-  const displayName = typeof metadata.display_name === 'string' ? metadata.display_name.trim() : '';
+  const displayName =
+    typeof metadata.display_name === "string"
+      ? metadata.display_name.trim()
+      : "";
 
   if (displayName.length > 0) {
     return displayName;
   }
 
-  const fullName = typeof metadata.full_name === 'string' ? metadata.full_name.trim() : '';
+  const fullName =
+    typeof metadata.full_name === "string" ? metadata.full_name.trim() : "";
 
   if (fullName.length > 0) {
     return fullName;
   }
 
-  const emailPrefix = user.email?.split('@')[0]?.trim() ?? '';
+  const emailPrefix = user.email?.split("@")[0]?.trim() ?? "";
 
   return emailPrefix.length > 0 ? emailPrefix : null;
 }
@@ -597,12 +726,17 @@ async function runQueueOperation(row: QueueRow) {
     throw new Error(`Invalid queue payload for ${row.id}.`);
   }
 
-  if (row.table_name === 'auth_profile') {
+  if (row.table_name === "auth_profile") {
     const payloadRecord = getPayloadRecord(getWritePayload(payload));
-    const displayName = typeof payloadRecord?.display_name === 'string' ? payloadRecord.display_name.trim() : '';
+    const displayName =
+      typeof payloadRecord?.display_name === "string"
+        ? payloadRecord.display_name.trim()
+        : "";
 
     if (displayName.length === 0) {
-      throw new Error(`Missing display_name for auth_profile update in ${row.id}.`);
+      throw new Error(
+        `Missing display_name for auth_profile update in ${row.id}.`,
+      );
     }
 
     const { error } = await supabase.auth.updateUser({
@@ -620,12 +754,17 @@ async function runQueueOperation(row: QueueRow) {
 
   const normalizedWritePayload = getNormalizedWritePayload(row, payload);
 
-  if ((row.operation === 'INSERT' || row.operation === 'UPDATE') && !hasWritableKeys(normalizedWritePayload)) {
+  if (
+    (row.operation === "INSERT" || row.operation === "UPDATE") &&
+    !hasWritableKeys(normalizedWritePayload)
+  ) {
     return;
   }
 
-  if (row.operation === 'INSERT') {
-    const { error } = await supabase.from(row.table_name).insert(normalizedWritePayload as never);
+  if (row.operation === "INSERT") {
+    const { error } = await supabase
+      .from(row.table_name)
+      .insert(normalizedWritePayload as never);
 
     if (error) {
       throw error;
@@ -634,7 +773,7 @@ async function runQueueOperation(row: QueueRow) {
     return;
   }
 
-  if (row.operation === 'UPDATE') {
+  if (row.operation === "UPDATE") {
     const rowId = getPayloadRowId(payload);
 
     if (!rowId) {
@@ -644,7 +783,7 @@ async function runQueueOperation(row: QueueRow) {
     const { error } = await supabase
       .from(row.table_name)
       .update(normalizedWritePayload as never)
-      .eq('id', rowId);
+      .eq("id", rowId);
 
     if (error) {
       throw error;
@@ -659,14 +798,19 @@ async function runQueueOperation(row: QueueRow) {
     throw new Error(`Missing row id for DELETE in ${row.id}.`);
   }
 
-  const { error } = await supabase.from(row.table_name).delete().eq('id', rowId);
+  const { error } = await supabase
+    .from(row.table_name)
+    .delete()
+    .eq("id", rowId);
 
   if (error) {
     throw error;
   }
 }
 
-async function pushLocalChanges(activeUserId: string): Promise<PushLocalChangesResult> {
+async function pushLocalChanges(
+  activeUserId: string,
+): Promise<PushLocalChangesResult> {
   let hadError = false;
   let didProcessAuthProfile = false;
 
@@ -680,7 +824,9 @@ async function pushLocalChanges(activeUserId: string): Promise<PushLocalChangesR
       };
     }
 
-    const queue = sortQueueForProcessing(getSyncQueue(activeUserId) as QueueRow[]);
+    const queue = sortQueueForProcessing(
+      getSyncQueue(activeUserId) as QueueRow[],
+    );
 
     for (const row of queue) {
       try {
@@ -693,43 +839,59 @@ async function pushLocalChanges(activeUserId: string): Promise<PushLocalChangesR
         await runQueueOperation(row);
         removeFromSyncQueue(row.id);
 
-        if (row.table_name === 'auth_profile') {
+        if (row.table_name === "auth_profile") {
           didProcessAuthProfile = true;
         }
 
-        updateSyncStatus({ pendingCount: Math.max(0, syncStatus.pendingCount - 1) });
+        updateSyncStatus({
+          pendingCount: Math.max(0, syncStatus.pendingCount - 1),
+        });
       } catch (error: any) {
-        if (error?.code === '23503' && isDependentLogTableName(row.table_name)) {
+        if (
+          error?.code === "23503" &&
+          isDependentLogTableName(row.table_name)
+        ) {
           const payload = parseQueuePayload(row.payload);
 
           if (payload !== null) {
             try {
-              const resolvedDependency = await ensureRemoteParentExistsForDependentLog(row, payload);
+              const resolvedDependency =
+                await ensureRemoteParentExistsForDependentLog(row, payload);
 
               if (resolvedDependency) {
                 await runQueueOperation(row);
                 removeFromSyncQueue(row.id);
-                updateSyncStatus({ pendingCount: Math.max(0, syncStatus.pendingCount - 1) });
+                updateSyncStatus({
+                  pendingCount: Math.max(0, syncStatus.pendingCount - 1),
+                });
                 continue;
               }
             } catch (dependencyError) {
-              logWarn('[sync] Failed to recover missing parent row for dependent log', {
-                rowId: row.id,
-                error: dependencyError,
-              });
+              logWarn(
+                "[sync] Failed to recover missing parent row for dependent log",
+                {
+                  rowId: row.id,
+                  error: dependencyError,
+                },
+              );
             }
           }
         }
 
-        if (error?.code === '22P02') {
+        if (error?.code === "22P02") {
           // Malformed UUID payloads can never sync to Supabase UUID columns.
           removeFromSyncQueue(row.id);
-          logWarn('[sync] Dropped malformed queue row with invalid UUID payload', { rowId: row.id });
-          updateSyncStatus({ pendingCount: Math.max(0, syncStatus.pendingCount - 1) });
+          logWarn(
+            "[sync] Dropped malformed queue row with invalid UUID payload",
+            { rowId: row.id },
+          );
+          updateSyncStatus({
+            pendingCount: Math.max(0, syncStatus.pendingCount - 1),
+          });
           continue;
         }
 
-        logWarn('[sync] Failed to push queue row', { rowId: row.id, error });
+        logWarn("[sync] Failed to push queue row", { rowId: row.id, error });
         recordSyncError(error);
         hadError = true;
       }
@@ -737,7 +899,7 @@ async function pushLocalChanges(activeUserId: string): Promise<PushLocalChangesR
 
     refreshSyncStatusSnapshot(activeUserId);
   } catch (error) {
-    logWarn('[sync] Failed while pushing local changes', error);
+    logWarn("[sync] Failed while pushing local changes", error);
     recordSyncError(error);
     hadError = true;
   }
@@ -803,7 +965,13 @@ function upsertStressLogs(rows: StressLogRow[]) {
         (id, user_id, logged_at, log_date, level)
         VALUES (?, ?, ?, ?, ?);
       `,
-      [row.id, row.user_id, row.logged_at, row.log_date, normalizeStressLevel(row.level)],
+      [
+        row.id,
+        row.user_id,
+        row.logged_at,
+        row.log_date,
+        normalizeStressLevel(row.level),
+      ],
     );
   }
 }
@@ -953,32 +1121,41 @@ function backfillRecentLogSnapshots(userId: string) {
 }
 
 async function fetchRecentLogsFromSupabase(userId: string) {
-  const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const sevenDaysAgoIso = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000,
+  ).toISOString();
 
-  const [painResult, stressResult, medicineResult, foodResult] = await Promise.all([
-    supabase
-      .from('pain_logs')
-      .select('id, user_id, logged_at, log_date, body_part, pain_level, swelling')
-      .eq('user_id', userId)
-      .gte('logged_at', sevenDaysAgoIso),
-    supabase
-      .from('stress_logs')
-      .select('id, user_id, logged_at, log_date, level')
-      .eq('user_id', userId)
-      .gte('logged_at', sevenDaysAgoIso),
-    supabase
-      .from('medicine_logs')
-      .select('id, user_id, medicine_id, logged_at, log_date')
-      .eq('user_id', userId)
-      .gte('logged_at', sevenDaysAgoIso),
-    supabase
-      .from('food_logs')
-      .select('id, user_id, food_id, logged_at, log_date')
-      .eq('user_id', userId)
-      .gte('logged_at', sevenDaysAgoIso),
-  ]);
+  const [painResult, stressResult, medicineResult, foodResult] =
+    await Promise.all([
+      supabase
+        .from("pain_logs")
+        .select(
+          "id, user_id, logged_at, log_date, body_part, pain_level, swelling",
+        )
+        .eq("user_id", userId)
+        .gte("logged_at", sevenDaysAgoIso),
+      supabase
+        .from("stress_logs")
+        .select("id, user_id, logged_at, log_date, level")
+        .eq("user_id", userId)
+        .gte("logged_at", sevenDaysAgoIso),
+      supabase
+        .from("medicine_logs")
+        .select("id, user_id, medicine_id, logged_at, log_date")
+        .eq("user_id", userId)
+        .gte("logged_at", sevenDaysAgoIso),
+      supabase
+        .from("food_logs")
+        .select("id, user_id, food_id, logged_at, log_date")
+        .eq("user_id", userId)
+        .gte("logged_at", sevenDaysAgoIso),
+    ]);
 
-  const firstError = painResult.error || stressResult.error || medicineResult.error || foodResult.error;
+  const firstError =
+    painResult.error ||
+    stressResult.error ||
+    medicineResult.error ||
+    foodResult.error;
 
   if (firstError) {
     throw firstError;
@@ -992,7 +1169,10 @@ async function fetchRecentLogsFromSupabase(userId: string) {
   };
 }
 
-async function pullRemoteChanges(activeUser: ActiveSyncUser, options?: { skipProfileCacheRefresh?: boolean }) {
+async function pullRemoteChanges(
+  activeUser: ActiveSyncUser,
+  options?: { skipProfileCacheRefresh?: boolean },
+) {
   try {
     const networkState = await NetInfo.fetch();
 
@@ -1000,7 +1180,10 @@ async function pullRemoteChanges(activeUser: ActiveSyncUser, options?: { skipPro
       return false;
     }
 
-    if (!options?.skipProfileCacheRefresh && getPendingSyncCountForTable('auth_profile', activeUser.id) === 0) {
+    if (
+      !options?.skipProfileCacheRefresh &&
+      getPendingSyncCountForTable("auth_profile", activeUser.id) === 0
+    ) {
       let latestActiveUser = activeUser;
 
       try {
@@ -1020,13 +1203,13 @@ async function pullRemoteChanges(activeUser: ActiveSyncUser, options?: { skipPro
 
     const [medicinesResult, foodsResult, recentLogs] = await Promise.all([
       supabase
-        .from('user_medicines')
-        .select('id, user_id, name, quantity, unit, display_name')
-        .eq('user_id', activeUser.id),
+        .from("user_medicines")
+        .select("id, user_id, name, quantity, unit, display_name")
+        .eq("user_id", activeUser.id),
       supabase
-        .from('user_foods')
-        .select('id, user_id, name, quantity, unit, display_name')
-        .eq('user_id', activeUser.id),
+        .from("user_foods")
+        .select("id, user_id, name, quantity, unit, display_name")
+        .eq("user_id", activeUser.id),
       fetchRecentLogsFromSupabase(activeUser.id),
     ]);
 
@@ -1038,7 +1221,7 @@ async function pullRemoteChanges(activeUser: ActiveSyncUser, options?: { skipPro
       throw foodsResult.error;
     }
 
-    db.execSync('BEGIN TRANSACTION;');
+    db.execSync("BEGIN TRANSACTION;");
 
     try {
       upsertUserMedicines((medicinesResult.data ?? []) as UserItemRow[]);
@@ -1048,15 +1231,15 @@ async function pullRemoteChanges(activeUser: ActiveSyncUser, options?: { skipPro
       upsertMedicineLogs(recentLogs.medicineLogs);
       upsertFoodLogs(recentLogs.foodLogs);
       backfillRecentLogSnapshots(activeUser.id);
-      db.execSync('COMMIT;');
+      db.execSync("COMMIT;");
     } catch (error) {
-      db.execSync('ROLLBACK;');
+      db.execSync("ROLLBACK;");
       throw error;
     }
 
     return true;
   } catch (error) {
-    logWarn('[sync] Failed while pulling remote changes', error);
+    logWarn("[sync] Failed while pulling remote changes", error);
     recordSyncError(error);
     return false;
   }
@@ -1083,15 +1266,18 @@ export async function runSync() {
       activeUserId = activeUser.id;
       refreshSyncStatusSnapshot(activeUserId);
 
-      const { succeeded: pushSucceeded, didProcessAuthProfile } = await pushLocalChanges(activeUserId);
-      const pullSucceeded = await pullRemoteChanges(activeUser, { skipProfileCacheRefresh: didProcessAuthProfile });
+      const { succeeded: pushSucceeded, didProcessAuthProfile } =
+        await pushLocalChanges(activeUserId);
+      const pullSucceeded = await pullRemoteChanges(activeUser, {
+        skipProfileCacheRefresh: didProcessAuthProfile,
+      });
 
       if (pushSucceeded && pullSucceeded) {
         const syncedAt = new Date().toISOString();
 
         try {
-          setSyncMeta('last_sync_at', syncedAt);
-          setSyncMeta('last_sync_error', null);
+          setSyncMeta("last_sync_at", syncedAt);
+          setSyncMeta("last_sync_error", null);
         } catch {
           // Keep in-memory status if metadata persistence fails.
         }
@@ -1102,7 +1288,7 @@ export async function runSync() {
         });
       }
     } catch (error) {
-      logWarn('[sync] Failed while running sync', error);
+      logWarn("[sync] Failed while running sync", error);
       recordSyncError(error);
     } finally {
       syncInFlight = null;
@@ -1126,7 +1312,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_SYNC_TASK)) {
       await runSync();
       return BackgroundTask.BackgroundTaskResult.Success;
     } catch (error) {
-      logWarn('[sync] Background sync failed', error);
+      logWarn("[sync] Background sync failed", error);
       return BackgroundTask.BackgroundTaskResult.Failed;
     }
   });
@@ -1140,7 +1326,8 @@ export async function registerBackgroundSync() {
       return;
     }
 
-    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_SYNC_TASK);
+    const isRegistered =
+      await TaskManager.isTaskRegisteredAsync(BACKGROUND_SYNC_TASK);
 
     if (isRegistered) {
       return;
@@ -1150,7 +1337,7 @@ export async function registerBackgroundSync() {
       minimumInterval: 15,
     });
   } catch (error) {
-    logWarn('[sync] Failed to register background sync', error);
+    logWarn("[sync] Failed to register background sync", error);
   }
 }
 

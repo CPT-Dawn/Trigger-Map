@@ -1,10 +1,10 @@
-import * as SQLite from 'expo-sqlite';
+import * as SQLite from "expo-sqlite";
 
-export const db = SQLite.openDatabaseSync('triggermap.db');
+export const db = SQLite.openDatabaseSync("triggermap.db");
 
-type SyncQueueOperation = 'INSERT' | 'UPDATE' | 'DELETE';
+type SyncQueueOperation = "INSERT" | "UPDATE" | "DELETE";
 
-type LogTableName = 'pain_logs' | 'stress_logs' | 'medicine_logs' | 'food_logs';
+type LogTableName = "pain_logs" | "stress_logs" | "medicine_logs" | "food_logs";
 
 interface SyncQueueRow {
   id: string;
@@ -26,11 +26,15 @@ interface TableColumnInfoRow {
   name: string;
 }
 
-type UserItemTableName = 'user_medicines' | 'user_foods';
+type UserItemTableName = "user_medicines" | "user_foods";
 
-type LocalDisplayNameChangeListener = (change: { userId: string; displayName: string | null }) => void;
+type LocalDisplayNameChangeListener = (change: {
+  userId: string;
+  displayName: string | null;
+}) => void;
 
-const localDisplayNameChangeListeners = new Set<LocalDisplayNameChangeListener>();
+const localDisplayNameChangeListeners =
+  new Set<LocalDisplayNameChangeListener>();
 
 interface UserItemBackfillRow {
   id: string;
@@ -40,22 +44,23 @@ interface UserItemBackfillRow {
   display_name: string | null;
 }
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const DEFAULT_USER_ITEM_NAME = 'Saved item';
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DEFAULT_USER_ITEM_NAME = "Saved item";
 const DEFAULT_USER_ITEM_QUANTITY = 1;
-const DEFAULT_USER_ITEM_UNIT = 'unit';
+const DEFAULT_USER_ITEM_UNIT = "unit";
 
 function isLogTableName(tableName: string): tableName is LogTableName {
   return (
-    tableName === 'pain_logs' ||
-    tableName === 'stress_logs' ||
-    tableName === 'medicine_logs' ||
-    tableName === 'food_logs'
+    tableName === "pain_logs" ||
+    tableName === "stress_logs" ||
+    tableName === "medicine_logs" ||
+    tableName === "food_logs"
   );
 }
 
 function isValidUuid(value: unknown): value is string {
-  return typeof value === 'string' && UUID_REGEX.test(value);
+  return typeof value === "string" && UUID_REGEX.test(value);
 }
 
 function createUuidFromBytes(bytes: Uint8Array) {
@@ -63,13 +68,22 @@ function createUuidFromBytes(bytes: Uint8Array) {
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
 
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  const hex = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
 
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 export function createUuid() {
-  const cryptoObject = (globalThis as { crypto?: { randomUUID?: () => string; getRandomValues?: (buffer: Uint8Array) => Uint8Array } }).crypto;
+  const cryptoObject = (
+    globalThis as {
+      crypto?: {
+        randomUUID?: () => string;
+        getRandomValues?: (buffer: Uint8Array) => Uint8Array;
+      };
+    }
+  ).crypto;
 
   if (cryptoObject?.randomUUID) {
     return cryptoObject.randomUUID();
@@ -95,7 +109,7 @@ function createQueueId() {
 }
 
 function getPayloadRecord(payload: unknown) {
-  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
     return payload as Record<string, unknown>;
   }
 
@@ -123,7 +137,7 @@ function getWritePayload(payload: unknown) {
 function getPayloadId(payloadRecord: Record<string, unknown>) {
   const directId = payloadRecord.id;
 
-  if (typeof directId === 'string' && directId.length > 0) {
+  if (typeof directId === "string" && directId.length > 0) {
     return directId;
   }
 
@@ -131,7 +145,7 @@ function getPayloadId(payloadRecord: Record<string, unknown>) {
   const dataRecord = getPayloadRecord(payloadRecord.data);
   const nestedId = rowRecord?.id ?? dataRecord?.id;
 
-  return typeof nestedId === 'string' && nestedId.length > 0 ? nestedId : null;
+  return typeof nestedId === "string" && nestedId.length > 0 ? nestedId : null;
 }
 
 function getPayloadUserId(payload: unknown) {
@@ -143,45 +157,61 @@ function getPayloadUserId(payload: unknown) {
 
   const directUserId = payloadRecord.user_id;
 
-  if (typeof directUserId === 'string' && directUserId.length > 0) {
+  if (typeof directUserId === "string" && directUserId.length > 0) {
     return directUserId;
   }
 
   const rowRecord = getPayloadRecord(payloadRecord.row);
 
-  if (rowRecord && typeof rowRecord.user_id === 'string' && rowRecord.user_id.length > 0) {
+  if (
+    rowRecord &&
+    typeof rowRecord.user_id === "string" &&
+    rowRecord.user_id.length > 0
+  ) {
     return rowRecord.user_id;
   }
 
   const dataRecord = getPayloadRecord(payloadRecord.data);
 
-  if (dataRecord && typeof dataRecord.user_id === 'string' && dataRecord.user_id.length > 0) {
+  if (
+    dataRecord &&
+    typeof dataRecord.user_id === "string" &&
+    dataRecord.user_id.length > 0
+  ) {
     return dataRecord.user_id;
   }
 
   return null;
 }
 
-function assignPayloadId(payloadRecord: Record<string, unknown>, nextId: string) {
-  if (typeof payloadRecord.id === 'string') {
+function assignPayloadId(
+  payloadRecord: Record<string, unknown>,
+  nextId: string,
+) {
+  if (typeof payloadRecord.id === "string") {
     payloadRecord.id = nextId;
   }
 
   const rowRecord = getPayloadRecord(payloadRecord.row);
 
-  if (rowRecord && typeof rowRecord.id === 'string') {
+  if (rowRecord && typeof rowRecord.id === "string") {
     rowRecord.id = nextId;
   }
 
   const dataRecord = getPayloadRecord(payloadRecord.data);
 
-  if (dataRecord && typeof dataRecord.id === 'string') {
+  if (dataRecord && typeof dataRecord.id === "string") {
     dataRecord.id = nextId;
   }
 }
 
 function replaceInvalidLogIds() {
-  const tables: LogTableName[] = ['pain_logs', 'stress_logs', 'medicine_logs', 'food_logs'];
+  const tables: LogTableName[] = [
+    "pain_logs",
+    "stress_logs",
+    "medicine_logs",
+    "food_logs",
+  ];
   const idMapByTable: Record<LogTableName, Map<string, string>> = {
     pain_logs: new Map(),
     stress_logs: new Map(),
@@ -198,7 +228,10 @@ function replaceInvalidLogIds() {
       }
 
       const nextId = createUuid();
-      db.runSync(`UPDATE ${tableName} SET id = ? WHERE id = ?;`, [nextId, row.id]);
+      db.runSync(`UPDATE ${tableName} SET id = ? WHERE id = ?;`, [
+        nextId,
+        row.id,
+      ]);
       idMapByTable[tableName].set(row.id, nextId);
     }
   }
@@ -206,7 +239,9 @@ function replaceInvalidLogIds() {
   return idMapByTable;
 }
 
-function repairSyncQueuePayloadIds(idMapByTable: Record<LogTableName, Map<string, string>>) {
+function repairSyncQueuePayloadIds(
+  idMapByTable: Record<LogTableName, Map<string, string>>,
+) {
   const queueRows = db.getAllSync<QueueRowForMigration>(
     `
       SELECT id, table_name, operation, payload
@@ -225,14 +260,14 @@ function repairSyncQueuePayloadIds(idMapByTable: Record<LogTableName, Map<string
     try {
       parsedPayload = JSON.parse(queueRow.payload);
     } catch {
-      db.runSync('DELETE FROM sync_queue WHERE id = ?;', [queueRow.id]);
+      db.runSync("DELETE FROM sync_queue WHERE id = ?;", [queueRow.id]);
       continue;
     }
 
     const payloadRecord = getPayloadRecord(parsedPayload);
 
     if (!payloadRecord) {
-      db.runSync('DELETE FROM sync_queue WHERE id = ?;', [queueRow.id]);
+      db.runSync("DELETE FROM sync_queue WHERE id = ?;", [queueRow.id]);
       continue;
     }
 
@@ -246,7 +281,10 @@ function repairSyncQueuePayloadIds(idMapByTable: Record<LogTableName, Map<string
 
     if (mappedId) {
       assignPayloadId(payloadRecord, mappedId);
-      db.runSync('UPDATE sync_queue SET payload = ? WHERE id = ?;', [JSON.stringify(payloadRecord), queueRow.id]);
+      db.runSync("UPDATE sync_queue SET payload = ? WHERE id = ?;", [
+        JSON.stringify(payloadRecord),
+        queueRow.id,
+      ]);
       continue;
     }
 
@@ -254,16 +292,22 @@ function repairSyncQueuePayloadIds(idMapByTable: Record<LogTableName, Map<string
       continue;
     }
 
-    if (queueRow.operation === 'INSERT') {
+    if (queueRow.operation === "INSERT") {
       const nextId = createUuid();
-      db.runSync(`UPDATE ${queueRow.table_name} SET id = ? WHERE id = ?;`, [nextId, payloadId]);
+      db.runSync(`UPDATE ${queueRow.table_name} SET id = ? WHERE id = ?;`, [
+        nextId,
+        payloadId,
+      ]);
       assignPayloadId(payloadRecord, nextId);
-      db.runSync('UPDATE sync_queue SET payload = ? WHERE id = ?;', [JSON.stringify(payloadRecord), queueRow.id]);
+      db.runSync("UPDATE sync_queue SET payload = ? WHERE id = ?;", [
+        JSON.stringify(payloadRecord),
+        queueRow.id,
+      ]);
       continue;
     }
 
     // Invalid UUIDs in UPDATE/DELETE payloads cannot map to Supabase rows; drop these stale queue rows.
-    db.runSync('DELETE FROM sync_queue WHERE id = ?;', [queueRow.id]);
+    db.runSync("DELETE FROM sync_queue WHERE id = ?;", [queueRow.id]);
   }
 }
 
@@ -273,17 +317,25 @@ function runLocalIdRepairMigration() {
 }
 
 function hasColumn(tableName: string, columnName: string) {
-  const columns = db.getAllSync<TableColumnInfoRow>(`PRAGMA table_info(${tableName});`);
+  const columns = db.getAllSync<TableColumnInfoRow>(
+    `PRAGMA table_info(${tableName});`,
+  );
 
   return columns.some((column) => column.name === columnName);
 }
 
-function ensureColumn(tableName: string, columnName: string, definition: string) {
+function ensureColumn(
+  tableName: string,
+  columnName: string,
+  definition: string,
+) {
   if (hasColumn(tableName, columnName)) {
     return;
   }
 
-  db.execSync(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition};`);
+  db.execSync(
+    `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition};`,
+  );
 }
 
 function backfillLogItemDisplayNames() {
@@ -379,7 +431,7 @@ function backfillLogItemDisplayNames() {
 }
 
 function sanitizeBodyPartNameForStorage(value: string | null | undefined) {
-  return value?.trim().replace(/\s+/g, ' ') ?? '';
+  return value?.trim().replace(/\s+/g, " ") ?? "";
 }
 
 function normalizeBodyPartNameForStorage(value: string | null | undefined) {
@@ -419,7 +471,11 @@ function backfillUserBodyPartsFromPainLogs() {
     existingKeys.add(`${existingRow.user_id}:${normalizedName}`);
   }
 
-  const painRows = db.getAllSync<{ user_id: string; body_part: string | null; logged_at: string | null }>(
+  const painRows = db.getAllSync<{
+    user_id: string;
+    body_part: string | null;
+    logged_at: string | null;
+  }>(
     `
       SELECT user_id, body_part, logged_at
       FROM pain_logs
@@ -456,37 +512,42 @@ function backfillUserBodyPartsFromPainLogs() {
   }
 }
 
-function normalizeStressLevelWithoutNone(value: unknown): 'low' | 'moderate' | 'high' | null {
-  if (typeof value === 'string') {
+function normalizeStressLevelWithoutNone(
+  value: unknown,
+): "low" | "moderate" | "high" | null {
+  if (typeof value === "string") {
     const lowered = value.trim().toLowerCase();
 
-    if (lowered === 'low' || lowered === 'moderate' || lowered === 'high') {
+    if (lowered === "low" || lowered === "moderate" || lowered === "high") {
       return lowered;
     }
 
-    if (lowered === 'mid') {
-      return 'moderate';
+    if (lowered === "mid") {
+      return "moderate";
     }
 
-    if (lowered === 'none') {
-      return 'low';
+    if (lowered === "none") {
+      return "low";
     }
 
-    return 'low';
+    return "low";
   }
 
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    if (value <= 3) return 'low';
-    if (value <= 6) return 'moderate';
+  if (typeof value === "number" && Number.isFinite(value)) {
+    if (value <= 3) return "low";
+    if (value <= 6) return "moderate";
 
-    return 'high';
+    return "high";
   }
 
   return null;
 }
 
-function normalizeUserItemName(value: unknown, fallbackName = DEFAULT_USER_ITEM_NAME) {
-  if (typeof value === 'string') {
+function normalizeUserItemName(
+  value: unknown,
+  fallbackName = DEFAULT_USER_ITEM_NAME,
+) {
+  if (typeof value === "string") {
     const trimmedValue = value.trim();
 
     if (trimmedValue.length > 0) {
@@ -496,15 +557,20 @@ function normalizeUserItemName(value: unknown, fallbackName = DEFAULT_USER_ITEM_
 
   const trimmedFallbackName = fallbackName.trim();
 
-  return trimmedFallbackName.length > 0 ? trimmedFallbackName : DEFAULT_USER_ITEM_NAME;
+  return trimmedFallbackName.length > 0
+    ? trimmedFallbackName
+    : DEFAULT_USER_ITEM_NAME;
 }
 
-function normalizeUserItemQuantity(value: unknown, fallbackQuantity = DEFAULT_USER_ITEM_QUANTITY) {
-  if (typeof value === 'number' && Number.isFinite(value)) {
+function normalizeUserItemQuantity(
+  value: unknown,
+  fallbackQuantity = DEFAULT_USER_ITEM_QUANTITY,
+) {
+  if (typeof value === "number" && Number.isFinite(value)) {
     return value;
   }
 
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const parsedValue = Number(value.trim());
 
     if (Number.isFinite(parsedValue)) {
@@ -515,8 +581,11 @@ function normalizeUserItemQuantity(value: unknown, fallbackQuantity = DEFAULT_US
   return fallbackQuantity;
 }
 
-function normalizeUserItemUnit(value: unknown, fallbackUnit = DEFAULT_USER_ITEM_UNIT) {
-  if (typeof value === 'string') {
+function normalizeUserItemUnit(
+  value: unknown,
+  fallbackUnit = DEFAULT_USER_ITEM_UNIT,
+) {
+  if (typeof value === "string") {
     const trimmedValue = value.trim();
 
     if (trimmedValue.length > 0) {
@@ -526,11 +595,13 @@ function normalizeUserItemUnit(value: unknown, fallbackUnit = DEFAULT_USER_ITEM_
 
   const trimmedFallbackUnit = fallbackUnit.trim();
 
-  return trimmedFallbackUnit.length > 0 ? trimmedFallbackUnit : DEFAULT_USER_ITEM_UNIT;
+  return trimmedFallbackUnit.length > 0
+    ? trimmedFallbackUnit
+    : DEFAULT_USER_ITEM_UNIT;
 }
 
 function parseUserItemDisplayName(displayName: string | null | undefined) {
-  const trimmedDisplayName = displayName?.trim() ?? '';
+  const trimmedDisplayName = displayName?.trim() ?? "";
 
   if (trimmedDisplayName.length === 0) {
     return {
@@ -540,7 +611,7 @@ function parseUserItemDisplayName(displayName: string | null | undefined) {
     };
   }
 
-  const [nameSegment, trailingSegmentRaw] = trimmedDisplayName.split('•');
+  const [nameSegment, trailingSegmentRaw] = trimmedDisplayName.split("•");
   const inferredName = nameSegment?.trim() || null;
   const trailingSegment = trailingSegmentRaw?.trim() || null;
 
@@ -552,7 +623,9 @@ function parseUserItemDisplayName(displayName: string | null | undefined) {
     };
   }
 
-  const quantityAndUnitMatch = trailingSegment.match(/^(-?\d+(?:\.\d+)?)\s*(.*)$/);
+  const quantityAndUnitMatch = trailingSegment.match(
+    /^(-?\d+(?:\.\d+)?)\s*(.*)$/,
+  );
 
   if (!quantityAndUnitMatch) {
     return {
@@ -572,7 +645,9 @@ function parseUserItemDisplayName(displayName: string | null | undefined) {
   };
 }
 
-function backfillMasterItemRequiredFieldsForTable(tableName: UserItemTableName) {
+function backfillMasterItemRequiredFieldsForTable(
+  tableName: UserItemTableName,
+) {
   const rows = db.getAllSync<UserItemBackfillRow>(
     `
       SELECT id, name, quantity, unit, display_name
@@ -586,14 +661,24 @@ function backfillMasterItemRequiredFieldsForTable(tableName: UserItemTableName) 
 
   for (const row of rows) {
     const parsedDisplayName = parseUserItemDisplayName(row.display_name);
-    const nextName = normalizeUserItemName(row.name, parsedDisplayName.inferredName ?? DEFAULT_USER_ITEM_NAME);
+    const nextName = normalizeUserItemName(
+      row.name,
+      parsedDisplayName.inferredName ?? DEFAULT_USER_ITEM_NAME,
+    );
     const nextQuantity = normalizeUserItemQuantity(
       row.quantity,
       parsedDisplayName.inferredQuantity ?? DEFAULT_USER_ITEM_QUANTITY,
     );
-    const nextUnit = normalizeUserItemUnit(row.unit, parsedDisplayName.inferredUnit ?? DEFAULT_USER_ITEM_UNIT);
+    const nextUnit = normalizeUserItemUnit(
+      row.unit,
+      parsedDisplayName.inferredUnit ?? DEFAULT_USER_ITEM_UNIT,
+    );
 
-    if (row.name === nextName && row.quantity === nextQuantity && row.unit === nextUnit) {
+    if (
+      row.name === nextName &&
+      row.quantity === nextQuantity &&
+      row.unit === nextUnit
+    ) {
       continue;
     }
 
@@ -609,8 +694,8 @@ function backfillMasterItemRequiredFieldsForTable(tableName: UserItemTableName) 
 }
 
 function backfillMasterItemRequiredFields() {
-  backfillMasterItemRequiredFieldsForTable('user_medicines');
-  backfillMasterItemRequiredFieldsForTable('user_foods');
+  backfillMasterItemRequiredFieldsForTable("user_medicines");
+  backfillMasterItemRequiredFieldsForTable("user_foods");
 }
 
 function migrateUserItemQueuePayloadRequiredFields() {
@@ -644,21 +729,42 @@ function migrateUserItemQueuePayloadRequiredFields() {
     }
 
     const parsedDisplayName = parseUserItemDisplayName(
-      (typeof payloadRecord.display_name === 'string' ? payloadRecord.display_name : null) ??
-        (typeof writePayload.display_name === 'string' ? writePayload.display_name : null),
+      (typeof payloadRecord.display_name === "string"
+        ? payloadRecord.display_name
+        : null) ??
+        (typeof writePayload.display_name === "string"
+          ? writePayload.display_name
+          : null),
     );
-    const hasNameKey = Object.prototype.hasOwnProperty.call(writePayload, 'name');
-    const hasQuantityKey = Object.prototype.hasOwnProperty.call(writePayload, 'quantity');
-    const hasUnitKey = Object.prototype.hasOwnProperty.call(writePayload, 'unit');
+    const hasNameKey = Object.prototype.hasOwnProperty.call(
+      writePayload,
+      "name",
+    );
+    const hasQuantityKey = Object.prototype.hasOwnProperty.call(
+      writePayload,
+      "quantity",
+    );
+    const hasUnitKey = Object.prototype.hasOwnProperty.call(
+      writePayload,
+      "unit",
+    );
 
-    if (queueRow.operation !== 'INSERT' && !hasNameKey && !hasQuantityKey && !hasUnitKey) {
+    if (
+      queueRow.operation !== "INSERT" &&
+      !hasNameKey &&
+      !hasQuantityKey &&
+      !hasUnitKey
+    ) {
       continue;
     }
 
     let didChange = false;
 
-    if (queueRow.operation === 'INSERT' || hasNameKey) {
-      const normalizedName = normalizeUserItemName(writePayload.name, parsedDisplayName.inferredName ?? DEFAULT_USER_ITEM_NAME);
+    if (queueRow.operation === "INSERT" || hasNameKey) {
+      const normalizedName = normalizeUserItemName(
+        writePayload.name,
+        parsedDisplayName.inferredName ?? DEFAULT_USER_ITEM_NAME,
+      );
 
       if (writePayload.name !== normalizedName) {
         writePayload.name = normalizedName;
@@ -666,7 +772,7 @@ function migrateUserItemQueuePayloadRequiredFields() {
       }
     }
 
-    if (queueRow.operation === 'INSERT' || hasQuantityKey) {
+    if (queueRow.operation === "INSERT" || hasQuantityKey) {
       const normalizedQuantity = normalizeUserItemQuantity(
         writePayload.quantity,
         parsedDisplayName.inferredQuantity ?? DEFAULT_USER_ITEM_QUANTITY,
@@ -678,8 +784,11 @@ function migrateUserItemQueuePayloadRequiredFields() {
       }
     }
 
-    if (queueRow.operation === 'INSERT' || hasUnitKey) {
-      const normalizedUnit = normalizeUserItemUnit(writePayload.unit, parsedDisplayName.inferredUnit ?? DEFAULT_USER_ITEM_UNIT);
+    if (queueRow.operation === "INSERT" || hasUnitKey) {
+      const normalizedUnit = normalizeUserItemUnit(
+        writePayload.unit,
+        parsedDisplayName.inferredUnit ?? DEFAULT_USER_ITEM_UNIT,
+      );
 
       if (writePayload.unit !== normalizedUnit) {
         writePayload.unit = normalizedUnit;
@@ -691,7 +800,10 @@ function migrateUserItemQueuePayloadRequiredFields() {
       continue;
     }
 
-    db.runSync('UPDATE sync_queue SET payload = ? WHERE id = ?;', [JSON.stringify(parsedPayload), queueRow.id]);
+    db.runSync("UPDATE sync_queue SET payload = ? WHERE id = ?;", [
+      JSON.stringify(parsedPayload),
+      queueRow.id,
+    ]);
   }
 }
 
@@ -731,7 +843,10 @@ function migrateStressQueuePayloadLevels() {
     }
 
     writePayload.level = normalizedLevel;
-    db.runSync('UPDATE sync_queue SET payload = ? WHERE id = ?;', [JSON.stringify(parsedPayload), queueRow.id]);
+    db.runSync("UPDATE sync_queue SET payload = ? WHERE id = ?;", [
+      JSON.stringify(parsedPayload),
+      queueRow.id,
+    ]);
   }
 }
 
@@ -775,7 +890,10 @@ function backfillSyncQueueUserIds() {
       continue;
     }
 
-    db.runSync('UPDATE sync_queue SET user_id = ? WHERE id = ?;', [payloadUserId, queueRow.id]);
+    db.runSync("UPDATE sync_queue SET user_id = ? WHERE id = ?;", [
+      payloadUserId,
+      queueRow.id,
+    ]);
   }
 }
 
@@ -790,15 +908,15 @@ function applySchemaMigrations() {
     );
   `);
 
-  ensureColumn('medicine_logs', 'item_display_name', 'TEXT');
-  ensureColumn('medicine_logs', 'item_name', 'TEXT');
-  ensureColumn('medicine_logs', 'item_quantity', 'REAL');
-  ensureColumn('medicine_logs', 'item_unit', 'TEXT');
-  ensureColumn('food_logs', 'item_display_name', 'TEXT');
-  ensureColumn('food_logs', 'item_name', 'TEXT');
-  ensureColumn('food_logs', 'item_quantity', 'REAL');
-  ensureColumn('food_logs', 'item_unit', 'TEXT');
-  ensureColumn('sync_queue', 'user_id', 'TEXT');
+  ensureColumn("medicine_logs", "item_display_name", "TEXT");
+  ensureColumn("medicine_logs", "item_name", "TEXT");
+  ensureColumn("medicine_logs", "item_quantity", "REAL");
+  ensureColumn("medicine_logs", "item_unit", "TEXT");
+  ensureColumn("food_logs", "item_display_name", "TEXT");
+  ensureColumn("food_logs", "item_name", "TEXT");
+  ensureColumn("food_logs", "item_quantity", "REAL");
+  ensureColumn("food_logs", "item_unit", "TEXT");
+  ensureColumn("sync_queue", "user_id", "TEXT");
 
   db.execSync(`
     CREATE INDEX IF NOT EXISTS idx_sync_queue_created_at ON sync_queue(created_at);
@@ -893,6 +1011,15 @@ export function initLocalDB() {
       log_date TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS daily_environmental_context (
+      id TEXT PRIMARY KEY,
+      date TEXT UNIQUE NOT NULL,
+      avg_temperature REAL,
+      max_humidity REAL,
+      barometric_pressure REAL,
+      weather_condition TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS sync_queue (
       id TEXT PRIMARY KEY,
       table_name TEXT NOT NULL,
@@ -937,7 +1064,14 @@ export function addToSyncQueue(
       INSERT INTO sync_queue (id, table_name, operation, payload, user_id, created_at)
       VALUES (?, ?, ?, ?, ?, ?);
     `,
-    [id, tableName, operation, JSON.stringify(payload), queueUserId, new Date().toISOString()],
+    [
+      id,
+      tableName,
+      operation,
+      JSON.stringify(payload),
+      queueUserId,
+      new Date().toISOString(),
+    ],
   );
 
   return id;
@@ -966,31 +1100,43 @@ export function getSyncQueue(userId?: string | null) {
 }
 
 export function removeFromSyncQueue(id: string) {
-  db.runSync('DELETE FROM sync_queue WHERE id = ?;', [id]);
+  db.runSync("DELETE FROM sync_queue WHERE id = ?;", [id]);
 }
 
 export function getPendingSyncCount(userId?: string | null) {
   const row = userId
-    ? db.getFirstSync<{ count: number }>('SELECT COUNT(1) AS count FROM sync_queue WHERE user_id = ?;', [userId])
-    : db.getFirstSync<{ count: number }>('SELECT COUNT(1) AS count FROM sync_queue;', []);
+    ? db.getFirstSync<{ count: number }>(
+        "SELECT COUNT(1) AS count FROM sync_queue WHERE user_id = ?;",
+        [userId],
+      )
+    : db.getFirstSync<{ count: number }>(
+        "SELECT COUNT(1) AS count FROM sync_queue;",
+        [],
+      );
 
   return Number(row?.count ?? 0);
 }
 
-export function getPendingSyncCountForTable(tableName: string, userId?: string | null) {
+export function getPendingSyncCountForTable(
+  tableName: string,
+  userId?: string | null,
+) {
   const row = userId
     ? db.getFirstSync<{ count: number }>(
-        'SELECT COUNT(1) AS count FROM sync_queue WHERE table_name = ? AND user_id = ?;',
+        "SELECT COUNT(1) AS count FROM sync_queue WHERE table_name = ? AND user_id = ?;",
         [tableName, userId],
       )
-    : db.getFirstSync<{ count: number }>('SELECT COUNT(1) AS count FROM sync_queue WHERE table_name = ?;', [tableName]);
+    : db.getFirstSync<{ count: number }>(
+        "SELECT COUNT(1) AS count FROM sync_queue WHERE table_name = ?;",
+        [tableName],
+      );
 
   return Number(row?.count ?? 0);
 }
 
 export function setSyncMeta(key: string, value: string | null) {
   if (value === null) {
-    db.runSync('DELETE FROM sync_meta WHERE key = ?;', [key]);
+    db.runSync("DELETE FROM sync_meta WHERE key = ?;", [key]);
     return;
   }
 
@@ -1004,21 +1150,26 @@ export function setSyncMeta(key: string, value: string | null) {
 }
 
 export function getSyncMeta(key: string) {
-  const row = db.getFirstSync<{ value: string }>('SELECT value FROM sync_meta WHERE key = ?;', [key]);
+  const row = db.getFirstSync<{ value: string }>(
+    "SELECT value FROM sync_meta WHERE key = ?;",
+    [key],
+  );
 
   return row?.value ?? null;
 }
 
 export function getLocalDisplayName(userId: string) {
   const row = db.getFirstSync<{ display_name: string | null }>(
-    'SELECT display_name FROM user_settings WHERE user_id = ?;',
+    "SELECT display_name FROM user_settings WHERE user_id = ?;",
     [userId],
   );
 
   return row?.display_name ?? null;
 }
 
-export function subscribeLocalDisplayNameChanges(listener: LocalDisplayNameChangeListener) {
+export function subscribeLocalDisplayNameChanges(
+  listener: LocalDisplayNameChangeListener,
+) {
   localDisplayNameChangeListeners.add(listener);
 
   return () => {
@@ -1026,7 +1177,10 @@ export function subscribeLocalDisplayNameChanges(listener: LocalDisplayNameChang
   };
 }
 
-export function notifyLocalDisplayNameChanged(userId: string, displayName: string | null) {
+export function notifyLocalDisplayNameChanged(
+  userId: string,
+  displayName: string | null,
+) {
   for (const listener of localDisplayNameChangeListeners) {
     try {
       listener({ userId, displayName });
@@ -1036,7 +1190,10 @@ export function notifyLocalDisplayNameChanged(userId: string, displayName: strin
   }
 }
 
-export function upsertLocalDisplayName(userId: string, displayName: string | null) {
+export function upsertLocalDisplayName(
+  userId: string,
+  displayName: string | null,
+) {
   db.runSync(
     `
       INSERT OR REPLACE INTO user_settings (user_id, display_name, updated_at)
