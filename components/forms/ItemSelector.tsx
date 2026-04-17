@@ -1334,7 +1334,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
       createLabel,
       handleOpenCreateForm,
       hasExactMatch,
-      hasSearchQuery,
       searchInputValue,
     ]);
 
@@ -1601,7 +1600,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: Spacing.xxs,
-    paddingBottom: Spacing.xl,
+    paddingBottom: Spacing.xxs,
   },
   itemRow: {
     flexDirection: "row",
@@ -1660,9 +1659,9 @@ const styles = StyleSheet.create({
   },
   footerContainer: {
     paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xs,
+    paddingBottom: Spacing.sm,
   },
   footerCreateButton: {
-    marginTop: Spacing.xxs,
+    marginTop: 0,
   },
 });
