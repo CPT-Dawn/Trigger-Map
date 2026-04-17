@@ -1528,10 +1528,6 @@ const styles = StyleSheet.create({
   },
   formContent: {
     marginTop: Spacing.sm,
-    gap: Spacing.md,
-  },
-  formFields: {
-    gap: Spacing.md,
   },
   formRow: {
     flexDirection: "row",
@@ -1544,6 +1540,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.sm,
+    paddingBottom: Spacing.sm,
   },
   unitSuggestionChip: {
     minHeight: 34,
