@@ -516,9 +516,11 @@ export default function HomeScreen() {
                     style={{ color: colors.textMuted, marginTop: 4 }}
                   >
                     Today's highest pain ({data.highestPainBodyPart}) correlates
-                    with {data.todayEnv.weather_condition.toLowerCase()} weather
-                    conditions and {data.todayEnv.barometric_pressure} hPa
-                    pressure.
+                    with{" "}
+                    {data.todayEnv.weather_condition?.toLowerCase() ||
+                      "unknown"}{" "}
+                    weather conditions and {data.todayEnv.barometric_pressure}{" "}
+                    hPa pressure.
                   </Text>
                 </View>
               </View>
