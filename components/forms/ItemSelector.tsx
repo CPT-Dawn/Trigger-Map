@@ -983,9 +983,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
     ]);
 
     const headerContent = useMemo(() => {
-      const shouldShowInlineCreate = hasSearchQuery && !hasExactMatch;
-      const inlineCreateLabel = `Add "${searchInputValue.trim()}"`;
-
       return (
         <View style={styles.headerContainer}>
           <View style={styles.headerRow}>
@@ -1034,37 +1031,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
 
           {!activeForm && (
             <>
-              <View style={styles.headerMetaRow}>
-                {shouldShowInlineCreate ? (
-                  <Pressable
-                    onPress={handleOpenCreateForm}
-                    style={({ pressed }) => [
-                      styles.quickCreateInline,
-                      {
-                        backgroundColor: colors.surfaceContainerLow,
-                        borderColor: colors.ghostBorder,
-                      },
-                      pressed && styles.quickCreateInlinePressed,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={inlineCreateLabel}
-                  >
-                    <MaterialCommunityIcons
-                      name="plus"
-                      size={16}
-                      color={accentColor}
-                    />
-                    <Text
-                      variant="labelMedium"
-                      style={{ color: accentColor }}
-                      numberOfLines={1}
-                    >
-                      {inlineCreateLabel}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
-
               <CustomTextInput
                 mode="flat"
                 label={`Search ${displayType.toLowerCase()}`}
@@ -1115,10 +1081,6 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
       colors,
       createLabel,
       displayType,
-      filteredItems.length,
-      handleOpenCreateForm,
-      hasExactMatch,
-      hasSearchQuery,
       handleSearchQueryChange,
       iconName,
       loading,
@@ -1185,7 +1147,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
           <View style={styles.formFields}>
             <CustomTextInput
               label="Name"
-              placeholder={`e.g. ${type === "medicine" ? "Ibuprofen" : "Apple"}`}
+              placeholder={`${type === "medicine" ? "Ibuprofen" : "Apple"}`}
               value={draftName}
               onChangeText={setDraftName}
               autoCapitalize="words"
@@ -1199,7 +1161,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
               <View style={styles.formColumn}>
                 <CustomTextInput
                   label="Quantity"
-                  placeholder="e.g. 400"
+                  placeholder="4"
                   value={draftQuantity}
                   onChangeText={setDraftQuantity}
                   keyboardType="decimal-pad"
@@ -1213,7 +1175,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
               <View style={styles.formColumn}>
                 <CustomTextInput
                   label="Unit"
-                  placeholder={`e.g. ${type === "medicine" ? "mg" : "piece"}`}
+                  placeholder={`${type === "medicine" ? "mg" : "piece"}`}
                   value={draftUnit}
                   onChangeText={setDraftUnit}
                   autoCapitalize="words"
@@ -1340,9 +1302,16 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
     );
 
     const listFooterContent = useMemo(() => {
-      if (activeForm || hasSearchQuery) {
+      if (activeForm) {
         return null;
       }
+
+      const trimmedSearchValue = searchInputValue.trim();
+      const shouldUseSearchCreateLabel =
+        trimmedSearchValue.length > 0 && !hasExactMatch;
+      const footerCreateLabel = shouldUseSearchCreateLabel
+        ? `Add "${trimmedSearchValue}"`
+        : createLabel;
 
       return (
         <View style={styles.footerContainer}>
@@ -1354,7 +1323,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
             textColor={accentColor}
             style={styles.footerCreateButton}
           >
-            {createLabel}
+            {footerCreateLabel}
           </CustomButton>
         </View>
       );
@@ -1364,7 +1333,9 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
       activeForm,
       createLabel,
       handleOpenCreateForm,
+      hasExactMatch,
       hasSearchQuery,
+      searchInputValue,
     ]);
 
     return (
@@ -1537,12 +1508,6 @@ const styles = StyleSheet.create({
   sheetSubtitle: {
     lineHeight: 20,
   },
-  headerMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: Spacing.sm,
-  },
   savedCountPill: {
     minHeight: 30,
     borderRadius: Radius.full,
@@ -1552,19 +1517,6 @@ const styles = StyleSheet.create({
   },
   savedCountText: {
     fontWeight: "700",
-  },
-  quickCreateInline: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    minHeight: 34,
-    paddingHorizontal: Spacing.sm,
-    maxWidth: "72%",
-  },
-  quickCreateInlinePressed: {
-    opacity: 0.92,
   },
   loadingRow: {
     flexDirection: "row",
