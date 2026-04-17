@@ -27,7 +27,10 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import Slider from "@react-native-community/slider";
-import Animated, { FadeInDown, Layout } from "react-native-reanimated";
+import Animated, {
+  FadeInDown,
+  LinearTransition,
+} from "react-native-reanimated";
 import { Radius, Spacing } from "../../constants/theme";
 import { addToSyncQueue, createUuid, db } from "../../lib/localDb";
 import { runSync } from "../../lib/syncEngine";
@@ -194,7 +197,7 @@ const LogSectionCard = React.memo(function LogSectionCard({
   return (
     <Animated.View
       entering={cardReveal(delay)}
-      layout={Layout.springify().damping(22).stiffness(210).mass(0.9)}
+      layout={LinearTransition.springify().damping(22).stiffness(210).mass(0.9)}
       style={styles.sectionCardWrap}
     >
       <AppCard
@@ -259,7 +262,9 @@ const SelectionChip = React.memo(function SelectionChip({
   onRemoveItem,
 }: SelectionChipProps) {
   return (
-    <Animated.View layout={Layout.springify().damping(22).stiffness(205)}>
+    <Animated.View
+      layout={LinearTransition.springify().damping(22).stiffness(205)}
+    >
       <View
         style={[
           styles.selectionEntryRow,
@@ -328,7 +333,7 @@ const PainEntryCard = React.memo(function PainEntryCard({
   return (
     <Animated.View
       entering={cardReveal(index * 42)}
-      layout={Layout.springify().damping(22).stiffness(210)}
+      layout={LinearTransition.springify().damping(22).stiffness(210)}
     >
       <View
         style={[styles.painEntryRow, { borderBottomColor: colors.ghostBorder }]}
@@ -1354,7 +1359,7 @@ export default function AddLogScreen() {
 
         <Animated.View
           entering={cardReveal(500)}
-          layout={Layout.springify().damping(22).stiffness(205)}
+          layout={LinearTransition.springify().damping(22).stiffness(205)}
           style={styles.saveCardWrap}
         >
           <CustomButton

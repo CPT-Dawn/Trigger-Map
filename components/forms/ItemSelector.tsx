@@ -284,62 +284,68 @@ const ItemRow = React.memo(function ItemRow({
   const quantityLabel = getMasterItemQuantityLabel(item);
   const inlineLabel =
     quantityLabel.length > 0 ? `${itemName} • ${quantityLabel}` : itemName;
-  const revealAnimation =
-    animateRows && index < 10 ? sheetReveal(index * 34) : undefined;
 
-  return (
-    <Animated.View entering={revealAnimation}>
-      <View
-        style={[styles.itemRow, !isLast && { borderBottomColor: dividerColor }]}
+  const content = (
+    <View
+      style={[styles.itemRow, !isLast && { borderBottomColor: dividerColor }]}
+    >
+      <Text
+        variant="titleSmall"
+        style={[styles.itemMarker, { color: accentColor }]}
       >
-        <Text
-          variant="titleSmall"
-          style={[styles.itemMarker, { color: accentColor }]}
-        >
-          {">"}
-        </Text>
+        {">"}
+      </Text>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Select ${itemName}`}
-          onPress={() => onSelect(item)}
-          style={({ pressed }) => [
-            styles.itemSelectArea,
-            pressed && styles.itemSelectPressed,
-          ]}
-        >
-          <View style={styles.itemTextBlock}>
-            <Text
-              variant="titleSmall"
-              style={[styles.itemTitle, { color: textColor }]}
-              numberOfLines={1}
-            >
-              {inlineLabel}
-            </Text>
-          </View>
-        </Pressable>
-
-        <View style={styles.itemActionGroup}>
-          <IconButton
-            icon="pencil-outline"
-            iconColor={accentColor}
-            size={20}
-            style={styles.itemActionButton}
-            onPress={() => onEdit(item)}
-            accessibilityLabel={`Edit ${itemName}`}
-          />
-          <IconButton
-            icon="trash-can-outline"
-            iconColor={errorColor}
-            size={20}
-            style={styles.itemActionButton}
-            onPress={() => onDelete(item)}
-            accessibilityLabel={`Delete ${itemName}`}
-          />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Select ${itemName}`}
+        onPress={() => onSelect(item)}
+        style={({ pressed }) => [
+          styles.itemSelectArea,
+          pressed && styles.itemSelectPressed,
+        ]}
+      >
+        <View style={styles.itemTextBlock}>
+          <Text
+            variant="titleSmall"
+            style={[styles.itemTitle, { color: textColor }]}
+            numberOfLines={1}
+          >
+            {inlineLabel}
+          </Text>
         </View>
+      </Pressable>
+
+      <View style={styles.itemActionGroup}>
+        <IconButton
+          icon="pencil-outline"
+          iconColor={accentColor}
+          size={20}
+          style={styles.itemActionButton}
+          onPress={() => onEdit(item)}
+          accessibilityLabel={`Edit ${itemName}`}
+        />
+        <IconButton
+          icon="trash-can-outline"
+          iconColor={errorColor}
+          size={20}
+          style={styles.itemActionButton}
+          onPress={() => onDelete(item)}
+          accessibilityLabel={`Delete ${itemName}`}
+        />
       </View>
-    </Animated.View>
+    </View>
   );
+
+  if (animateRows && index < 10) {
+    return (
+      <Animated.View entering={sheetReveal(index * 34)}>
+        {content}
+      </Animated.View>
+    );
+  }
+
+  return content;
 });
 
 export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
@@ -902,6 +908,7 @@ export const ItemSelector = forwardRef<ItemSelectorHandle, ItemSelectorProps>(
           const updatedLabel = getMasterItemDisplayName(resolvedItem);
           setSearchInputValue(updatedLabel);
 
+          closeSheet();
           resetForm();
           showError(`${displayType} updated.`);
           void runSync();
