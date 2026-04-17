@@ -1456,7 +1456,7 @@ export default function AddLogScreen() {
 
                 <CustomTextInput
                   label="Body part name"
-                  placeholder="e.g. left knee"
+                  placeholder="left knee"
                   value={bodyPartDraft}
                   onChangeText={setBodyPartDraft}
                   autoCapitalize="words"
@@ -1466,20 +1466,7 @@ export default function AddLogScreen() {
                   autoFocus={Platform.OS === "ios"}
                 />
               </View>
-            </AppCard>
 
-            <AppCard
-              style={[
-                styles.bodyPartSavedCard,
-                {
-                  backgroundColor: colors.surfaceContainerLowest,
-                  borderColor: colors.ghostBorder,
-                  borderLeftColor: colors.onErrorContainer,
-                  shadowColor: colors.shadowAmbient,
-                },
-              ]}
-              variant="solid"
-            >
               <View style={styles.savedBodyPartSectionHeader}>
                 <Text
                   variant="titleSmall"
@@ -1490,26 +1477,6 @@ export default function AddLogScreen() {
                 >
                   Saved Body Parts
                 </Text>
-                {isBodyPartLoading ? (
-                  <ActivityIndicator color={colors.primary} size="small" />
-                ) : (
-                  <View
-                    style={[
-                      styles.savedBodyPartCountPill,
-                      { backgroundColor: colors.errorContainer },
-                    ]}
-                  >
-                    <Text
-                      variant="labelLarge"
-                      style={[
-                        styles.savedBodyPartCount,
-                        { color: colors.onErrorContainer },
-                      ]}
-                    >
-                      {filteredSavedBodyParts.length}
-                    </Text>
-                  </View>
-                )}
               </View>
 
               {filteredSavedBodyParts.length > 0 ? (
@@ -2008,6 +1975,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: Spacing.sm,
+    paddingBottom: Spacing.sm,
   },
   savedBodyPartSectionTitle: {
     fontWeight: "700",
