@@ -662,6 +662,8 @@ export default function LogsScreen() {
     null,
   );
   const [editItemSearch, setEditItemSearch] = useState("");
+  const [editItemQuantity, setEditItemQuantity] = useState("");
+  const [editItemUnit, setEditItemUnit] = useState("");
   const [medicineOptions, setMedicineOptions] = useState<UserItemRow[]>([]);
   const [foodOptions, setFoodOptions] = useState<UserItemRow[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -708,6 +710,8 @@ export default function LogsScreen() {
     setEditingEntry(null);
     setEditSelectedItem(null);
     setEditItemSearch("");
+    setEditItemQuantity("");
+    setEditItemUnit("");
     setPendingDeleteEntry(null);
     setIsDeletingEntry(false);
     setExpandedEntryId(null);
@@ -745,6 +749,15 @@ export default function LogsScreen() {
         id: entry.payload.row.medicine_id,
         name: fallbackName,
       });
+
+      const quantityVal =
+        entry.payload.row.item_quantity ?? entry.payload.item?.quantity ?? null;
+      setEditItemQuantity(quantityVal !== null ? String(quantityVal) : "");
+
+      const unitVal =
+        entry.payload.row.item_unit ?? entry.payload.item?.unit ?? "";
+      setEditItemUnit(unitVal.trim());
+
       return;
     }
 
@@ -759,6 +772,14 @@ export default function LogsScreen() {
       id: entry.payload.row.food_id,
       name: fallbackName,
     });
+
+    const quantityVal =
+      entry.payload.row.item_quantity ?? entry.payload.item?.quantity ?? null;
+    setEditItemQuantity(quantityVal !== null ? String(quantityVal) : "");
+
+    const unitVal =
+      entry.payload.row.item_unit ?? entry.payload.item?.unit ?? "";
+    setEditItemUnit(unitVal.trim());
   }, []);
 
   const openDeleteConfirm = useCallback((entry: TimelineEntry) => {
@@ -1152,6 +1173,13 @@ export default function LogsScreen() {
           return;
         }
 
+        const parsedQuantity = parseFloat(editItemQuantity.replace(/,/g, "."));
+        const finalQuantity =
+          !Number.isNaN(parsedQuantity) && parsedQuantity > 0
+            ? parsedQuantity
+            : null;
+        const finalUnit = editItemUnit.trim() || null;
+
         const snapshotRow = db.getFirstSync<ItemSnapshotRow>(
           `
             SELECT name, quantity, unit, display_name
@@ -1162,8 +1190,8 @@ export default function LogsScreen() {
         );
 
         const nextItemName = snapshotRow?.name?.trim() || editSelectedItem.name;
-        const nextItemQuantity = snapshotRow?.quantity ?? null;
-        const nextItemUnit = snapshotRow?.unit?.trim() || null;
+        const nextItemQuantity = finalQuantity;
+        const nextItemUnit = finalUnit;
         const nextItemDisplayName =
           snapshotRow?.display_name?.trim() || editSelectedItem.name;
 
@@ -1202,6 +1230,13 @@ export default function LogsScreen() {
           return;
         }
 
+        const parsedQuantity = parseFloat(editItemQuantity.replace(/,/g, "."));
+        const finalQuantity =
+          !Number.isNaN(parsedQuantity) && parsedQuantity > 0
+            ? parsedQuantity
+            : null;
+        const finalUnit = editItemUnit.trim() || null;
+
         const snapshotRow = db.getFirstSync<ItemSnapshotRow>(
           `
             SELECT name, quantity, unit, display_name
@@ -1212,8 +1247,8 @@ export default function LogsScreen() {
         );
 
         const nextItemName = snapshotRow?.name?.trim() || editSelectedItem.name;
-        const nextItemQuantity = snapshotRow?.quantity ?? null;
-        const nextItemUnit = snapshotRow?.unit?.trim() || null;
+        const nextItemQuantity = finalQuantity;
+        const nextItemUnit = finalUnit;
         const nextItemDisplayName =
           snapshotRow?.display_name?.trim() || editSelectedItem.name;
 
@@ -2201,12 +2236,19 @@ export default function LogsScreen() {
                                 key={item.id}
                                 accessibilityRole="button"
                                 accessibilityLabel={`Select ${optionLabel}`}
-                                onPress={() =>
+                                onPress={() => {
                                   setEditSelectedItem({
                                     id: item.id,
                                     name: optionLabel,
-                                  })
-                                }
+                                  });
+                                  setEditItemQuantity(
+                                    item.quantity !== null &&
+                                      item.quantity !== undefined
+                                      ? String(item.quantity)
+                                      : "",
+                                  );
+                                  setEditItemUnit(item.unit || "");
+                                }}
                                 style={({ pressed }) => [
                                   styles.itemOptionButton,
                                   {
@@ -2308,6 +2350,30 @@ export default function LogsScreen() {
                           </View>
                         )}
                       </ScrollView>
+                    </View>
+                  )}
+
+                  {(editingEntry?.payload.kind === "medicine" ||
+                    editingEntry?.payload.kind === "food") && (
+                    <View style={styles.editQuantityRow}>
+                      <View style={styles.editQuantityInput}>
+                        <CustomTextInput
+                          label="Quantity"
+                          placeholder="e.g. 1.5"
+                          value={editItemQuantity}
+                          onChangeText={setEditItemQuantity}
+                          keyboardType="numeric"
+                        />
+                      </View>
+                      <View style={styles.editQuantityInput}>
+                        <CustomTextInput
+                          label="Unit"
+                          placeholder="e.g. mg, slice"
+                          value={editItemUnit}
+                          onChangeText={setEditItemUnit}
+                          autoCapitalize="none"
+                        />
+                      </View>
                     </View>
                   )}
                 </View>
@@ -2854,6 +2920,13 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
     minWidth: 0,
+  },
+  editQuantityRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  editQuantityInput: {
+    flex: 1,
   },
   itemPickerList: {
     maxHeight: 240,
