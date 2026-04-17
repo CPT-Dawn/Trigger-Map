@@ -1529,6 +1529,7 @@ const styles = StyleSheet.create({
   formContent: {
     marginTop: Spacing.sm,
   },
+  formFields: {},
   formRow: {
     flexDirection: "row",
     gap: Spacing.md,
