@@ -11,11 +11,17 @@ import { fetchAndStoreDailyWeather } from "../../lib/syncEngine";
 import { useFocusEffect } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { LineChart } from "react-native-gifted-charts";
+import { LineChart, BarChart, PieChart } from "react-native-gifted-charts";
 
 interface GraphPoint {
   label: string;
   value: number;
+}
+
+interface BarPoint {
+  label: string;
+  value: number;
+  frontColor: string;
 }
 
 interface EnvContext {
@@ -28,6 +34,8 @@ interface EnvContext {
 interface DashboardData {
   painTrend: GraphPoint[];
   pressureTrend: GraphPoint[];
+  stressTrend: BarPoint[];
+  triggerStats: { medicine: number; food: number };
   todayEnv: EnvContext | null;
   highestPainBodyPart: string | null;
   latestStress: string;
@@ -43,6 +51,8 @@ export default function HomeScreen() {
   const [data, setData] = useState<DashboardData>({
     painTrend: [],
     pressureTrend: [],
+    stressTrend: [],
+    triggerStats: { medicine: 0, food: 0 },
     todayEnv: null,
     highestPainBodyPart: null,
     latestStress: "None",
@@ -110,7 +120,49 @@ export default function HomeScreen() {
       };
     });
 
-    // 3. Today's Status
+    // 3. Stress Trend (7 days)
+    const STRESS_VALS: Record<string, number> = {
+      low: 1,
+      moderate: 2,
+      mid: 2,
+      high: 3,
+    };
+    const stressTrendRows = db.getAllSync<{ log_date: string; level: string }>(
+      `SELECT log_date, level FROM stress_logs WHERE log_date IN (${placeholders})`,
+      dateValues,
+    );
+    const stressTrendMap = new Map<string, number>();
+    stressTrendRows.forEach((r) => {
+      if (!r.level) return;
+      const v = STRESS_VALS[r.level.toLowerCase()] || 0;
+      if (v > (stressTrendMap.get(r.log_date) || 0)) {
+        stressTrendMap.set(r.log_date, v);
+      }
+    });
+
+    const stressTrend = dates.map((d) => {
+      const val = stressTrendMap.get(d.iso) || 0;
+      let color: string = colors.surfaceVariant; // Default (none)
+      if (val === 1) color = colors.chartPositive;
+      if (val === 2) color = colors.tertiary;
+      if (val === 3) color = colors.error;
+      return { label: d.label, value: val, frontColor: color };
+    });
+
+    // 4. Trigger Stats (7 days)
+    const medsCountTotal =
+      db.getFirstSync<{ count: number }>(
+        `SELECT COUNT(*) as count FROM medicine_logs WHERE log_date IN (${placeholders})`,
+        dateValues,
+      )?.count || 0;
+
+    const foodsCountTotal =
+      db.getFirstSync<{ count: number }>(
+        `SELECT COUNT(*) as count FROM food_logs WHERE log_date IN (${placeholders})`,
+        dateValues,
+      )?.count || 0;
+
+    // 5. Today's Status
     const todayEnvRow = db.getFirstSync<EnvContext>(
       `
       SELECT avg_temperature, max_humidity, barometric_pressure, weather_condition 
@@ -171,6 +223,8 @@ export default function HomeScreen() {
     setData({
       painTrend,
       pressureTrend,
+      stressTrend,
+      triggerStats: { medicine: medsCountTotal, food: foodsCountTotal },
       todayEnv: todayEnvRow || null,
       highestPainBodyPart,
       latestStress,
@@ -339,6 +393,148 @@ export default function HomeScreen() {
                 />
               </View>
             )}
+          </View>
+        </Animated.View>
+
+        {/* 2.5 Secondary Analytics: Stress & Triggers */}
+        <Animated.View
+          entering={FadeInDown.delay(STAGGER_MS * 1.5).springify()}
+          style={{ marginTop: 24, flexDirection: "row", gap: 12 }}
+        >
+          {/* Stress Trend Bar Chart */}
+          <View
+            style={[
+              styles.glassCard,
+              {
+                flex: 1,
+                backgroundColor: colors.surfaceContainerLow,
+                borderColor: colors.ghostBorder,
+                padding: 16,
+              },
+            ]}
+          >
+            <Text
+              variant="labelLarge"
+              style={{
+                color: colors.text,
+                fontWeight: "600",
+                marginBottom: 16,
+              }}
+            >
+              Stress Trend
+            </Text>
+            <View style={{ marginLeft: -12, marginTop: -4 }}>
+              {data.stressTrend.length > 0 && (
+                <BarChart
+                  data={data.stressTrend}
+                  height={80}
+                  yAxisThickness={0}
+                  xAxisThickness={0}
+                  hideYAxisText
+                  hideRules
+                  barWidth={12}
+                  barBorderRadius={6}
+                  spacing={12}
+                  initialSpacing={8}
+                  isAnimated
+                  xAxisLabelTextStyle={{
+                    color: colors.textMuted,
+                    fontSize: 10,
+                  }}
+                />
+              )}
+            </View>
+          </View>
+
+          {/* Triggers Donut Chart */}
+          <View
+            style={[
+              styles.glassCard,
+              {
+                flex: 1,
+                backgroundColor: colors.surfaceContainerLow,
+                borderColor: colors.ghostBorder,
+                padding: 16,
+                alignItems: "center",
+              },
+            ]}
+          >
+            <Text
+              variant="labelLarge"
+              style={{
+                color: colors.text,
+                fontWeight: "600",
+                marginBottom: 12,
+              }}
+            >
+              Triggers Logged
+            </Text>
+            <View
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: -4,
+              }}
+            >
+              <PieChart
+                donut
+                radius={36}
+                innerRadius={24}
+                data={[
+                  {
+                    value: data.triggerStats.medicine || 0.1,
+                    color: colors.primary,
+                  },
+                  {
+                    value: data.triggerStats.food || 0.1,
+                    color: colors.secondary,
+                  },
+                ]}
+                centerLabelComponent={() => (
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontWeight: "700",
+                      fontSize: 16,
+                    }}
+                  >
+                    {data.triggerStats.medicine + data.triggerStats.food}
+                  </Text>
+                )}
+              />
+            </View>
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+              >
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: colors.primary,
+                  }}
+                />
+                <Text style={{ color: colors.textMuted, fontSize: 10 }}>
+                  Meds
+                </Text>
+              </View>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+              >
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: colors.secondary,
+                  }}
+                />
+                <Text style={{ color: colors.textMuted, fontSize: 10 }}>
+                  Food
+                </Text>
+              </View>
+            </View>
           </View>
         </Animated.View>
 
